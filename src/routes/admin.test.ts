@@ -11,10 +11,10 @@ describe("Admin Routes", () => {
   let loginAndGetCookie: () => Promise<string>;
 
   beforeEach(() => {
-    mockEnv = createMockEnv();
+    mockEnv = createMockEnv() as unknown as Env;
     testApp = new Hono();
     testApp.route("/admin", app);
-    request = (path, init = {}) => testApp.request(path, init, mockEnv);
+    request = (path, init = {}) => Promise.resolve(testApp.request(path, init, mockEnv));
     loginAndGetCookie = async () => {
       const formData = new FormData();
       formData.append("password", "test-password");
@@ -161,8 +161,8 @@ describe("Admin Routes", () => {
           "json",
         );
         expect(feedConfig).toBeTruthy();
-        expect(feedConfig.title).toBe("Test Feed");
-        expect(feedConfig.description).toBe("Test Description");
+        expect((feedConfig as any).title).toBe("Test Feed");
+        expect((feedConfig as any).description).toBe("Test Description");
       });
 
       it("should reject feed creation with missing title", async () => {
@@ -297,7 +297,7 @@ describe("Admin Routes", () => {
         );
 
         expect(deleteRes.status).toBe(200);
-        const payload = await deleteRes.json();
+        const payload = (await deleteRes.json()) as any;
         expect(payload.ok).toBe(true);
         expect(payload.feedId).toBe(feedId);
       });
@@ -419,7 +419,7 @@ describe("Admin Routes", () => {
         );
 
         expect(deleteRes.status).toBe(200);
-        const payload = await deleteRes.json();
+        const payload = (await deleteRes.json()) as any;
         expect(payload.ok).toBe(true);
         expect(payload.emailKey).toBe(emailKey);
 

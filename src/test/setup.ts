@@ -1,26 +1,10 @@
 import { beforeAll, afterAll, afterEach } from "vitest";
 import { setupServer } from "msw/node";
 
-/**
- * Mock implementation of Cloudflare Workers runtime environment
- * Based on: https://developers.cloudflare.com/workers/testing/
- */
-
-// Define Cloudflare Workers runtime globals
-declare global {
-  // CF Worker specific globals
-  var caches: CacheStorage;
-  var crypto: Crypto;
-  var Response: typeof Response;
-  var Request: typeof Request;
-  var URLSearchParams: typeof URLSearchParams;
-  var URL: typeof URL;
-  var Headers: typeof Headers;
-  var FormData: typeof FormData;
-  var Blob: typeof Blob;
-  var atob: (data: string) => string;
-  var btoa: (data: string) => string;
-}
+// Minimal Node.js built-ins used only in this test setup file.
+// Declared locally to avoid pulling in the full @types/node package,
+// which would conflict with @cloudflare/workers-types globals.
+declare function require(id: string): any;
 
 /**
  * Mock KV namespace implementation
@@ -122,36 +106,45 @@ beforeAll(() => {
   // Setup MSW server
   server.listen({ onUnhandledRequest: "error" });
 
+  // Type-safe access to Node's global object for setting Workers-like globals in tests
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const g = globalThis as any;
+
   // Mock Cloudflare Workers runtime globals
-  global.caches = {
+  g.caches = {
     default: new MockCache(),
     open: async () => new MockCache(),
   } as unknown as CacheStorage;
 
   // Mock crypto for generating random values
-  if (!global.crypto) {
-    global.crypto = require("crypto").webcrypto;
+  if (!g.crypto) {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    g.crypto = require("crypto").webcrypto;
   }
 
   // Ensure other required globals are available
-  if (!global.FormData) {
+  if (!g.FormData) {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { FormData } = require("undici");
-    global.FormData = FormData;
+    g.FormData = FormData;
   }
 
-  if (!global.Headers) {
+  if (!g.Headers) {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { Headers } = require("undici");
-    global.Headers = Headers;
+    g.Headers = Headers;
   }
 
-  if (!global.Request) {
+  if (!g.Request) {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { Request } = require("undici");
-    global.Request = Request;
+    g.Request = Request;
   }
 
-  if (!global.Response) {
+  if (!g.Response) {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { Response } = require("undici");
-    global.Response = Response;
+    g.Response = Response;
   }
 });
 
