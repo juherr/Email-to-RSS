@@ -285,13 +285,16 @@ describe("Admin Routes", () => {
         )) as { feeds: Array<{ id: string; title: string }> } | null;
         const feedId = feedList?.feeds[0].id as string;
 
-        const deleteRes = await request(`/admin/feeds/${feedId}/delete?view=list`, {
-          method: "POST",
-          headers: {
-            Cookie: authCookie,
-            Accept: "application/json",
+        const deleteRes = await request(
+          `/admin/feeds/${feedId}/delete?view=list`,
+          {
+            method: "POST",
+            headers: {
+              Cookie: authCookie,
+              Accept: "application/json",
+            },
           },
-        });
+        );
 
         expect(deleteRes.status).toBe(200);
         const payload = await deleteRes.json();
@@ -334,8 +337,12 @@ describe("Admin Routes", () => {
         });
 
         expect(bulkDeleteRes.status).toBe(302);
-        expect(bulkDeleteRes.headers.get("Location")).toContain("/admin?view=list");
-        expect(bulkDeleteRes.headers.get("Location")).toContain("message=bulkDeleted");
+        expect(bulkDeleteRes.headers.get("Location")).toContain(
+          "/admin?view=list",
+        );
+        expect(bulkDeleteRes.headers.get("Location")).toContain(
+          "message=bulkDeleted",
+        );
 
         const feedListAfter = (await mockEnv.EMAIL_STORAGE.get(
           "feeds:list",
@@ -386,7 +393,9 @@ describe("Admin Routes", () => {
         const feedMetadata = (await mockEnv.EMAIL_STORAGE.get(
           feedMetadataKey,
           "json",
-        )) as { emails: Array<{ key: string; subject: string; receivedAt: number }> } | null;
+        )) as {
+          emails: Array<{ key: string; subject: string; receivedAt: number }>;
+        } | null;
         const updatedMetadata = {
           emails: [
             ...(feedMetadata?.emails || []),
@@ -398,13 +407,16 @@ describe("Admin Routes", () => {
           JSON.stringify(updatedMetadata),
         );
 
-        const deleteRes = await request(`/admin/emails/${emailKey}/delete?feedId=${feedId}`, {
-          method: "POST",
-          headers: {
-            Cookie: authCookie,
-            Accept: "application/json",
+        const deleteRes = await request(
+          `/admin/emails/${emailKey}/delete?feedId=${feedId}`,
+          {
+            method: "POST",
+            headers: {
+              Cookie: authCookie,
+              Accept: "application/json",
+            },
           },
-        });
+        );
 
         expect(deleteRes.status).toBe(200);
         const payload = await deleteRes.json();
@@ -417,7 +429,9 @@ describe("Admin Routes", () => {
         const metadataAfter = (await mockEnv.EMAIL_STORAGE.get(
           feedMetadataKey,
           "json",
-        )) as { emails: Array<{ key: string; subject: string; receivedAt: number }> } | null;
+        )) as {
+          emails: Array<{ key: string; subject: string; receivedAt: number }>;
+        } | null;
         expect(metadataAfter?.emails.length).toBe(0);
       });
     });

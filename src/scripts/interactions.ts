@@ -70,4 +70,4 @@ export const initScripts = `
   
   // Run setup when DOM is fully loaded
   document.addEventListener('DOMContentLoaded', initInteractive);
-`; 
+`;

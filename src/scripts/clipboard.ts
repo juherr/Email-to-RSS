@@ -61,4 +61,4 @@ export const clipboardScripts = `
       form.submit();
     }
   }
-`; 
+`;

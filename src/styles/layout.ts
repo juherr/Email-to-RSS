@@ -177,4 +177,4 @@ export const layoutStyles = `
     margin-bottom: var(--spacing-md);
     color: var(--color-text-primary);
   }
-`; 
+`;

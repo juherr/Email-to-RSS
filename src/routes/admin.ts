@@ -285,7 +285,9 @@ app.get("/", async (c) => {
     layout(
       "Dashboard",
       html`
-        <div class="container ${view === "table" ? "container-wide" : ""} fade-in">
+        <div
+          class="container ${view === "table" ? "container-wide" : ""} fade-in"
+        >
           <div class="header-with-actions">
             <div class="header-title">
               <h1>Email to RSS Admin</h1>
@@ -346,15 +348,15 @@ app.get("/", async (c) => {
             ? html`<div class="card"><p>No feeds were selected.</p></div>`
             : ""}
 
-	          <div class="toolbar">
-	            <div class="toolbar-group">
-	              <h2 style="margin: 0;">Your Feeds</h2>
-	              <span class="pill" id="feed-total-count"
-	                >${feedsWithConfig.length}</span
-	              >
-	            </div>
-	            <div class="toolbar-group">${viewToggle}</div>
-	          </div>
+          <div class="toolbar">
+            <div class="toolbar-group">
+              <h2 style="margin: 0;">Your Feeds</h2>
+              <span class="pill" id="feed-total-count"
+                >${feedsWithConfig.length}</span
+              >
+            </div>
+            <div class="toolbar-group">${viewToggle}</div>
+          </div>
 
           ${feedsWithConfig.length === 0
             ? html`<div class="card">
@@ -362,14 +364,14 @@ app.get("/", async (c) => {
               </div>`
             : view === "table"
               ? html`
-	                  <div class="card">
-	                    <form
-	                      id="bulk-feed-delete-form"
-	                      action="/admin/feeds/bulk-delete"
-	                      method="post"
-	                      onsubmit="return onBulkFeedDeleteSubmit(event)"
-	                    >
-	                      <input type="hidden" name="view" value="table" />
+                  <div class="card">
+                    <form
+                      id="bulk-feed-delete-form"
+                      action="/admin/feeds/bulk-delete"
+                      method="post"
+                      onsubmit="return onBulkFeedDeleteSubmit(event)"
+                    >
+                      <input type="hidden" name="view" value="table" />
 
                       <div class="toolbar">
                         <div class="toolbar-group toolbar-group-fill">
@@ -430,33 +432,101 @@ app.get("/", async (c) => {
                                   onchange="toggleAllFeeds(this.checked)"
                                 />
                               </th>
-                              <th class="th-resizable" data-sort-key="title" aria-sort="none">
-                                <button type="button" class="th-button" data-sort-key="title">
-                                  Title <span class="sort-indicator" aria-hidden="true"></span>
+                              <th
+                                class="th-resizable"
+                                data-sort-key="title"
+                                aria-sort="none"
+                              >
+                                <button
+                                  type="button"
+                                  class="th-button"
+                                  data-sort-key="title"
+                                >
+                                  Title
+                                  <span
+                                    class="sort-indicator"
+                                    aria-hidden="true"
+                                  ></span>
                                 </button>
-                                <div class="col-resizer" data-col="title" title="Resize"></div>
+                                <div
+                                  class="col-resizer"
+                                  data-col="title"
+                                  title="Resize"
+                                ></div>
                               </th>
-                              <th class="th-resizable" data-sort-key="feedId" aria-sort="none">
-                                <button type="button" class="th-button" data-sort-key="feedId">
-                                  Feed ID <span class="sort-indicator" aria-hidden="true"></span>
+                              <th
+                                class="th-resizable"
+                                data-sort-key="feedId"
+                                aria-sort="none"
+                              >
+                                <button
+                                  type="button"
+                                  class="th-button"
+                                  data-sort-key="feedId"
+                                >
+                                  Feed ID
+                                  <span
+                                    class="sort-indicator"
+                                    aria-hidden="true"
+                                  ></span>
                                 </button>
-                                <div class="col-resizer" data-col="feedId" title="Resize"></div>
+                                <div
+                                  class="col-resizer"
+                                  data-col="feedId"
+                                  title="Resize"
+                                ></div>
                               </th>
-                              <th class="th-resizable" data-sort-key="email" aria-sort="none">
-                                <button type="button" class="th-button" data-sort-key="email">
-                                  Email <span class="sort-indicator" aria-hidden="true"></span>
+                              <th
+                                class="th-resizable"
+                                data-sort-key="email"
+                                aria-sort="none"
+                              >
+                                <button
+                                  type="button"
+                                  class="th-button"
+                                  data-sort-key="email"
+                                >
+                                  Email
+                                  <span
+                                    class="sort-indicator"
+                                    aria-hidden="true"
+                                  ></span>
                                 </button>
-                                <div class="col-resizer" data-col="email" title="Resize"></div>
+                                <div
+                                  class="col-resizer"
+                                  data-col="email"
+                                  title="Resize"
+                                ></div>
                               </th>
-                              <th class="th-resizable" data-sort-key="rss" aria-sort="none">
-                                <button type="button" class="th-button" data-sort-key="rss">
-                                  RSS <span class="sort-indicator" aria-hidden="true"></span>
+                              <th
+                                class="th-resizable"
+                                data-sort-key="rss"
+                                aria-sort="none"
+                              >
+                                <button
+                                  type="button"
+                                  class="th-button"
+                                  data-sort-key="rss"
+                                >
+                                  RSS
+                                  <span
+                                    class="sort-indicator"
+                                    aria-hidden="true"
+                                  ></span>
                                 </button>
-                                <div class="col-resizer" data-col="rss" title="Resize"></div>
+                                <div
+                                  class="col-resizer"
+                                  data-col="rss"
+                                  title="Resize"
+                                ></div>
                               </th>
                               <th class="th-resizable">
                                 <span>Actions</span>
-                                <div class="col-resizer" data-col="actions" title="Resize"></div>
+                                <div
+                                  class="col-resizer"
+                                  data-col="actions"
+                                  title="Resize"
+                                ></div>
                               </th>
                             </tr>
                           </thead>
@@ -470,21 +540,27 @@ app.get("/", async (c) => {
                               const sortFeedId = feed.id.toLowerCase();
                               const sortEmail = emailAddress.toLowerCase();
                               const sortRss = rssUrl.toLowerCase();
-                              const descDisplay = clampText(feed.description || "", 220);
-                              const descHover = clampText(feed.description || "", 1000);
+                              const descDisplay = clampText(
+                                feed.description || "",
+                                220,
+                              );
+                              const descHover = clampText(
+                                feed.description || "",
+                                1000,
+                              );
                               const searchHaystack =
                                 `${clampText(feed.title, 320)} ${feed.id} ${clampText(feed.description || "", 320)}`.toLowerCase();
 
                               return html`
-                            <tr
-                              class="feed-row"
-                              data-feed-id="${feed.id}"
-                              data-search="${searchHaystack}"
-                              data-sort-title="${sortTitle}"
-                              data-sort-feed-id="${sortFeedId}"
-                              data-sort-email="${sortEmail}"
-                              data-sort-rss="${sortRss}"
-                            >
+                                <tr
+                                  class="feed-row"
+                                  data-feed-id="${feed.id}"
+                                  data-search="${searchHaystack}"
+                                  data-sort-title="${sortTitle}"
+                                  data-sort-feed-id="${sortFeedId}"
+                                  data-sort-email="${sortEmail}"
+                                  data-sort-rss="${sortRss}"
+                                >
                                   <td>
                                     <input
                                       type="checkbox"
@@ -495,7 +571,9 @@ app.get("/", async (c) => {
                                     />
                                   </td>
                                   <td>
-                                    <strong class="truncate" title="${titleHover}"
+                                    <strong
+                                      class="truncate"
+                                      title="${titleHover}"
                                       >${titleDisplay}</strong
                                     >
                                     ${feed.description
@@ -553,9 +631,7 @@ app.get("/", async (c) => {
                                             stroke-linecap="round"
                                             stroke-linejoin="round"
                                           >
-                                            <path
-                                              d="M20 6L9 17l-5-5"
-                                            ></path>
+                                            <path d="M20 6L9 17l-5-5"></path>
                                           </svg>
                                         </div>
                                       </div>
@@ -605,9 +681,7 @@ app.get("/", async (c) => {
                                             stroke-linecap="round"
                                             stroke-linejoin="round"
                                           >
-                                            <path
-                                              d="M20 6L9 17l-5-5"
-                                            ></path>
+                                            <path d="M20 6L9 17l-5-5"></path>
                                           </svg>
                                         </div>
                                       </div>
@@ -667,7 +741,10 @@ app.get("/", async (c) => {
                       const rssUrl = `https://${env.DOMAIN}/rss/${feed.id}`;
                       const titleDisplay = clampText(feed.title, 140);
                       const titleHover = clampText(feed.title, 1000);
-                      const descDisplay = clampText(feed.description || "", 240);
+                      const descDisplay = clampText(
+                        feed.description || "",
+                        240,
+                      );
                       const descHover = clampText(feed.description || "", 1000);
                       const searchHaystack =
                         `${clampText(feed.title, 320)} ${feed.id} ${clampText(feed.description || "", 320)}`.toLowerCase();
@@ -684,7 +761,9 @@ app.get("/", async (c) => {
                             </h3>
                             ${feed.description
                               ? html`<p class="feed-description">
-                                  <span title="${descHover}">${descDisplay}</span>
+                                  <span title="${descHover}"
+                                    >${descDisplay}</span
+                                  >
                                 </p>`
                               : ""}
                           </div>
@@ -1490,7 +1569,8 @@ app.post("/feeds/create", async (c) => {
     const title = formData.get("title")?.toString() || "";
     const description = formData.get("description")?.toString();
     const language = formData.get("language")?.toString() || "en";
-    const view = formData.get("view")?.toString() === "table" ? "table" : "list";
+    const view =
+      formData.get("view")?.toString() === "table" ? "table" : "list";
     const allowedSenders = parseAllowedSenders(
       formData.get("allowed_senders")?.toString() || "",
     );
@@ -1776,15 +1856,16 @@ async function purgeFeedKeysStep(
   listComplete: boolean;
 }> {
   const prefix = `feed:${feedId}:`;
-  const limit = Math.min(
-    1000,
-    Math.max(1, Math.floor(options.limit || 100)),
-  );
+  const limit = Math.min(1000, Math.max(1, Math.floor(options.limit || 100)));
   const cursor = options.cursor || undefined;
 
   const listed = await emailStorage.list({ prefix, cursor, limit });
   const keys = (listed.keys || []).map((k) => k.name);
-  const { ok, failed } = await deleteKeysWithConcurrency(emailStorage, keys, 35);
+  const { ok, failed } = await deleteKeysWithConcurrency(
+    emailStorage,
+    keys,
+    35,
+  );
 
   return {
     deletedKeys: ok,
@@ -1816,7 +1897,10 @@ app.post("/feeds/:feedId/delete", async (c) => {
   } catch (error) {
     console.error("Error deleting feed:", error);
     if (wantsJson) {
-      return c.json({ ok: false, error: "Error deleting feed. Please try again." }, 400);
+      return c.json(
+        { ok: false, error: "Error deleting feed. Please try again." },
+        400,
+      );
     }
     return c.text("Error deleting feed. Please try again.", 400);
   }
@@ -1953,7 +2037,8 @@ app.post("/feeds/bulk-delete", async (c) => {
     }
 
     const formData = await c.req.formData();
-    const view = formData.get("view")?.toString() === "table" ? "table" : "list";
+    const view =
+      formData.get("view")?.toString() === "table" ? "table" : "list";
     const redirectBase = `/admin?view=${view}`;
     const rawIds = formData.getAll("feedIds").map((value) => value.toString());
     const parsedFeedIds = Array.from(new Set(rawIds.filter(Boolean)));
@@ -2135,9 +2220,11 @@ app.get("/feeds/:feedId/emails", async (c) => {
             </div>
           </div>
 
-	          <h2>
-	            Emails (<span id="email-total-count">${feedMetadata.emails.length}</span>)
-	          </h2>
+          <h2>
+            Emails (<span id="email-total-count"
+              >${feedMetadata.emails.length}</span
+            >)
+          </h2>
 
           ${message === "bulkDeleted"
             ? html`<div class="card">
@@ -2149,11 +2236,11 @@ app.get("/feeds/:feedId/emails", async (c) => {
             : ""}
           ${feedMetadata.emails.length > 0
             ? html`
-	                <form
-	                  action="/admin/feeds/${feedId}/emails/bulk-delete"
-	                  method="post"
-	                  onsubmit="return onBulkEmailDeleteSubmit(event)"
-	                >
+                <form
+                  action="/admin/feeds/${feedId}/emails/bulk-delete"
+                  method="post"
+                  onsubmit="return onBulkEmailDeleteSubmit(event)"
+                >
                   <div class="toolbar">
                     <div class="toolbar-group toolbar-group-fill">
                       <input
@@ -2211,21 +2298,57 @@ app.get("/feeds/:feedId/emails", async (c) => {
                               onchange="toggleAllEmails(this.checked)"
                             />
                           </th>
-                          <th class="th-resizable" data-sort-key="subject" aria-sort="none">
-                            <button type="button" class="th-button" data-sort-key="subject">
-                              Subject <span class="sort-indicator" aria-hidden="true"></span>
+                          <th
+                            class="th-resizable"
+                            data-sort-key="subject"
+                            aria-sort="none"
+                          >
+                            <button
+                              type="button"
+                              class="th-button"
+                              data-sort-key="subject"
+                            >
+                              Subject
+                              <span
+                                class="sort-indicator"
+                                aria-hidden="true"
+                              ></span>
                             </button>
-                            <div class="col-resizer" data-col="subject" title="Resize"></div>
+                            <div
+                              class="col-resizer"
+                              data-col="subject"
+                              title="Resize"
+                            ></div>
                           </th>
-                          <th class="th-resizable" data-sort-key="receivedAt" aria-sort="none">
-                            <button type="button" class="th-button" data-sort-key="receivedAt">
-                              Received <span class="sort-indicator" aria-hidden="true"></span>
+                          <th
+                            class="th-resizable"
+                            data-sort-key="receivedAt"
+                            aria-sort="none"
+                          >
+                            <button
+                              type="button"
+                              class="th-button"
+                              data-sort-key="receivedAt"
+                            >
+                              Received
+                              <span
+                                class="sort-indicator"
+                                aria-hidden="true"
+                              ></span>
                             </button>
-                            <div class="col-resizer" data-col="receivedAt" title="Resize"></div>
+                            <div
+                              class="col-resizer"
+                              data-col="receivedAt"
+                              title="Resize"
+                            ></div>
                           </th>
                           <th class="th-resizable">
                             <span>Actions</span>
-                            <div class="col-resizer" data-col="actions" title="Resize"></div>
+                            <div
+                              class="col-resizer"
+                              data-col="actions"
+                              title="Resize"
+                            ></div>
                           </th>
                         </tr>
                       </thead>
@@ -2235,7 +2358,10 @@ app.get("/feeds/:feedId/emails", async (c) => {
                           const subjectHover = clampText(email.subject, 1000);
                           const sortSubject = subjectHover.toLowerCase();
                           const sortReceivedAt = String(email.receivedAt);
-                          const searchHaystack = clampText(email.subject, 320).toLowerCase();
+                          const searchHaystack = clampText(
+                            email.subject,
+                            320,
+                          ).toLowerCase();
 
                           return html`
                             <tr
@@ -3261,7 +3387,10 @@ app.post("/emails/:emailKey/delete", async (c) => {
   } catch (error) {
     console.error("Error deleting email:", error);
     if (wantsJson) {
-      return c.json({ ok: false, error: "Error deleting email. Please try again." }, 400);
+      return c.json(
+        { ok: false, error: "Error deleting email. Please try again." },
+        400,
+      );
     }
     return c.text("Error deleting email. Please try again.", 400);
   }
@@ -3295,7 +3424,9 @@ app.post("/feeds/:feedId/emails/bulk-delete", async (c) => {
         emailKeys?: unknown;
       } | null;
 
-      const rawEmailKeys = Array.isArray(body?.emailKeys) ? body?.emailKeys : [];
+      const rawEmailKeys = Array.isArray(body?.emailKeys)
+        ? body?.emailKeys
+        : [];
       const emailKeys = Array.from(
         new Set(rawEmailKeys.map((value) => String(value)).filter(Boolean)),
       );

@@ -1,4 +1,10 @@
-import { EmailData, FeedConfig, FeedMetadata, FeedList, EmailMetadata } from '../types';
+import {
+  EmailData,
+  FeedConfig,
+  FeedMetadata,
+  FeedList,
+  EmailMetadata,
+} from "../types";
 
 /**
  * Store email data in KV
@@ -6,22 +12,22 @@ import { EmailData, FeedConfig, FeedMetadata, FeedList, EmailMetadata } from '..
 export async function storeEmail(
   kv: KVNamespace,
   feedId: string,
-  emailData: EmailData
+  emailData: EmailData,
 ): Promise<string> {
   // Generate a unique key for this email
   const timestamp = Date.now();
   const key = `feed:${feedId}:email:${timestamp}`;
-  
+
   // Store the email content
   await kv.put(key, JSON.stringify(emailData));
-  
+
   // Update the feed's metadata (list of emails)
   await updateFeedMetadata(kv, feedId, {
     key,
     subject: emailData.subject,
-    receivedAt: timestamp
+    receivedAt: timestamp,
   });
-  
+
   return key;
 }
 
@@ -31,21 +37,23 @@ export async function storeEmail(
 async function updateFeedMetadata(
   kv: KVNamespace,
   feedId: string,
-  emailMetadata: EmailMetadata
+  emailMetadata: EmailMetadata,
 ): Promise<void> {
   const feedMetadataKey = `feed:${feedId}:metadata`;
-  const existingMetadata = await kv.get(feedMetadataKey, { type: 'json' }) as FeedMetadata | null;
-  
+  const existingMetadata = (await kv.get(feedMetadataKey, {
+    type: "json",
+  })) as FeedMetadata | null;
+
   const metadata: FeedMetadata = existingMetadata || { emails: [] };
-  
+
   // Add new email to the beginning of the list
   metadata.emails.unshift(emailMetadata);
-  
+
   // Keep only the last 50 emails in the metadata
   if (metadata.emails.length > 50) {
     metadata.emails = metadata.emails.slice(0, 50);
   }
-  
+
   // Store updated metadata
   await kv.put(feedMetadataKey, JSON.stringify(metadata));
 }
@@ -55,10 +63,12 @@ async function updateFeedMetadata(
  */
 export async function getFeedMetadata(
   kv: KVNamespace,
-  feedId: string
+  feedId: string,
 ): Promise<FeedMetadata | null> {
   const feedMetadataKey = `feed:${feedId}:metadata`;
-  return await kv.get(feedMetadataKey, { type: 'json' }) as FeedMetadata | null;
+  return (await kv.get(feedMetadataKey, {
+    type: "json",
+  })) as FeedMetadata | null;
 }
 
 /**
@@ -66,10 +76,10 @@ export async function getFeedMetadata(
  */
 export async function getFeedConfig(
   kv: KVNamespace,
-  feedId: string
+  feedId: string,
 ): Promise<FeedConfig | null> {
   const feedConfigKey = `feed:${feedId}:config`;
-  return await kv.get(feedConfigKey, { type: 'json' }) as FeedConfig | null;
+  return (await kv.get(feedConfigKey, { type: "json" })) as FeedConfig | null;
 }
 
 /**
@@ -77,9 +87,9 @@ export async function getFeedConfig(
  */
 export async function getEmailData(
   kv: KVNamespace,
-  key: string
+  key: string,
 ): Promise<EmailData | null> {
-  return await kv.get(key, { type: 'json' }) as EmailData | null;
+  return (await kv.get(key, { type: "json" })) as EmailData | null;
 }
 
 /**
@@ -88,18 +98,21 @@ export async function getEmailData(
 export async function createFeed(
   kv: KVNamespace,
   feedId: string,
-  feedConfig: FeedConfig
+  feedConfig: FeedConfig,
 ): Promise<void> {
   // Store feed configuration
   const feedConfigKey = `feed:${feedId}:config`;
   await kv.put(feedConfigKey, JSON.stringify(feedConfig));
-  
+
   // Create empty metadata for the feed
   const feedMetadataKey = `feed:${feedId}:metadata`;
-  await kv.put(feedMetadataKey, JSON.stringify({
-    emails: []
-  }));
-  
+  await kv.put(
+    feedMetadataKey,
+    JSON.stringify({
+      emails: [],
+    }),
+  );
+
   // Add feed to the list of all feeds
   await addFeedToList(kv, feedId, feedConfig.title, feedConfig.description);
 }
@@ -111,19 +124,21 @@ export async function addFeedToList(
   kv: KVNamespace,
   feedId: string,
   title: string,
-  description?: string
+  description?: string,
 ): Promise<void> {
-  const feedListKey = 'feeds:list';
-  const existingList = await kv.get(feedListKey, { type: 'json' }) as FeedList | null;
-  
+  const feedListKey = "feeds:list";
+  const existingList = (await kv.get(feedListKey, {
+    type: "json",
+  })) as FeedList | null;
+
   const feedList: FeedList = existingList || { feeds: [] };
-  
+
   feedList.feeds.push({
     id: feedId,
     title,
-    description
+    description,
   });
-  
+
   await kv.put(feedListKey, JSON.stringify(feedList));
 }
 
@@ -131,8 +146,10 @@ export async function addFeedToList(
  * Get all feeds
  */
 export async function getAllFeeds(kv: KVNamespace): Promise<FeedList> {
-  const feedListKey = 'feeds:list';
-  const feedList = await kv.get(feedListKey, { type: 'json' }) as FeedList | null;
-  
+  const feedListKey = "feeds:list";
+  const feedList = (await kv.get(feedListKey, {
+    type: "json",
+  })) as FeedList | null;
+
   return feedList || { feeds: [] };
-} 
+}

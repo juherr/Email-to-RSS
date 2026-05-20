@@ -1,4 +1,4 @@
-declare module 'rss' {
+declare module "rss" {
   interface RSSOptions {
     title: string;
     description: string;
@@ -48,4 +48,4 @@ declare module 'rss' {
   }
 
   export = RSS;
-} 
+}
