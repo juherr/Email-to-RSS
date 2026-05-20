@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import { handle as handleInbound } from "./routes/inbound";
 import { handle as handleRSS } from "./routes/rss";
 import { handle as handleAdmin } from "./routes/admin";
+import { handle as handleEntry } from "./routes/entries";
 import { handleCloudflareEmail } from "./lib/cloudflare-email";
 import { Env } from "./types";
 
@@ -101,6 +102,7 @@ app.use("*", async (c, next) => {
 // Group routes by functionality
 const api = new Hono();
 const rss = new Hono();
+const entries = new Hono();
 const admin = new Hono();
 
 // Webhook security middleware for /inbound - verify ForwardEmail.net IP
@@ -131,12 +133,16 @@ api.post("/inbound", handleInbound);
 // RSS feed routes (public)
 rss.get("/:feedId", handleRSS);
 
+// Email entry HTML view (public)
+entries.get("/:feedId/:entryId", handleEntry);
+
 // Admin routes (protected)
 admin.route("/", handleAdmin);
 
 // Mount the route groups
 app.route("/api", api);
 app.route("/rss", rss);
+app.route("/entries", entries);
 app.route("/admin", admin);
 
 // Root path redirects to admin dashboard
