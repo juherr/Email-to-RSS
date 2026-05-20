@@ -30,6 +30,7 @@
   "dependencies": {
     "feed": "^5.2.0",
     "hono": "^4.11.7",
+    "postal-mime": "^2.7.4",
     "zod": "^4.3.6"
   }
 }
