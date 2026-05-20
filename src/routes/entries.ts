@@ -1,6 +1,6 @@
 import { Context } from "hono";
+import { html, raw } from "hono/html";
 import { Env, FeedMetadata, EmailData } from "../types";
-import { escapeHtml } from "../utils/html";
 
 export async function handle(c: Context): Promise<Response> {
   const env = c.env as unknown as Env;
@@ -34,12 +34,17 @@ export async function handle(c: Context): Promise<Response> {
     return new Response("Entry not found", { status: 404 });
   }
 
-  const html = `<!DOCTYPE html>
+  c.header(
+    "Content-Security-Policy",
+    "default-src 'none'; style-src 'unsafe-inline'; img-src *; frame-src 'none'",
+  );
+
+  return c.html(html`<!DOCTYPE html>
 <html>
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${escapeHtml(emailData.subject)}</title>
+  <title>${emailData.subject}</title>
   <style>
     body { font-family: sans-serif; max-width: 800px; margin: 0 auto; padding: 1rem; }
     .meta { color: #666; font-size: 0.875rem; margin-bottom: 1.5rem; border-bottom: 1px solid #eee; padding-bottom: 0.75rem; }
@@ -48,21 +53,12 @@ export async function handle(c: Context): Promise<Response> {
   </style>
 </head>
 <body>
-  <h1>${escapeHtml(emailData.subject)}</h1>
+  <h1>${emailData.subject}</h1>
   <dl class="meta">
-    <dt>From:</dt><dd>${escapeHtml(emailData.from)}</dd>
-    <dt>Date:</dt><dd>${escapeHtml(new Date(emailData.receivedAt).toUTCString())}</dd>
+    <dt>From:</dt><dd>${emailData.from}</dd>
+    <dt>Date:</dt><dd>${new Date(emailData.receivedAt).toUTCString()}</dd>
   </dl>
-  <div class="content">${emailData.content}</div>
+  <div class="content">${raw(emailData.content)}</div>
 </body>
-</html>`;
-
-  return new Response(html, {
-    status: 200,
-    headers: {
-      "Content-Type": "text/html; charset=utf-8",
-      "Content-Security-Policy":
-        "default-src 'none'; style-src 'unsafe-inline'; img-src *; frame-src 'none'",
-    },
-  });
+</html>`);
 }
