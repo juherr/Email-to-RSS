@@ -1,0 +1,23 @@
+# TODO
+
+Feature gaps identified by comparing with [kill-the-newsletter](https://github.com/leafac/kill-the-newsletter).
+
+## Quick wins
+
+- [ ] **Author field in RSS entries** — expose the `from` address as `<author>` in each RSS `<item>`. The value is already stored in KV, just not rendered in the feed XML.
+
+- [ ] **HTML view for individual entries** — serve each email as an HTML page at e.g. `/entries/:feedId/:timestamp`. Useful for reading emails outside a feed reader and for debugging. kill-the-newsletter serves these at `/feeds/{feedId}/entries/{entryId}.html` with a Content-Security-Policy header.
+
+- [ ] **JSON API for feed creation** — accept `Content-Type: application/json` on `POST /admin/feeds` and return `{ feedId, email, feedUrl }`. Useful for automation (e.g. Tofu/OpenTofu provisioning).
+
+## Medium effort
+
+- [ ] **Size-based feed trimming** — instead of a fixed 50-entry cap, drop the oldest entries when the feed exceeds a size threshold (kill-the-newsletter uses ~512 KB). More robust for HTML-heavy newsletters where one entry can dominate.
+
+- [ ] **Atom feed format** — expose feeds as Atom (`application/atom+xml`) in addition to or instead of RSS 2.0. Atom has better native support for HTML content and author metadata.
+
+## Heavy
+
+- [ ] **Email attachments as RSS enclosures** — store attachments in Cloudflare R2 and expose them as `<enclosure>` elements in the feed. kill-the-newsletter serves them at `/files/{enclosureId}/{filename}`.
+
+- [ ] **WebSub (PubSubHubbub) push notifications** — notify subscribers in real time when a new email arrives, instead of requiring them to poll the feed. Requires either integrating a public WebSub hub or implementing the hub protocol directly.
