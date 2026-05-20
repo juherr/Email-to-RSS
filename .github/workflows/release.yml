@@ -1,0 +1,44 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - run: npm run build
+
+      - name: Locate bundled output
+        id: bundle
+        run: |
+          for f in dist/index.js dist/worker.js dist/_worker.js; do
+            if [ -f "$f" ]; then
+              echo "path=$f" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+          done
+          echo "No bundled output found in dist/" >&2
+          exit 1
+
+      - name: Upload to GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG_NAME: ${{ github.ref_name }}
+        run: |
+          cp "${{ steps.bundle.outputs.path }}" dist/index.js
+          gh release upload "$TAG_NAME" dist/index.js --clobber
