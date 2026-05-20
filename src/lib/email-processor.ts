@@ -17,21 +17,20 @@ function normalizeEmail(value: string): string {
 
 function senderMatchesAllowlist(
   sender: string,
-  allowedSender: string,
+  allowedSender: string, // already normalized by caller
 ): boolean {
+  if (!allowedSender) return false;
+
   const normalizedSender = normalizeEmail(sender);
-  const normalizedAllowed = normalizeEmail(allowedSender);
 
-  if (!normalizedAllowed) return false;
-
-  if (normalizedAllowed.includes("@")) {
-    return normalizedSender === normalizedAllowed;
+  if (allowedSender.includes("@")) {
+    return normalizedSender === allowedSender;
   }
 
   const senderDomain = normalizedSender.split("@")[1] || "";
-  const normalizedDomain = normalizedAllowed.startsWith("@")
-    ? normalizedAllowed.slice(1)
-    : normalizedAllowed;
+  const normalizedDomain = allowedSender.startsWith("@")
+    ? allowedSender.slice(1)
+    : allowedSender;
   return senderDomain === normalizedDomain;
 }
 
@@ -84,13 +83,14 @@ export async function processEmail(
   };
 
   const emailKey = `feed:${feedId}:${Date.now()}`;
-  await env.EMAIL_STORAGE.put(emailKey, JSON.stringify(emailData));
-
   const feedMetadataKey = `feed:${feedId}:metadata`;
-  const feedMetadata = ((await env.EMAIL_STORAGE.get(
-    feedMetadataKey,
-    "json",
-  )) || {
+
+  const [, rawMetadata] = await Promise.all([
+    env.EMAIL_STORAGE.put(emailKey, JSON.stringify(emailData)),
+    env.EMAIL_STORAGE.get(feedMetadataKey, "json"),
+  ]);
+
+  const feedMetadata = ((rawMetadata as FeedMetadata | null) || {
     emails: [],
   }) as FeedMetadata;
   feedMetadata.emails.unshift({
@@ -98,6 +98,9 @@ export async function processEmail(
     subject: emailData.subject,
     receivedAt: emailData.receivedAt,
   });
+  if (feedMetadata.emails.length > 50) {
+    feedMetadata.emails = feedMetadata.emails.slice(0, 50);
+  }
   await env.EMAIL_STORAGE.put(feedMetadataKey, JSON.stringify(feedMetadata));
 
   console.log(`Successfully processed email for feed ${feedId}`);
