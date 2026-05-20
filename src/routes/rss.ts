@@ -62,7 +62,7 @@ export async function handle(c: Context): Promise<Response> {
 
     // Generate the RSS feed XML
     const baseUrl = `https://${env.DOMAIN}`;
-    const rssXml = generateRssFeed(feedConfig, emailsData, baseUrl);
+    const rssXml = generateRssFeed(feedConfig, emailsData, baseUrl, feedId);
 
     // Return the RSS feed with appropriate content type
     return new Response(rssXml, {
