@@ -4,11 +4,11 @@ Feature gaps identified by comparing with [kill-the-newsletter](https://github.c
 
 ## Quick wins
 
-- [ ] **Author field in RSS entries** — expose the `from` address as `<author>` in each RSS `<item>`. The value is already stored in KV, just not rendered in the feed XML.
+- [x] **Author field in RSS entries** — expose the `from` address as `<author>` in each RSS `<item>`. The value is already stored in KV, just not rendered in the feed XML.
 
-- [ ] **HTML view for individual entries** — serve each email as an HTML page at e.g. `/entries/:feedId/:timestamp`. Useful for reading emails outside a feed reader and for debugging. kill-the-newsletter serves these at `/feeds/{feedId}/entries/{entryId}.html` with a Content-Security-Policy header.
+- [x] **HTML view for individual entries** — serve each email as an HTML page at e.g. `/entries/:feedId/:timestamp`. Useful for reading emails outside a feed reader and for debugging. kill-the-newsletter serves these at `/feeds/{feedId}/entries/{entryId}.html` with a Content-Security-Policy header.
 
-- [ ] **JSON API for feed creation** — accept `Content-Type: application/json` on `POST /admin/feeds` and return `{ feedId, email, feedUrl }`. Useful for automation (e.g. Tofu/OpenTofu provisioning).
+- [x] **JSON API for feed creation** — accept `Content-Type: application/json` on `POST /admin/feeds` and return `{ feedId, email, feedUrl }`. Useful for automation (e.g. Tofu/OpenTofu provisioning).
 
 ## Medium effort
 
