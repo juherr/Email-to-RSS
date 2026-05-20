@@ -1,13 +1,6 @@
 import { Context } from "hono";
 import { Env, FeedMetadata, EmailData } from "../types";
-
-function escapeHtml(str: string): string {
-  return str
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
-}
+import { escapeHtml } from "../utils/html";
 
 export async function handle(c: Context): Promise<Response> {
   const env = c.env as unknown as Env;

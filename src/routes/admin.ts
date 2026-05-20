@@ -41,11 +41,12 @@ function waitUntilSafe(c: Context, promise: Promise<unknown>) {
   }
 }
 
+function normalizeAllowedSenders(senders: string[]): string[] {
+  return senders.map((s) => s.trim().toLowerCase()).filter(Boolean);
+}
+
 function parseAllowedSenders(rawAllowedSenders: string): string[] {
-  return rawAllowedSenders
-    .split(/[\n,]+/)
-    .map((value) => value.trim().toLowerCase())
-    .filter(Boolean);
+  return normalizeAllowedSenders(rawAllowedSenders.split(/[\n,]+/));
 }
 
 function clampText(value: string, maxLen: number): string {
@@ -1580,7 +1581,7 @@ app.post("/feeds/create", async (c) => {
       language = String(body.language ?? "en");
       view = "list";
       allowedSenders = Array.isArray(body.allowedSenders)
-        ? (body.allowedSenders as unknown[]).map(String).map((s) => s.trim().toLowerCase()).filter(Boolean)
+        ? normalizeAllowedSenders((body.allowedSenders as unknown[]).map(String))
         : [];
     } else {
       const formData = await c.req.formData();
@@ -1621,14 +1622,11 @@ app.post("/feeds/create", async (c) => {
       emails: [],
     };
 
-    // Store feed configuration and metadata
-    await emailStorage.put(`feed:${feedId}:config`, JSON.stringify(feedConfig));
-    await emailStorage.put(
-      `feed:${feedId}:metadata`,
-      JSON.stringify(feedMetadata),
-    );
+    await Promise.all([
+      emailStorage.put(`feed:${feedId}:config`, JSON.stringify(feedConfig)),
+      emailStorage.put(`feed:${feedId}:metadata`, JSON.stringify(feedMetadata)),
+    ]);
 
-    // Add feed to the list of all feeds
     await addFeedToList(
       emailStorage,
       feedId,

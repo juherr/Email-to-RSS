@@ -13,16 +13,12 @@ function parseFromAddress(from: string): { name: string; email?: string } {
   return { name: from.trim() };
 }
 
-/**
- * Generate an RSS feed from a list of emails
- */
 export function generateRssFeed(
   feedConfig: FeedConfig,
   emails: EmailData[],
   baseUrl: string,
-  feedId?: string,
+  feedId: string,
 ): string {
-  // Create a new feed
   const feed = new Feed({
     title: feedConfig.title,
     description: feedConfig.description || "",
@@ -43,25 +39,18 @@ export function generateRssFeed(
       : undefined,
   });
 
-  // Add each email as a feed item
   for (const email of emails) {
-    const date = new Date(email.receivedAt);
     const uniqueId = `${email.receivedAt}-${Buffer.from(email.subject).toString("base64").substring(0, 10)}`;
-    const entryLink = feedId
-      ? `${baseUrl}/entries/${feedId}/${email.receivedAt}`
-      : `${baseUrl}/emails/${uniqueId}`;
-
     feed.addItem({
       title: email.subject,
       id: uniqueId,
-      link: entryLink,
+      link: `${baseUrl}/entries/${feedId}/${email.receivedAt}`,
       description: email.content,
       content: email.content,
       author: [parseFromAddress(email.from)],
-      date: date,
+      date: new Date(email.receivedAt),
     });
   }
 
-  // Return the RSS feed as XML
   return feed.rss2();
 }
