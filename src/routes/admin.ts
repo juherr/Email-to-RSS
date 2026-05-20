@@ -1563,17 +1563,35 @@ app.post("/feeds/create", async (c) => {
   // Type assertion for environment variables
   const env = c.env as unknown as Env;
   const emailStorage = env.EMAIL_STORAGE;
+  const isJson =
+    c.req.header("Content-Type")?.includes("application/json") ?? false;
 
   try {
-    const formData = await c.req.formData();
-    const title = formData.get("title")?.toString() || "";
-    const description = formData.get("description")?.toString();
-    const language = formData.get("language")?.toString() || "en";
-    const view =
-      formData.get("view")?.toString() === "table" ? "table" : "list";
-    const allowedSenders = parseAllowedSenders(
-      formData.get("allowed_senders")?.toString() || "",
-    );
+    let title: string;
+    let description: string | undefined;
+    let language: string;
+    let view: string;
+    let allowedSenders: string[];
+
+    if (isJson) {
+      const body = await c.req.json<Record<string, unknown>>();
+      title = String(body.title ?? "");
+      description = body.description != null ? String(body.description) : undefined;
+      language = String(body.language ?? "en");
+      view = "list";
+      allowedSenders = Array.isArray(body.allowedSenders)
+        ? (body.allowedSenders as unknown[]).map(String).map((s) => s.trim().toLowerCase()).filter(Boolean)
+        : [];
+    } else {
+      const formData = await c.req.formData();
+      title = formData.get("title")?.toString() || "";
+      description = formData.get("description")?.toString();
+      language = formData.get("language")?.toString() || "en";
+      view = formData.get("view")?.toString() === "table" ? "table" : "list";
+      allowedSenders = parseAllowedSenders(
+        formData.get("allowed_senders")?.toString() || "",
+      );
+    }
 
     // Validate inputs
     const parsedData = createFeedSchema.parse({
@@ -1618,10 +1636,21 @@ app.post("/feeds/create", async (c) => {
       parsedData.description,
     );
 
+    if (isJson) {
+      return c.json({
+        feedId,
+        email: `${feedId}@${env.DOMAIN}`,
+        feedUrl: feedConfig.feed_url,
+      });
+    }
+
     // Redirect back to admin page
     return c.redirect(`/admin?view=${view}`);
   } catch (error) {
     console.error("Error creating feed:", error);
+    if (isJson) {
+      return c.json({ error: "Error creating feed." }, 400);
+    }
     return c.text("Error creating feed. Please try again.", 400);
   }
 });
