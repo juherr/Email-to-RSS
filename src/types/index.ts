@@ -66,6 +66,13 @@ export interface FeedListItem {
   description?: string;
 }
 
+// WebSub (PubSubHubbub) subscription configuration
+export interface WebSubSubscription {
+  callbackUrl: string;
+  secret?: string;
+  expiresAt: number; // Unix timestamp ms
+}
+
 // Declare KVNamespace for TypeScript
 declare global {
   // This is not an ideal solution but works for our example
