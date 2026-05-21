@@ -66,6 +66,25 @@ app.use("*", async (c, next) => {
   await next();
 });
 
+function timingSafeEqual(a: string, b: string): boolean {
+  const enc = new TextEncoder();
+  const aBytes = enc.encode(a);
+  const bBytes = enc.encode(b);
+  // Try native timing-safe implementation first (Cloudflare Workers runtime)
+  if (typeof (crypto.subtle as any).timingSafeEqual === "function") {
+    if (aBytes.length !== bBytes.length) return false;
+    return (crypto.subtle as any).timingSafeEqual(aBytes, bBytes);
+  }
+  // Constant-time fallback for Node (test environment): encode length
+  // mismatch into `diff` so the loop always runs over the full length.
+  const len = Math.max(aBytes.length, bBytes.length);
+  let diff = aBytes.length ^ bBytes.length;
+  for (let i = 0; i < len; i++) {
+    diff |= (aBytes[i] ?? 0) ^ (bBytes[i] ?? 0);
+  }
+  return diff === 0;
+}
+
 // Authentication middleware for admin routes
 async function authMiddleware(c: Context, next: () => Promise<void>) {
   const env = c.env as unknown as Env;
@@ -76,11 +95,25 @@ async function authMiddleware(c: Context, next: () => Promise<void>) {
     return next();
   }
 
-  const authCookie = await getSignedCookie(
-    c,
-    env.ADMIN_PASSWORD,
-    ADMIN_COOKIE_NAME,
-  );
+  // Proxy auth: only active when both env vars are present
+  if (env.PROXY_AUTH_SECRET && env.PROXY_TRUSTED_IPS) {
+    const trustedIps = env.PROXY_TRUSTED_IPS.split(",").map((s) => s.trim()).filter(Boolean);
+    const clientIp = c.req.header("CF-Connecting-IP") ?? "";
+    const providedSecret = c.req.header("X-Auth-Proxy-Secret") ?? "";
+    const remoteUser =
+      c.req.header("Remote-User") || c.req.header("X-Forwarded-User") || "";
+
+    if (
+      trustedIps.includes(clientIp) &&
+      timingSafeEqual(providedSecret, env.PROXY_AUTH_SECRET) &&
+      remoteUser.length > 0
+    ) {
+      return next();
+    }
+  }
+
+  // Fallback: signed cookie
+  const authCookie = await getSignedCookie(c, env.ADMIN_PASSWORD, ADMIN_COOKIE_NAME);
   if (authCookie !== "1") {
     return c.redirect("/admin/login");
   }
@@ -210,7 +243,7 @@ app.post("/login", async (c) => {
     authSchema.parse({ password });
 
     // Check password against environment variable
-    if (password === env.ADMIN_PASSWORD) {
+    if (timingSafeEqual(password, env.ADMIN_PASSWORD)) {
       await setSignedCookie(c, ADMIN_COOKIE_NAME, "1", env.ADMIN_PASSWORD, {
         path: "/",
         httpOnly: true,

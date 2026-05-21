@@ -12,11 +12,11 @@ Feature gaps identified by comparing with [kill-the-newsletter](https://github.c
 
 ## Medium effort
 
-- [ ] **Size-based feed trimming** — instead of a fixed 50-entry cap, drop the oldest entries when the feed exceeds a size threshold (kill-the-newsletter uses ~512 KB). More robust for HTML-heavy newsletters where one entry can dominate.
+- [x] **Size-based feed trimming** — instead of a fixed 50-entry cap, drop the oldest entries when the feed exceeds a size threshold (kill-the-newsletter uses ~512 KB). More robust for HTML-heavy newsletters where one entry can dominate.
 
 - [x] **Atom feed format** — expose feeds as Atom (`application/atom+xml`) in addition to or instead of RSS 2.0. Atom has better native support for HTML content and author metadata.
 
-- [ ] **Authelia / external auth provider support** — allow delegating admin authentication to an external identity provider (e.g. Authelia, Authentik) via a trusted header (`Remote-User`, `X-Forwarded-User`) set by a reverse proxy. The Worker would accept the header as proof of authentication instead of checking the cookie, with a configurable secret or IP allowlist to trust only the proxy.
+- [x] **Authelia / external auth provider support** — allow delegating admin authentication to an external identity provider (e.g. Authelia, Authentik) via a trusted header (`Remote-User`, `X-Forwarded-User`) set by a reverse proxy. The Worker would accept the header as proof of authentication instead of checking the cookie, with a configurable secret or IP allowlist to trust only the proxy.
 
 ## Heavy
 

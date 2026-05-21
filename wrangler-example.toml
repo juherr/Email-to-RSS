@@ -17,6 +17,19 @@ invocation_logs = true
 [vars]
 DOMAIN = "REPLACE_WITH_YOUR_DOMAIN" # Your custom domain for emails
 
+# Optional: size-based feed trimming threshold in bytes (default: 524288 = 512 KB)
+# FEED_MAX_SIZE_BYTES = "524288"
+
+# Optional: external proxy auth (Authelia/Authentik)
+# Comma-separated IPs of trusted reverse proxies
+# PROXY_TRUSTED_IPS = "10.0.0.1"
+
+# ── Worker secrets (never put these in [vars]) ──────────────────────────────
+# PROXY_AUTH_SECRET must be set as a Worker secret, NOT in [vars]:
+#   wrangler secret put PROXY_AUTH_SECRET
+# WARNING: never add it to [vars] — it would be committed to version control.
+# WARNING: disable the workers.dev subdomain in production when using proxy auth.
+
 # Development environment
 [env.dev]
 workers_dev = true

@@ -354,6 +354,99 @@ describe("Admin Routes", () => {
       });
     });
 
+    describe("Proxy authentication", () => {
+      const TRUSTED_IP = "10.0.0.1";
+      const PROXY_SECRET = "my-proxy-secret";
+
+      function proxyEnv() {
+        return {
+          ...createMockEnv(),
+          PROXY_TRUSTED_IPS: TRUSTED_IP,
+          PROXY_AUTH_SECRET: PROXY_SECRET,
+        } as unknown as Env;
+      }
+
+      function makeProxyRequest(path: string, headers: Record<string, string> = {}) {
+        const proxyApp = new Hono();
+        proxyApp.route("/admin", app);
+        return proxyApp.request(path, { headers }, proxyEnv());
+      }
+
+      it("grants access when IP, secret and Remote-User are all valid", async () => {
+        const res = await makeProxyRequest("/admin", {
+          "CF-Connecting-IP": TRUSTED_IP,
+          "X-Auth-Proxy-Secret": PROXY_SECRET,
+          "Remote-User": "alice",
+        });
+        expect(res.status).toBe(200);
+      });
+
+      it("grants access using X-Forwarded-User instead of Remote-User", async () => {
+        const res = await makeProxyRequest("/admin", {
+          "CF-Connecting-IP": TRUSTED_IP,
+          "X-Auth-Proxy-Secret": PROXY_SECRET,
+          "X-Forwarded-User": "bob",
+        });
+        expect(res.status).toBe(200);
+      });
+
+      it("rejects when IP is not in trusted list", async () => {
+        const res = await makeProxyRequest("/admin", {
+          "CF-Connecting-IP": "1.2.3.4",
+          "X-Auth-Proxy-Secret": PROXY_SECRET,
+          "Remote-User": "alice",
+        });
+        expect(res.status).toBe(302);
+      });
+
+      it("rejects when secret is wrong", async () => {
+        const res = await makeProxyRequest("/admin", {
+          "CF-Connecting-IP": TRUSTED_IP,
+          "X-Auth-Proxy-Secret": "wrong-secret",
+          "Remote-User": "alice",
+        });
+        expect(res.status).toBe(302);
+      });
+
+      it("rejects when Remote-User is missing", async () => {
+        const res = await makeProxyRequest("/admin", {
+          "CF-Connecting-IP": TRUSTED_IP,
+          "X-Auth-Proxy-Secret": PROXY_SECRET,
+        });
+        expect(res.status).toBe(302);
+      });
+
+      it("falls back to cookie auth when proxy env vars are not configured", async () => {
+        const res = await request("/admin");
+        expect(res.status).toBe(302);
+        expect(res.headers.get("Location")).toBe("/admin/login");
+      });
+
+      it("falls back to cookie auth when only one proxy env var is configured", async () => {
+        const partialProxyApp = new Hono();
+        partialProxyApp.route("/admin", app);
+        const partialEnv = {
+          ...createMockEnv(),
+          PROXY_TRUSTED_IPS: "10.0.0.1",
+          // PROXY_AUTH_SECRET intentionally absent
+        } as unknown as Env;
+
+        const res = await partialProxyApp.request(
+          "/admin",
+          {
+            headers: {
+              "CF-Connecting-IP": "10.0.0.1",
+              "Remote-User": "alice",
+              // No X-Auth-Proxy-Secret — proxy auth should NOT activate
+            },
+          },
+          partialEnv,
+        );
+        expect(res.status).toBe(302);
+        expect(res.headers.get("Location")).toBe("/admin/login");
+      });
+    });
+
     describe("Email Management", () => {
       it("should return JSON for email deletion when requested", async () => {
         const authCookie = await loginAndGetCookie();
