@@ -6,12 +6,24 @@
   "scripts": {
     "build": "wrangler deploy --dry-run --outdir=dist",
     "format": "prettier --write '**/*.{js,ts,css,json,md}'",
+    "format:check": "prettier --check '**/*.{js,ts,css,json,md}'",
+    "lint": "eslint src",
     "dev": "wrangler dev",
     "deploy": "wrangler deploy --env production",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "prepare": "husky"
+  },
+  "lint-staged": {
+    "*.{ts,js}": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "*.{json,md,css}": [
+      "prettier --write"
+    ]
   },
   "author": "",
   "license": "MIT",
@@ -20,10 +32,14 @@
     "@types/mailparser": "^3.4.6",
     "@types/rss": "^0.0.32",
     "@vitest/coverage-v8": "^4.0.18",
+    "eslint-config-prettier": "^10.1.8",
     "happy-dom": "^20.5.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^17.0.5",
     "msw": "^2.12.8",
     "prettier": "^3.8.1",
     "typescript": "^5.9.3",
+    "typescript-eslint": "^8.59.4",
     "vitest": "^4.0.18",
     "wrangler": "^4.63.0"
   },

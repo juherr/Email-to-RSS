@@ -7,6 +7,7 @@ export class EmailParser {
     return match ? match[1] : null;
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   static parseForwardEmailPayload(payload: any): EmailData {
     if (!payload) {
       throw new Error("Missing or invalid webhook payload");
@@ -30,6 +31,7 @@ export class EmailParser {
     };
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private static extractHeaders(payload: any): Record<string, string> {
     const headers: Record<string, string> = {};
 
@@ -62,7 +64,7 @@ export class EmailParser {
         if (encoding.toUpperCase() === "B") {
           try {
             return atob(text);
-          } catch (e) {
+          } catch {
             return text;
           }
         } else if (encoding.toUpperCase() === "Q") {
