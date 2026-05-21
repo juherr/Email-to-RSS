@@ -131,6 +131,41 @@ npm run build
 - Keep `compatibility_date` fresh when doing runtime upgrades.
 - `ADMIN_PASSWORD` is a Cloudflare Worker secret, not a plain env var in config.
 
+### Feed size limit
+
+By default the worker keeps emails until the feed's stored data exceeds **512 KB**, then drops the oldest entries (and their KV records) to stay under the limit. This is more robust than a fixed entry count for HTML-heavy newsletters.
+
+To override the threshold, add to `wrangler.toml` under `[vars]`:
+
+```toml
+FEED_MAX_SIZE_BYTES = "524288"   # 512 KB — adjust as needed
+```
+
+### External auth provider (Authelia / Authentik / reverse proxy)
+
+Instead of the built-in password login you can delegate admin authentication to a reverse proxy that sets a trusted user header (`Remote-User` or `X-Forwarded-User`).
+
+**Required Worker secrets** (set with `wrangler secret put`, never in `[vars]`):
+
+| Secret | Description |
+|---|---|
+| `PROXY_AUTH_SECRET` | Shared secret between the proxy and the Worker |
+
+**Required `[vars]`** in `wrangler.toml`:
+
+```toml
+PROXY_TRUSTED_IPS = "10.0.0.1"   # comma-separated IPs of your reverse proxy
+```
+
+When both are configured, the Worker authenticates a request if:
+1. `CF-Connecting-IP` is in `PROXY_TRUSTED_IPS`
+2. The `X-Auth-Proxy-Secret` header matches `PROXY_AUTH_SECRET`
+3. `Remote-User` or `X-Forwarded-User` is non-empty
+
+Password login remains available as a fallback when the proxy check fails.
+
+> **Security note:** `CF-Connecting-IP` can be spoofed on direct `workers.dev` requests. Disable the `workers.dev` subdomain in production (`workers_dev = false` in `[env.production]`).
+
 ## Security notes
 
 - When using Option B (ForwardEmail), inbound webhook access is IP-restricted to ForwardEmail MX sources.
@@ -138,6 +173,7 @@ npm run build
 - Admin responses are `no-store` to avoid cache leakage.
 - For high-value feeds, set `Allowed senders` so only known sender addresses/domains are accepted.
 - You should use a strong admin password and rotate periodically.
+- All secret comparisons (admin password, proxy secret) use constant-time comparison to prevent timing attacks.
 
 ## Upgrading dependencies
 
