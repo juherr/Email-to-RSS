@@ -13,12 +13,12 @@ function parseFromAddress(from: string): { name: string; email?: string } {
   return { name: from.trim() };
 }
 
-export function generateRssFeed(
+function buildFeed(
   feedConfig: FeedConfig,
   emails: EmailData[],
   baseUrl: string,
   feedId: string,
-): string {
+): Feed {
   const feed = new Feed({
     title: feedConfig.title,
     description: feedConfig.description || "",
@@ -29,7 +29,8 @@ export function generateRssFeed(
     generator: "Email-to-RSS",
     copyright: `Copyright © ${new Date().getFullYear()} ${feedConfig.title}`,
     feedLinks: {
-      rss: feedConfig.feed_url,
+      rss: `${baseUrl}/rss/${feedId}`,
+      atom: `${baseUrl}/atom/${feedId}`,
     },
     author: feedConfig.author
       ? {
@@ -52,5 +53,23 @@ export function generateRssFeed(
     });
   }
 
-  return feed.rss2();
+  return feed;
+}
+
+export function generateRssFeed(
+  feedConfig: FeedConfig,
+  emails: EmailData[],
+  baseUrl: string,
+  feedId: string,
+): string {
+  return buildFeed(feedConfig, emails, baseUrl, feedId).rss2();
+}
+
+export function generateAtomFeed(
+  feedConfig: FeedConfig,
+  emails: EmailData[],
+  baseUrl: string,
+  feedId: string,
+): string {
+  return buildFeed(feedConfig, emails, baseUrl, feedId).atom1();
 }
