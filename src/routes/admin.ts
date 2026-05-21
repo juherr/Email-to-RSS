@@ -1,6 +1,7 @@
 import { Context, Hono } from "hono";
 import { deleteCookie, getSignedCookie, setSignedCookie } from "hono/cookie";
 import { html, raw } from "hono/html";
+import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
 import {
   Env,
@@ -3756,60 +3757,63 @@ async function removeFeedFromList(
 }
 
 // Update feed via API (for in-place editing)
-app.post("/api/feeds/:feedId/update", async (c) => {
-  // Type assertion for environment variables
-  const env = c.env as unknown as Env;
-  const emailStorage = env.EMAIL_STORAGE;
-  const feedId = c.req.param("feedId");
+app.post(
+  "/api/feeds/:feedId/update",
+  zValidator(
+    "json",
+    updateFeedSchema.pick({ title: true, description: true }),
+    (result, c) => {
+      if (!result.success)
+        return c.json({ success: false, error: result.error.issues }, 400);
+    },
+  ),
+  async (c) => {
+    // Type assertion for environment variables
+    const env = c.env as unknown as Env;
+    const emailStorage = env.EMAIL_STORAGE;
+    const feedId = c.req.param("feedId");
 
-  try {
-    // Parse JSON data from request
-    const data = await c.req.json();
-    const { title, description } = data;
+    try {
+      const { title, description } = c.req.valid("json");
+      const parsedData = { title, description, language: "en" as const };
 
-    // Validate inputs
-    const parsedData = updateFeedSchema.parse({
-      title,
-      description,
-      language: "en", // We're defaulting to English
-    });
+      // Get existing feed config
+      const feedConfigKey = `feed:${feedId}:config`;
+      const existingConfig = (await emailStorage.get(feedConfigKey, {
+        type: "json",
+      })) as FeedConfig | null;
 
-    // Get existing feed config
-    const feedConfigKey = `feed:${feedId}:config`;
-    const existingConfig = (await emailStorage.get(feedConfigKey, {
-      type: "json",
-    })) as FeedConfig | null;
+      if (!existingConfig) {
+        return c.json({ error: "Feed not found" }, 404);
+      }
 
-    if (!existingConfig) {
-      return c.json({ error: "Feed not found" }, 404);
+      // Update feed configuration
+      await emailStorage.put(
+        feedConfigKey,
+        JSON.stringify({
+          ...existingConfig,
+          title: parsedData.title,
+          description: parsedData.description,
+          updated_at: Date.now(),
+        }),
+      );
+
+      // Update feed in the list of all feeds
+      await updateFeedInList(
+        emailStorage,
+        feedId,
+        parsedData.title,
+        parsedData.description,
+      );
+
+      // Return success response
+      return c.json({ success: true });
+    } catch (error) {
+      console.error("Error updating feed via API:", error);
+      return c.json({ error: "Error updating feed" }, 400);
     }
-
-    // Update feed configuration
-    await emailStorage.put(
-      feedConfigKey,
-      JSON.stringify({
-        ...existingConfig,
-        title: parsedData.title,
-        description: parsedData.description,
-        updated_at: Date.now(),
-      }),
-    );
-
-    // Update feed in the list of all feeds
-    await updateFeedInList(
-      emailStorage,
-      feedId,
-      parsedData.title,
-      parsedData.description,
-    );
-
-    // Return success response
-    return c.json({ success: true });
-  } catch (error) {
-    console.error("Error updating feed via API:", error);
-    return c.json({ error: "Error updating feed" }, 400);
-  }
-});
+  },
+);
 
 // Export the Hono app
 export const handle = app;

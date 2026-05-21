@@ -187,6 +187,23 @@ describe("Admin Routes", () => {
       });
     });
 
+    describe("API Feed Update", () => {
+      it("returns 400 with structured validation error for empty title", async () => {
+        const authCookie = await loginAndGetCookie();
+        const res = await request("/admin/api/feeds/test-feed/update", {
+          method: "POST",
+          headers: {
+            Cookie: authCookie,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ title: "", description: "desc" }),
+        });
+        expect(res.status).toBe(400);
+        const body = await res.json<{ success: boolean }>();
+        expect(body.success).toBe(false);
+      });
+    });
+
     describe("Feed Management", () => {
       it("should prevent feed deletion without authentication", async () => {
         const res = await request("/admin/feeds/test-feed/delete", {
