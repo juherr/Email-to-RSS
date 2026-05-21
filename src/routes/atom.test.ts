@@ -119,6 +119,14 @@ describe("Atom Feed Route", () => {
       const body = await res.text();
       expect(body).toContain(`/atom/${FEED_ID}`);
     });
+
+    it("Link header advertises hub and self for WebSub discovery", async () => {
+      const res = await testApp.request(`/${FEED_ID}`, {}, mockEnv);
+      const link = res.headers.get("Link") ?? "";
+      expect(link).toContain(`rel="hub"`);
+      expect(link).toContain(`/atom/${FEED_ID}`);
+      expect(link).toContain(`rel="self"`);
+    });
   });
 
   describe("fallback config when no config in KV", () => {

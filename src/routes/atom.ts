@@ -51,11 +51,17 @@ export async function handle(c: Context): Promise<Response> {
     const baseUrl = `https://${env.DOMAIN}`;
     const atomXml = generateAtomFeed(feedConfig, emailsData, baseUrl, feedId);
 
+    const linkHeader = [
+      `<${baseUrl}/hub>; rel="hub"`,
+      `<${baseUrl}/atom/${feedId}>; rel="self"`,
+    ].join(", ");
+
     return new Response(atomXml, {
       status: 200,
       headers: {
         "Content-Type": "application/atom+xml",
         "Cache-Control": "max-age=1800",
+        Link: linkHeader,
       },
     });
   } catch (error) {
