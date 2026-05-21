@@ -68,6 +68,7 @@ function toArrayBuffer(
 export async function handleForwardEmail(
   payload: ForwardEmailPayload,
   env: Env,
+  ctx?: ExecutionContext,
 ): Promise<Response> {
   const emailData = EmailParser.parseForwardEmailPayload(payload);
 
@@ -95,5 +96,6 @@ export async function handleForwardEmail(
       attachments: rawAttachments,
     },
     env,
+    ctx,
   );
 }

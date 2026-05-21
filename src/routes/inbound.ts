@@ -14,7 +14,7 @@ export async function handle(c: Context): Promise<Response> {
       contentType: payload.html ? "HTML" : "Text",
     });
 
-    return handleForwardEmail(payload, env);
+    return handleForwardEmail(payload, env, c.executionCtx);
   } catch (error) {
     console.error("Error processing email:", error);
     return new Response("Error processing email", { status: 500 });

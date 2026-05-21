@@ -6,6 +6,7 @@ import {
   FeedConfig,
   FeedMetadata,
 } from "../types";
+import { notifySubscribers } from "../utils/websub";
 
 export interface RawAttachment {
   filename: string;
@@ -73,6 +74,7 @@ async function uploadAttachments(
 export async function processEmail(
   input: ProcessEmailInput,
   env: Env,
+  ctx?: ExecutionContext,
 ): Promise<Response> {
   const feedId = EmailParser.extractFeedId(input.toAddress);
   if (!feedId) {
@@ -182,5 +184,8 @@ export async function processEmail(
   ]);
 
   console.log(`Successfully processed email for feed ${feedId}`);
+  if (ctx) {
+    ctx.waitUntil(notifySubscribers(feedId, env));
+  }
   return new Response("Email processed successfully", { status: 200 });
 }
