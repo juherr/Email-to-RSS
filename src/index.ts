@@ -5,6 +5,7 @@ import { handle as handleAtom } from "./routes/atom";
 import { handle as handleAdmin } from "./routes/admin";
 import { handle as handleEntry } from "./routes/entries";
 import { handle as handleFiles } from "./routes/files";
+import { hubRouter } from "./routes/hub";
 import { handleCloudflareEmail } from "./lib/cloudflare-email";
 import { Env } from "./types";
 
@@ -108,6 +109,7 @@ const atom = new Hono();
 const entries = new Hono();
 const files = new Hono();
 const admin = new Hono();
+const hub = new Hono();
 
 // Webhook security middleware for /inbound - verify ForwardEmail.net IP
 api.use("/inbound", async (c, next) => {
@@ -149,6 +151,9 @@ files.get("/:attachmentId/:filename", handleFiles);
 // Admin routes (protected)
 admin.route("/", handleAdmin);
 
+// Hub (WebSub) routes
+hub.route("/", hubRouter);
+
 // Mount the route groups
 app.route("/api", api);
 app.route("/rss", rss);
@@ -156,6 +161,7 @@ app.route("/atom", atom);
 app.route("/entries", entries);
 app.route("/files", files);
 app.route("/admin", admin);
+app.route("/hub", hub);
 
 // Root path redirects to admin dashboard
 app.get("/", (c) => c.redirect("/admin"));
