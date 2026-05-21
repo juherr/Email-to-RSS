@@ -109,7 +109,6 @@ const atom = new Hono();
 const entries = new Hono();
 const files = new Hono();
 const admin = new Hono();
-const hub = new Hono();
 
 // Webhook security middleware for /inbound - verify ForwardEmail.net IP
 api.use("/inbound", async (c, next) => {
@@ -151,9 +150,6 @@ files.get("/:attachmentId/:filename", handleFiles);
 // Admin routes (protected)
 admin.route("/", handleAdmin);
 
-// Hub (WebSub) routes
-hub.route("/", hubRouter);
-
 // Mount the route groups
 app.route("/api", api);
 app.route("/rss", rss);
@@ -161,7 +157,7 @@ app.route("/atom", atom);
 app.route("/entries", entries);
 app.route("/files", files);
 app.route("/admin", admin);
-app.route("/hub", hub);
+app.route("/hub", hubRouter);
 
 // Root path redirects to admin dashboard
 app.get("/", (c) => c.redirect("/admin"));

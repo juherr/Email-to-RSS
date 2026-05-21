@@ -80,7 +80,16 @@ hubRouter.post("/", async (c) => {
   }
   const feedId = match[1];
 
-  const secret = form.get("hub.secret") ?? undefined;
+  // Verify the feed exists before accepting any subscription
+  const feedConfig = await env.EMAIL_STORAGE.get(
+    `feed:${feedId}:config`,
+    "json",
+  );
+  if (!feedConfig) {
+    return c.text("Not Found: feed does not exist", 404);
+  }
+
+  const secret = form.get("hub.secret") || undefined; // "" → undefined
   if (secret && secret.length > 200) {
     return c.text("Bad Request: hub.secret must be under 200 bytes", 400);
   }

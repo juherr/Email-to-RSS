@@ -127,6 +127,10 @@ describe("POST /hub — input validation", () => {
   it("returns 400 when hub.secret exceeds 200 bytes", async () => {
     const app = makeApp();
     const env = createMockEnv();
+    await env.EMAIL_STORAGE.put(
+      "feed:feed1:config",
+      JSON.stringify({ title: "Feed 1" }),
+    );
     const res = await app.request(
       "/hub",
       hubBody({
@@ -145,6 +149,10 @@ describe("POST /hub — subscribe", () => {
   it("returns 202 for valid subscribe request", async () => {
     const app = makeApp();
     const env = createMockEnv();
+    await env.EMAIL_STORAGE.put(
+      "feed:feed1:config",
+      JSON.stringify({ title: "Feed 1" }),
+    );
     server.use(
       http.get("https://cb.example/sub", ({ request }) => {
         const challenge =
@@ -167,6 +175,10 @@ describe("POST /hub — subscribe", () => {
   it("accepts hub.lease_seconds within range", async () => {
     const app = makeApp();
     const env = createMockEnv();
+    await env.EMAIL_STORAGE.put(
+      "feed:feed1:config",
+      JSON.stringify({ title: "Feed 1" }),
+    );
     server.use(
       http.get("https://cb.example/sub", ({ request }) => {
         const challenge =
@@ -186,12 +198,31 @@ describe("POST /hub — subscribe", () => {
     );
     expect(res.status).toBe(202);
   });
+
+  it("returns 404 when feed does not exist", async () => {
+    const app = makeApp();
+    const env = createMockEnv();
+    const res = await app.request(
+      "/hub",
+      hubBody({
+        "hub.mode": "subscribe",
+        "hub.topic": `https://${env.DOMAIN}/rss/nonexistent`,
+        "hub.callback": "https://cb.example/sub",
+      }),
+      env,
+    );
+    expect(res.status).toBe(404);
+  });
 });
 
 describe("POST /hub — unsubscribe", () => {
   it("returns 202 for valid unsubscribe request", async () => {
     const app = makeApp();
     const env = createMockEnv();
+    await env.EMAIL_STORAGE.put(
+      "feed:feed1:config",
+      JSON.stringify({ title: "Feed 1" }),
+    );
     server.use(
       http.get("https://cb.example/sub", ({ request }) => {
         const challenge =
