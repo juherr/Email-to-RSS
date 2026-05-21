@@ -1,7 +1,11 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import "../test/setup";
 import { createMockEnv, MockR2 } from "../test/setup";
-import { processEmail, ProcessEmailInput, RawAttachment } from "./email-processor";
+import {
+  processEmail,
+  ProcessEmailInput,
+  RawAttachment,
+} from "./email-processor";
 
 const VALID_FEED_ID = "apple.mountain.42";
 const VALID_TO = `${VALID_FEED_ID}@test.getmynews.app`;
@@ -139,25 +143,53 @@ describe("processEmail", () => {
     const oldKey1 = `feed:${VALID_FEED_ID}:111`;
     const oldKey2 = `feed:${VALID_FEED_ID}:222`;
     const bigContent = "x".repeat(200);
-    const email1 = JSON.stringify({ subject: "Old1", from: "a@b.com", content: bigContent, receivedAt: 111, headers: {} });
-    const email2 = JSON.stringify({ subject: "Old2", from: "a@b.com", content: bigContent, receivedAt: 222, headers: {} });
+    const email1 = JSON.stringify({
+      subject: "Old1",
+      from: "a@b.com",
+      content: bigContent,
+      receivedAt: 111,
+      headers: {},
+    });
+    const email2 = JSON.stringify({
+      subject: "Old2",
+      from: "a@b.com",
+      content: bigContent,
+      receivedAt: 222,
+      headers: {},
+    });
     await env.EMAIL_STORAGE.put(oldKey1, email1);
     await env.EMAIL_STORAGE.put(oldKey2, email2);
     await env.EMAIL_STORAGE.put(
       `feed:${VALID_FEED_ID}:metadata`,
       JSON.stringify({
         emails: [
-          { key: oldKey2, subject: "Old2", receivedAt: 222, size: email2.length },
-          { key: oldKey1, subject: "Old1", receivedAt: 111, size: email1.length },
+          {
+            key: oldKey2,
+            subject: "Old2",
+            receivedAt: 222,
+            size: email2.length,
+          },
+          {
+            key: oldKey1,
+            subject: "Old1",
+            receivedAt: 111,
+            size: email1.length,
+          },
         ],
       }),
     );
 
     const tinyEnv = { ...env, FEED_MAX_SIZE_BYTES: "50" };
-    const res = await processEmail(makeInput({ subject: "New" }), tinyEnv as any);
+    const res = await processEmail(
+      makeInput({ subject: "New" }),
+      tinyEnv as any,
+    );
     expect(res.status).toBe(200);
 
-    const metadata = await env.EMAIL_STORAGE.get(`feed:${VALID_FEED_ID}:metadata`, "json");
+    const metadata = await env.EMAIL_STORAGE.get(
+      `feed:${VALID_FEED_ID}:metadata`,
+      "json",
+    );
     expect(metadata.emails).toHaveLength(1);
     expect(metadata.emails[0].subject).toBe("New");
 
@@ -175,13 +207,17 @@ describe("processEmail", () => {
     const bigEnv = { ...env, FEED_MAX_SIZE_BYTES: String(10 * 1024 * 1024) };
     await processEmail(makeInput({ subject: "First" }), bigEnv as any);
     await processEmail(makeInput({ subject: "Second" }), bigEnv as any);
-    const metadata = await env.EMAIL_STORAGE.get(`feed:${VALID_FEED_ID}:metadata`, "json");
+    const metadata = await env.EMAIL_STORAGE.get(
+      `feed:${VALID_FEED_ID}:metadata`,
+      "json",
+    );
     expect(metadata.emails).toHaveLength(2);
   });
 });
 
 describe("processEmail — attachments", () => {
-  const pdfContent = new TextEncoder().encode("PDF bytes").buffer as ArrayBuffer;
+  const pdfContent = new TextEncoder().encode("PDF bytes")
+    .buffer as ArrayBuffer;
 
   const pdfAttachment: RawAttachment = {
     filename: "report.pdf",
@@ -205,7 +241,10 @@ describe("processEmail — attachments", () => {
       `feed:${VALID_FEED_ID}:metadata`,
       "json",
     );
-    const emailData = await env.EMAIL_STORAGE.get(metadata.emails[0].key, "json");
+    const emailData = await env.EMAIL_STORAGE.get(
+      metadata.emails[0].key,
+      "json",
+    );
     expect(emailData.attachments).toBeUndefined();
   });
 
@@ -226,7 +265,10 @@ describe("processEmail — attachments", () => {
       `feed:${VALID_FEED_ID}:metadata`,
       "json",
     );
-    const emailData = await env.EMAIL_STORAGE.get(metadata.emails[0].key, "json");
+    const emailData = await env.EMAIL_STORAGE.get(
+      metadata.emails[0].key,
+      "json",
+    );
 
     expect(emailData.attachments).toHaveLength(1);
     expect(emailData.attachments[0].filename).toBe("report.pdf");
@@ -271,7 +313,14 @@ describe("processEmail — attachments", () => {
       content: bigContent,
       receivedAt: 111,
       headers: {},
-      attachments: [{ id: oldAttachmentId, filename: "old.pdf", contentType: "application/pdf", size: 100 }],
+      attachments: [
+        {
+          id: oldAttachmentId,
+          filename: "old.pdf",
+          contentType: "application/pdf",
+          size: 100,
+        },
+      ],
     });
     await env.EMAIL_STORAGE.put(oldKey, oldEmail);
 
@@ -295,7 +344,10 @@ describe("processEmail — attachments", () => {
 
     // Process with tight size budget to force trimming
     const tinyEnv = { ...env, FEED_MAX_SIZE_BYTES: "50" };
-    const res = await processEmail(makeInput({ subject: "New" }), tinyEnv as any);
+    const res = await processEmail(
+      makeInput({ subject: "New" }),
+      tinyEnv as any,
+    );
     expect(res.status).toBe(200);
 
     // Old attachment should be deleted from R2

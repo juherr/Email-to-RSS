@@ -1,5 +1,11 @@
 import { EmailParser } from "../utils/email-parser";
-import { AttachmentData, EmailMetadata, Env, FeedConfig, FeedMetadata } from "../types";
+import {
+  AttachmentData,
+  EmailMetadata,
+  Env,
+  FeedConfig,
+  FeedMetadata,
+} from "../types";
 
 export interface RawAttachment {
   filename: string;
@@ -151,7 +157,10 @@ export async function processEmail(
   };
   feedMetadata.emails.unshift(newEntry);
 
-  let totalSize = feedMetadata.emails.reduce((sum, e) => sum + (e.size ?? 0), 0);
+  let totalSize = feedMetadata.emails.reduce(
+    (sum, e) => sum + (e.size ?? 0),
+    0,
+  );
   const toDelete: EmailMetadata[] = [];
   while (totalSize > maxBytes && feedMetadata.emails.length > 1) {
     const dropped = feedMetadata.emails.pop()!;

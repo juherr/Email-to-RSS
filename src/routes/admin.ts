@@ -71,9 +71,11 @@ function timingSafeEqual(a: string, b: string): boolean {
   const aBytes = enc.encode(a);
   const bBytes = enc.encode(b);
   // Try native timing-safe implementation first (Cloudflare Workers runtime)
-  if (typeof (crypto.subtle as any).timingSafeEqual === "function") {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const subtle = crypto.subtle as any;
+  if (typeof subtle.timingSafeEqual === "function") {
     if (aBytes.length !== bBytes.length) return false;
-    return (crypto.subtle as any).timingSafeEqual(aBytes, bBytes);
+    return subtle.timingSafeEqual(aBytes, bBytes);
   }
   // Constant-time fallback for Node (test environment): encode length
   // mismatch into `diff` so the loop always runs over the full length.
@@ -97,7 +99,9 @@ async function authMiddleware(c: Context, next: () => Promise<void>) {
 
   // Proxy auth: only active when both env vars are present
   if (env.PROXY_AUTH_SECRET && env.PROXY_TRUSTED_IPS) {
-    const trustedIps = env.PROXY_TRUSTED_IPS.split(",").map((s) => s.trim()).filter(Boolean);
+    const trustedIps = env.PROXY_TRUSTED_IPS.split(",")
+      .map((s) => s.trim())
+      .filter(Boolean);
     const clientIp = c.req.header("CF-Connecting-IP") ?? "";
     const providedSecret = c.req.header("X-Auth-Proxy-Secret") ?? "";
     const remoteUser =
@@ -113,7 +117,11 @@ async function authMiddleware(c: Context, next: () => Promise<void>) {
   }
 
   // Fallback: signed cookie
-  const authCookie = await getSignedCookie(c, env.ADMIN_PASSWORD, ADMIN_COOKIE_NAME);
+  const authCookie = await getSignedCookie(
+    c,
+    env.ADMIN_PASSWORD,
+    ADMIN_COOKIE_NAME,
+  );
   if (authCookie !== "1") {
     return c.redirect("/admin/login");
   }
@@ -146,6 +154,7 @@ const authSchema = z.object({
 });
 
 // Base HTML layout with design system
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const layout = (title: string, content: any) => {
   return html`<!DOCTYPE html>
     <html>
@@ -1610,11 +1619,14 @@ app.post("/feeds/create", async (c) => {
     if (isJson) {
       const body = await c.req.json<Record<string, unknown>>();
       title = String(body.title ?? "");
-      description = body.description != null ? String(body.description) : undefined;
+      description =
+        body.description != null ? String(body.description) : undefined;
       language = String(body.language ?? "en");
       view = "list";
       allowedSenders = Array.isArray(body.allowedSenders)
-        ? normalizeAllowedSenders((body.allowedSenders as unknown[]).map(String))
+        ? normalizeAllowedSenders(
+            (body.allowedSenders as unknown[]).map(String),
+          )
         : [];
     } else {
       const formData = await c.req.formData();
@@ -1930,8 +1942,9 @@ async function purgeFeedKeysStep(
     });
     if (emailKeys.length > 0) {
       const emailDataResults = await Promise.allSettled(
-        emailKeys.map((k) =>
-          emailStorage.get(k, { type: "json" }) as Promise<EmailData | null>,
+        emailKeys.map(
+          (k) =>
+            emailStorage.get(k, { type: "json" }) as Promise<EmailData | null>,
         ),
       );
       const attachmentIds = emailDataResults
@@ -1976,7 +1989,12 @@ app.post("/feeds/:feedId/delete", async (c) => {
 
     // Best-effort cleanup in the background so the request stays fast.
     // Use the UI purge endpoint for full, user-visible progress.
-    waitUntilSafe(c, purgeFeedKeysStep(emailStorage, feedId, { bucket: env.ATTACHMENT_BUCKET }));
+    waitUntilSafe(
+      c,
+      purgeFeedKeysStep(emailStorage, feedId, {
+        bucket: env.ATTACHMENT_BUCKET,
+      }),
+    );
     if (wantsJson) {
       return c.json({ ok: true, feedId });
     }

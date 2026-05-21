@@ -68,7 +68,11 @@ describe("Atom Feed Route", () => {
         `feed:${FEED_ID}:metadata`,
         JSON.stringify({
           emails: [
-            { key: emailKey, subject: "Atom Entry Subject", receivedAt: 1700000001000 },
+            {
+              key: emailKey,
+              subject: "Atom Entry Subject",
+              receivedAt: 1700000001000,
+            },
           ],
         }),
       );

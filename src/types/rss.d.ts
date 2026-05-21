@@ -15,7 +15,7 @@ declare module "rss" {
     generator?: string;
     categories?: string[];
     custom_namespaces?: Record<string, string>;
-    custom_elements?: any[];
+    custom_elements?: unknown[];
   }
 
   interface RSSItemOptions {
@@ -34,7 +34,7 @@ declare module "rss" {
       size?: number;
       type?: string;
     };
-    custom_elements?: any[];
+    custom_elements?: unknown[];
   }
 
   interface RSSXMLOptions {

@@ -53,15 +53,15 @@ describe("EmailParser.decodeEncodedWords", () => {
     // =?UTF-8?Q?caf=C3=A9?= → "café" (but decodeQuotedPrintable works byte-by-byte)
     // Use a simple ASCII QP sequence to stay charset-agnostic in tests
     // =?US-ASCII?Q?Hello=20World?= → "Hello World" (=20 → space, _ → space)
-    expect(
-      EmailParser.decodeEncodedWords("=?US-ASCII?Q?Hello=20World?="),
-    ).toBe("Hello World");
+    expect(EmailParser.decodeEncodedWords("=?US-ASCII?Q?Hello=20World?=")).toBe(
+      "Hello World",
+    );
   });
 
   it("decodes underscores as spaces in QP encoding", () => {
-    expect(
-      EmailParser.decodeEncodedWords("=?US-ASCII?Q?Hello_World?="),
-    ).toBe("Hello World");
+    expect(EmailParser.decodeEncodedWords("=?US-ASCII?Q?Hello_World?=")).toBe(
+      "Hello World",
+    );
   });
 
   it("leaves unrecognised encoded-word syntax unchanged", () => {
@@ -79,9 +79,7 @@ describe("EmailParser.parseForwardEmailPayload", () => {
   });
 
   it("throws on undefined payload", () => {
-    expect(() =>
-      EmailParser.parseForwardEmailPayload(undefined),
-    ).toThrow();
+    expect(() => EmailParser.parseForwardEmailPayload(undefined)).toThrow();
   });
 
   it("parses subject, from, and HTML content", () => {
@@ -95,7 +93,9 @@ describe("EmailParser.parseForwardEmailPayload", () => {
     expect(result.subject).toBe("Test Subject");
     expect(result.from).toBe("sender@example.com");
     expect(result.content).toBe("<p>Hello</p>");
-    expect(result.receivedAt).toBe(new Date("2024-01-15T10:00:00.000Z").getTime());
+    expect(result.receivedAt).toBe(
+      new Date("2024-01-15T10:00:00.000Z").getTime(),
+    );
   });
 
   it("prefers HTML content over plain text", () => {
@@ -137,14 +137,18 @@ describe("EmailParser.parseForwardEmailPayload", () => {
 
   it("uses Date.now() when date field is absent", () => {
     const before = Date.now();
-    const result = EmailParser.parseForwardEmailPayload({ from: { text: "x@y.com" } });
+    const result = EmailParser.parseForwardEmailPayload({
+      from: { text: "x@y.com" },
+    });
     const after = Date.now();
     expect(result.receivedAt).toBeGreaterThanOrEqual(before);
     expect(result.receivedAt).toBeLessThanOrEqual(after);
   });
 
   it("defaults subject to 'No Subject' when absent", () => {
-    const result = EmailParser.parseForwardEmailPayload({ from: { text: "x@y.com" } });
+    const result = EmailParser.parseForwardEmailPayload({
+      from: { text: "x@y.com" },
+    });
     expect(result.subject).toBe("No Subject");
   });
 

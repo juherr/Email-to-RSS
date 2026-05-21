@@ -5,7 +5,7 @@ import { processEmail, RawAttachment } from "./email-processor";
 export async function handleCloudflareEmail(
   message: ForwardableEmailMessage,
   env: Env,
-  ctx: ExecutionContext,
+  _ctx: ExecutionContext,
 ): Promise<void> {
   try {
     const email = await PostalMime.parse(message.raw);

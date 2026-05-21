@@ -30,10 +30,10 @@ Email-to-RSS keeps the same workflow while avoiding shared domains and shared da
 
 Two ingestion methods are supported — pick one or use both:
 
-| Method | How it works |
-| ---------------------- | ------------------------------------------------------------------ |
-| **Cloudflare Email Workers** | Cloudflare Email Routing delivers the raw message directly to the Worker via the `email()` handler — no outbound webhook needed |
-| **ForwardEmail webhook** | ForwardEmail parses the message and POSTs a JSON payload to `POST /api/inbound`; the Worker verifies the source IP before processing |
+| Method                       | How it works                                                                                                                         |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| **Cloudflare Email Workers** | Cloudflare Email Routing delivers the raw message directly to the Worker via the `email()` handler — no outbound webhook needed      |
+| **ForwardEmail webhook**     | ForwardEmail parses the message and POSTs a JSON payload to `POST /api/inbound`; the Worker verifies the source IP before processing |
 
 Common path:
 
@@ -60,7 +60,7 @@ Main routes:
 
 ## Cloudflare setup
 
-If your domain is not yet on Cloudflare: in the [Cloudflare dashboard](https://dash.cloudflare.com/), go to *Add a site*, enter your domain, choose the Free plan, and follow the instructions to update your nameservers at your registrar. Wait for the zone to become active (usually a few minutes).
+If your domain is not yet on Cloudflare: in the [Cloudflare dashboard](https://dash.cloudflare.com/), go to _Add a site_, enter your domain, choose the Free plan, and follow the instructions to update your nameservers at your registrar. Wait for the zone to become active (usually a few minutes).
 
 ## Setup
 
@@ -70,9 +70,11 @@ If your domain is not yet on Cloudflare: in the [Cloudflare dashboard](https://d
    npx wrangler login
    ```
 3. Run setup:
+
    ```bash
    bash setup.sh
    ```
+
    The script will prompt for an admin password and your domain, then:
    - install npm dependencies
    - verify Cloudflare auth (`wrangler whoami`)
@@ -86,8 +88,8 @@ If your domain is not yet on Cloudflare: in the [Cloudflare dashboard](https://d
 
 No third-party service required. Cloudflare receives the email and hands it directly to the Worker.
 
-1. In the Cloudflare dashboard, go to *Email → Email Routing* for your zone and click **Enable Email Routing**. Cloudflare will prompt you to add MX and SPF records — accept and it adds them automatically.
-2. Under *Email Routing → Routing Rules*, add a **Catch-all** rule:
+1. In the Cloudflare dashboard, go to _Email → Email Routing_ for your zone and click **Enable Email Routing**. Cloudflare will prompt you to add MX and SPF records — accept and it adds them automatically.
+2. Under _Email Routing → Routing Rules_, add a **Catch-all** rule:
    - Action: **Send to Worker**
    - Worker: `email-to-rss` (the name from `wrangler.toml`)
 
@@ -97,7 +99,7 @@ That's it. No webhook configuration is needed.
 
 Use this if you prefer ForwardEmail's additional features (sender filtering, open-tracking, etc.).
 
-Add these DNS records in Cloudflare (*DNS → Records*):
+Add these DNS records in Cloudflare (_DNS → Records_):
 
 | Type | Name | Content                                              | Notes                   |
 | ---- | ---- | ---------------------------------------------------- | ----------------------- |
@@ -111,14 +113,16 @@ Replace `yourdomain.com` with your actual domain.
 The Worker verifies each webhook request against ForwardEmail's published MX IP list before processing it.
 
 5. Deploy:
+
    ```bash
    npm run deploy
    ```
+
    Wrangler will create the Worker and register `yourdomain.com` (and `www.yourdomain.com`) as custom domains pointing to it. Cloudflare handles TLS automatically.
 
 6. Open `https://yourdomain.com/admin` and sign in.
 
-> **Tip:** To verify the Worker is running, check *Workers & Pages → email-to-rss* in the Cloudflare dashboard. The *Custom Domains* tab should list your domain once the deploy succeeds.
+> **Tip:** To verify the Worker is running, check _Workers & Pages → email-to-rss_ in the Cloudflare dashboard. The _Custom Domains_ tab should list your domain once the deploy succeeds.
 
 ## Development
 
@@ -153,7 +157,7 @@ This feature is **optional**. If no R2 bucket is bound, attachments are silently
 
 **Setup:**
 
-1. Create an R2 bucket in the Cloudflare dashboard (*R2 Object Storage → Create bucket*), or with Wrangler:
+1. Create an R2 bucket in the Cloudflare dashboard (_R2 Object Storage → Create bucket_), or with Wrangler:
    ```bash
    npx wrangler r2 bucket create your-bucket-name
    ```
@@ -177,8 +181,8 @@ Instead of the built-in password login you can delegate admin authentication to 
 
 **Required Worker secrets** (set with `wrangler secret put`, never in `[vars]`):
 
-| Secret | Description |
-|---|---|
+| Secret              | Description                                    |
+| ------------------- | ---------------------------------------------- |
 | `PROXY_AUTH_SECRET` | Shared secret between the proxy and the Worker |
 
 **Required `[vars]`** in `wrangler.toml`:
@@ -188,6 +192,7 @@ PROXY_TRUSTED_IPS = "10.0.0.1"   # comma-separated IPs of your reverse proxy
 ```
 
 When both are configured, the Worker authenticates a request if:
+
 1. `CF-Connecting-IP` is in `PROXY_TRUSTED_IPS`
 2. The `X-Auth-Proxy-Secret` header matches `PROXY_AUTH_SECRET`
 3. `Remote-User` or `X-Forwarded-User` is non-empty

@@ -71,7 +71,7 @@ declare global {
   // This is not an ideal solution but works for our example
   interface KVNamespace {
     get(key: string, options?: { type: "text" }): Promise<string | null>;
-    get(key: string, options: { type: "json" }): Promise<any | null>;
+    get(key: string, options: { type: "json" }): Promise<unknown | null>;
     get(
       key: string,
       options: { type: "arrayBuffer" },

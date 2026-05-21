@@ -71,7 +71,7 @@ class MockCache implements Cache {
 
   async match(
     request: RequestInfo,
-    options?: CacheQueryOptions,
+    _options?: CacheQueryOptions,
   ): Promise<Response | undefined> {
     const key = request instanceof Request ? request.url : request;
     const response = this.store.get(key);
@@ -80,7 +80,7 @@ class MockCache implements Cache {
 
   async delete(
     request: RequestInfo,
-    options?: CacheQueryOptions,
+    _options?: CacheQueryOptions,
   ): Promise<boolean> {
     const key = request instanceof Request ? request.url : request;
     return this.store.delete(key);
@@ -107,7 +107,6 @@ beforeAll(() => {
   server.listen({ onUnhandledRequest: "error" });
 
   // Type-safe access to Node's global object for setting Workers-like globals in tests
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const g = globalThis as any;
 
   // Mock Cloudflare Workers runtime globals
@@ -118,31 +117,26 @@ beforeAll(() => {
 
   // Mock crypto for generating random values
   if (!g.crypto) {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
     g.crypto = require("crypto").webcrypto;
   }
 
   // Ensure other required globals are available
   if (!g.FormData) {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { FormData } = require("undici");
     g.FormData = FormData;
   }
 
   if (!g.Headers) {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { Headers } = require("undici");
     g.Headers = Headers;
   }
 
   if (!g.Request) {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { Request } = require("undici");
     g.Request = Request;
   }
 
   if (!g.Response) {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { Response } = require("undici");
     g.Response = Response;
   }
@@ -173,7 +167,13 @@ export class MockR2 {
 
   async put(
     key: string,
-    value: ReadableStream | ArrayBuffer | ArrayBufferView | string | null | Blob,
+    value:
+      | ReadableStream
+      | ArrayBuffer
+      | ArrayBufferView
+      | string
+      | null
+      | Blob,
     options?: {
       httpMetadata?: { contentType?: string; contentDisposition?: string };
     },
@@ -216,7 +216,10 @@ export class MockR2 {
           headers.set("Content-Type", entry.httpMetadata.contentType);
         }
         if (entry.httpMetadata?.contentDisposition) {
-          headers.set("Content-Disposition", entry.httpMetadata.contentDisposition);
+          headers.set(
+            "Content-Disposition",
+            entry.httpMetadata.contentDisposition,
+          );
         }
       },
     };
