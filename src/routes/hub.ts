@@ -33,6 +33,14 @@ hubRouter.post("/", async (c) => {
     );
   }
 
+  if (
+    typeof mode !== "string" ||
+    typeof topic !== "string" ||
+    typeof callbackUrl !== "string"
+  ) {
+    return c.text("Bad Request: unexpected field types", 400);
+  }
+
   if (mode !== "subscribe" && mode !== "unsubscribe") {
     return c.text(
       "Bad Request: hub.mode must be subscribe or unsubscribe",
@@ -40,9 +48,19 @@ hubRouter.post("/", async (c) => {
     );
   }
 
+  let parsedCallback: URL;
+  try {
+    parsedCallback = new URL(callbackUrl);
+  } catch {
+    return c.text("Bad Request: hub.callback must be a valid URL", 400);
+  }
+  if (parsedCallback.protocol !== "https:") {
+    return c.text("Bad Request: hub.callback must use HTTPS", 400);
+  }
+
   // Validate that topic matches a known RSS feed on this hub
   const topicPattern = new RegExp(
-    `^https://${env.DOMAIN.replace(".", "\\.")}/rss/([^/]+)$`,
+    `^https://${env.DOMAIN.replaceAll(".", "\\.")}/rss/([^/]+)$`,
   );
   const match = topic.match(topicPattern);
   if (!match) {
@@ -54,6 +72,9 @@ hubRouter.post("/", async (c) => {
   const feedId = match[1];
 
   const secret = form.get("hub.secret") ?? undefined;
+  if (secret && secret.length > 200) {
+    return c.text("Bad Request: hub.secret must be under 200 bytes", 400);
+  }
   const rawLease = parseInt(form.get("hub.lease_seconds") ?? "", 10);
   const leaseSeconds = isNaN(rawLease)
     ? DEFAULT_LEASE_SECONDS
