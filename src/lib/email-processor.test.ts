@@ -213,6 +213,58 @@ describe("processEmail", () => {
     );
     expect(metadata.emails).toHaveLength(2);
   });
+
+  it("calls ctx.waitUntil with notifySubscribers when ctx is provided", async () => {
+    await env.EMAIL_STORAGE.put(
+      `feed:${VALID_FEED_ID}:config`,
+      JSON.stringify({
+        title: "Test",
+        language: "en",
+        site_url: "https://example.com",
+        feed_url: `https://example.com/rss/${VALID_FEED_ID}`,
+        created_at: Date.now(),
+      }),
+    );
+    await env.EMAIL_STORAGE.put(
+      `feed:${VALID_FEED_ID}:metadata`,
+      JSON.stringify({ emails: [] }),
+    );
+
+    let waitUntilCalled = false;
+    const ctx = {
+      waitUntil: (p: Promise<unknown>) => {
+        waitUntilCalled = true;
+        void p; // don't actually await it
+      },
+      passThroughOnException: () => {},
+    } as unknown as ExecutionContext;
+
+    const res = await processEmail(makeInput(), env as any, ctx);
+
+    expect(res.status).toBe(200);
+    expect(waitUntilCalled).toBe(true);
+  });
+
+  it("does not call ctx.waitUntil on error paths (feed not found)", async () => {
+    let waitUntilCalled = false;
+    const ctx = {
+      waitUntil: (p: Promise<unknown>) => {
+        waitUntilCalled = true;
+        void p;
+      },
+      passThroughOnException: () => {},
+    } as unknown as ExecutionContext;
+
+    // Feed ID is valid format but config doesn't exist → 404
+    const res = await processEmail(
+      makeInput({ toAddress: `no.such.99@test.getmynews.app` }),
+      env as any,
+      ctx,
+    );
+
+    expect(res.status).toBe(404);
+    expect(waitUntilCalled).toBe(false);
+  });
 });
 
 describe("processEmail — attachments", () => {
