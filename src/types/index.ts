@@ -3,6 +3,9 @@ export interface Env {
   EMAIL_STORAGE: KVNamespace;
   ADMIN_PASSWORD: string;
   DOMAIN: string;
+  FEED_MAX_SIZE_BYTES?: string;
+  PROXY_TRUSTED_IPS?: string;
+  PROXY_AUTH_SECRET?: string;
 }
 
 // Email interface for stored emails
@@ -37,6 +40,7 @@ export interface EmailMetadata {
   key: string;
   subject: string;
   receivedAt: number;
+  size?: number;
 }
 
 // Feed list interface

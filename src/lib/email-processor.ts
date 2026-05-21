@@ -90,18 +90,39 @@ export async function processEmail(
     env.EMAIL_STORAGE.get(feedMetadataKey, "json"),
   ]);
 
+  // Note: KV has no atomic compare-and-swap. Concurrent invocations for the
+  // same feed can read stale metadata and produce orphaned KV entries or
+  // duplicate trim deletions. This is an accepted limitation given Cloudflare
+  // KV's eventual-consistency model.
   const feedMetadata = ((rawMetadata as FeedMetadata | null) || {
     emails: [],
   }) as FeedMetadata;
+
+  const DEFAULT_MAX_BYTES = 524288; // 512 KB
+  const maxBytes =
+    parseInt(env.FEED_MAX_SIZE_BYTES ?? "", 10) || DEFAULT_MAX_BYTES;
+
+  const serialised = JSON.stringify(emailData);
+  const serialisedSize = new TextEncoder().encode(serialised).byteLength;
   feedMetadata.emails.unshift({
     key: emailKey,
     subject: emailData.subject,
     receivedAt: emailData.receivedAt,
+    size: serialisedSize,
   });
-  if (feedMetadata.emails.length > 50) {
-    feedMetadata.emails = feedMetadata.emails.slice(0, 50);
+
+  let totalSize = feedMetadata.emails.reduce((sum, e) => sum + (e.size ?? 0), 0);
+  const toDelete: string[] = [];
+  while (totalSize > maxBytes && feedMetadata.emails.length > 1) {
+    const dropped = feedMetadata.emails.pop()!;
+    totalSize -= dropped.size ?? 0;
+    toDelete.push(dropped.key);
   }
-  await env.EMAIL_STORAGE.put(feedMetadataKey, JSON.stringify(feedMetadata));
+
+  await Promise.all([
+    env.EMAIL_STORAGE.put(feedMetadataKey, JSON.stringify(feedMetadata)),
+    ...toDelete.map((k) => env.EMAIL_STORAGE.delete(k)),
+  ]);
 
   console.log(`Successfully processed email for feed ${feedId}`);
   return new Response("Email processed successfully", { status: 200 });
