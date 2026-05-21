@@ -42,6 +42,7 @@ function buildFeed(
 
   for (const email of emails) {
     const uniqueId = `${email.receivedAt}-${Buffer.from(email.subject).toString("base64").substring(0, 10)}`;
+    const firstAttachment = email.attachments?.[0];
     feed.addItem({
       title: email.subject,
       id: uniqueId,
@@ -50,6 +51,13 @@ function buildFeed(
       content: email.content,
       author: [parseFromAddress(email.from)],
       date: new Date(email.receivedAt),
+      enclosure: firstAttachment
+        ? {
+            url: `${baseUrl}/files/${firstAttachment.id}/${encodeURIComponent(firstAttachment.filename)}`,
+            type: firstAttachment.contentType,
+            length: firstAttachment.size,
+          }
+        : undefined,
     });
   }
 

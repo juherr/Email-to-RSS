@@ -3,9 +3,18 @@ export interface Env {
   EMAIL_STORAGE: KVNamespace;
   ADMIN_PASSWORD: string;
   DOMAIN: string;
+  ATTACHMENT_BUCKET?: R2Bucket;
   FEED_MAX_SIZE_BYTES?: string;
   PROXY_TRUSTED_IPS?: string;
   PROXY_AUTH_SECRET?: string;
+}
+
+// Stored attachment metadata (bytes live in R2, keyed by id)
+export interface AttachmentData {
+  id: string;
+  filename: string;
+  contentType: string;
+  size: number;
 }
 
 // Email interface for stored emails
@@ -15,6 +24,7 @@ export interface EmailData {
   content: string;
   receivedAt: number;
   headers: Record<string, string>;
+  attachments?: AttachmentData[];
 }
 
 // Feed configuration interface
@@ -41,6 +51,7 @@ export interface EmailMetadata {
   subject: string;
   receivedAt: number;
   size?: number;
+  attachmentIds?: string[];
 }
 
 // Feed list interface

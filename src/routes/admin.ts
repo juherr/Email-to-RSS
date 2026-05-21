@@ -1908,7 +1908,7 @@ async function deleteFeedFastDetailed(
 async function purgeFeedKeysStep(
   emailStorage: KVNamespace,
   feedId: string,
-  options: { cursor?: string; limit?: number } = {},
+  options: { cursor?: string; limit?: number; bucket?: R2Bucket } = {},
 ): Promise<{
   deletedKeys: string[];
   failedKeys: string[];
@@ -1921,6 +1921,33 @@ async function purgeFeedKeysStep(
 
   const listed = await emailStorage.list({ prefix, cursor, limit });
   const keys = (listed.keys || []).map((k) => k.name);
+
+  // Collect R2 attachment IDs from email entries before deleting
+  if (options.bucket && keys.length > 0) {
+    const emailKeys = keys.filter((k) => {
+      const suffix = k.slice(prefix.length);
+      return suffix !== "config" && suffix !== "metadata";
+    });
+    if (emailKeys.length > 0) {
+      const emailDataResults = await Promise.allSettled(
+        emailKeys.map((k) =>
+          emailStorage.get(k, { type: "json" }) as Promise<EmailData | null>,
+        ),
+      );
+      const attachmentIds = emailDataResults
+        .filter(
+          (r): r is PromiseFulfilledResult<EmailData | null> =>
+            r.status === "fulfilled",
+        )
+        .flatMap((r) => r.value?.attachments?.map((a) => a.id) ?? []);
+      if (attachmentIds.length > 0) {
+        await Promise.allSettled(
+          attachmentIds.map((id) => options.bucket!.delete(id)),
+        );
+      }
+    }
+  }
+
   const { ok, failed } = await deleteKeysWithConcurrency(
     emailStorage,
     keys,
@@ -1949,7 +1976,7 @@ app.post("/feeds/:feedId/delete", async (c) => {
 
     // Best-effort cleanup in the background so the request stays fast.
     // Use the UI purge endpoint for full, user-visible progress.
-    waitUntilSafe(c, purgeFeedKeysStep(emailStorage, feedId));
+    waitUntilSafe(c, purgeFeedKeysStep(emailStorage, feedId, { bucket: env.ATTACHMENT_BUCKET }));
     if (wantsJson) {
       return c.json({ ok: true, feedId });
     }
@@ -1987,6 +2014,7 @@ app.post("/feeds/:feedId/purge", async (c) => {
     const step = await purgeFeedKeysStep(emailStorage, feedId, {
       cursor,
       limit,
+      bucket: env.ATTACHMENT_BUCKET,
     });
 
     return c.json({
@@ -3420,14 +3448,17 @@ app.post("/emails/:emailKey/delete", async (c) => {
       return c.text("Feed ID is required", 400);
     }
 
-    // Delete the email
-    await emailStorage.delete(emailKey);
-
-    // Remove the email from the feed metadata
+    // Load metadata first to collect attachment IDs for R2 cleanup
     const feedMetadataKey = `feed:${feedId}:metadata`;
     const feedMetadata = (await emailStorage.get(feedMetadataKey, {
       type: "json",
     })) as FeedMetadata | null;
+
+    const attachmentIds =
+      feedMetadata?.emails.find((e) => e.key === emailKey)?.attachmentIds ?? [];
+
+    // Delete the email
+    await emailStorage.delete(emailKey);
 
     if (feedMetadata) {
       // Filter out the deleted email
@@ -3437,6 +3468,13 @@ app.post("/emails/:emailKey/delete", async (c) => {
 
       // Update feed metadata
       await emailStorage.put(feedMetadataKey, JSON.stringify(feedMetadata));
+    }
+
+    // Best-effort R2 attachment cleanup
+    if (env.ATTACHMENT_BUCKET && attachmentIds.length > 0) {
+      await Promise.allSettled(
+        attachmentIds.map((id) => env.ATTACHMENT_BUCKET!.delete(id)),
+      );
     }
 
     if (wantsJson) {
@@ -3508,6 +3546,13 @@ app.post("/feeds/:feedId/emails/bulk-delete", async (c) => {
       }
 
       const candidates = emailKeys.filter((key) => allowedKeys.has(key));
+
+      // Collect attachment IDs from metadata before deleting (no extra KV reads needed)
+      const candidateSet = new Set(candidates);
+      const r2AttachmentIds = feedMetadata.emails
+        .filter((e) => candidateSet.has(e.key))
+        .flatMap((e) => e.attachmentIds ?? []);
+
       const { ok: deletedOk, failed: failedEmailKeys } =
         await deleteKeysWithConcurrency(emailStorage, candidates, 35);
 
@@ -3516,6 +3561,13 @@ app.post("/feeds/:feedId/emails/bulk-delete", async (c) => {
         (email) => !deletedSet.has(email.key),
       );
       await emailStorage.put(feedMetadataKey, JSON.stringify(feedMetadata));
+
+      // Best-effort R2 attachment cleanup
+      if (env.ATTACHMENT_BUCKET && r2AttachmentIds.length > 0) {
+        await Promise.allSettled(
+          r2AttachmentIds.map((id) => env.ATTACHMENT_BUCKET!.delete(id)),
+        );
+      }
 
       return c.json({
         ok: failedEmailKeys.length === 0,

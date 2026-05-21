@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import "../test/setup";
-import { createMockEnv } from "../test/setup";
-import { processEmail, ProcessEmailInput } from "./email-processor";
+import { createMockEnv, MockR2 } from "../test/setup";
+import { processEmail, ProcessEmailInput, RawAttachment } from "./email-processor";
 
 const VALID_FEED_ID = "apple.mountain.42";
 const VALID_TO = `${VALID_FEED_ID}@test.getmynews.app`;
@@ -177,5 +177,128 @@ describe("processEmail", () => {
     await processEmail(makeInput({ subject: "Second" }), bigEnv as any);
     const metadata = await env.EMAIL_STORAGE.get(`feed:${VALID_FEED_ID}:metadata`, "json");
     expect(metadata.emails).toHaveLength(2);
+  });
+});
+
+describe("processEmail — attachments", () => {
+  const pdfContent = new TextEncoder().encode("PDF bytes").buffer as ArrayBuffer;
+
+  const pdfAttachment: RawAttachment = {
+    filename: "report.pdf",
+    contentType: "application/pdf",
+    content: pdfContent,
+  };
+
+  it("skips R2 upload when ATTACHMENT_BUCKET is not configured", async () => {
+    const env = createMockEnv();
+    await env.EMAIL_STORAGE.put(
+      `feed:${VALID_FEED_ID}:config`,
+      JSON.stringify({}),
+    );
+    const res = await processEmail(
+      makeInput({ attachments: [pdfAttachment] }),
+      env as any,
+    );
+    expect(res.status).toBe(200);
+
+    const metadata = await env.EMAIL_STORAGE.get(
+      `feed:${VALID_FEED_ID}:metadata`,
+      "json",
+    );
+    const emailData = await env.EMAIL_STORAGE.get(metadata.emails[0].key, "json");
+    expect(emailData.attachments).toBeUndefined();
+  });
+
+  it("uploads attachments to R2 and stores AttachmentData in emailData", async () => {
+    const env = createMockEnv({ withR2: true });
+    const mockR2 = (env as any).ATTACHMENT_BUCKET as unknown as MockR2;
+    await env.EMAIL_STORAGE.put(
+      `feed:${VALID_FEED_ID}:config`,
+      JSON.stringify({}),
+    );
+    const res = await processEmail(
+      makeInput({ attachments: [pdfAttachment] }),
+      env as any,
+    );
+    expect(res.status).toBe(200);
+
+    const metadata = await env.EMAIL_STORAGE.get(
+      `feed:${VALID_FEED_ID}:metadata`,
+      "json",
+    );
+    const emailData = await env.EMAIL_STORAGE.get(metadata.emails[0].key, "json");
+
+    expect(emailData.attachments).toHaveLength(1);
+    expect(emailData.attachments[0].filename).toBe("report.pdf");
+    expect(emailData.attachments[0].contentType).toBe("application/pdf");
+    expect(emailData.attachments[0].size).toBe(pdfContent.byteLength);
+
+    const id = emailData.attachments[0].id;
+    expect(mockR2._has(id)).toBe(true);
+  });
+
+  it("stores attachmentIds in EmailMetadata for trim-time cleanup", async () => {
+    const env = createMockEnv({ withR2: true });
+    await env.EMAIL_STORAGE.put(
+      `feed:${VALID_FEED_ID}:config`,
+      JSON.stringify({}),
+    );
+    await processEmail(makeInput({ attachments: [pdfAttachment] }), env as any);
+
+    const metadata = await env.EMAIL_STORAGE.get(
+      `feed:${VALID_FEED_ID}:metadata`,
+      "json",
+    );
+    expect(metadata.emails[0].attachmentIds).toHaveLength(1);
+    expect(typeof metadata.emails[0].attachmentIds[0]).toBe("string");
+  });
+
+  it("deletes R2 objects when a trimmed email had attachments", async () => {
+    const env = createMockEnv({ withR2: true });
+    const mockR2 = (env as any).ATTACHMENT_BUCKET as unknown as MockR2;
+    await env.EMAIL_STORAGE.put(
+      `feed:${VALID_FEED_ID}:config`,
+      JSON.stringify({}),
+    );
+
+    // Store an old email with attachment in KV and metadata
+    const oldKey = `feed:${VALID_FEED_ID}:111`;
+    const oldAttachmentId = "old-attachment-uuid";
+    const bigContent = "x".repeat(200);
+    const oldEmail = JSON.stringify({
+      subject: "Old",
+      from: "a@b.com",
+      content: bigContent,
+      receivedAt: 111,
+      headers: {},
+      attachments: [{ id: oldAttachmentId, filename: "old.pdf", contentType: "application/pdf", size: 100 }],
+    });
+    await env.EMAIL_STORAGE.put(oldKey, oldEmail);
+
+    // Also put the attachment in mock R2
+    await mockR2.put(oldAttachmentId, new ArrayBuffer(100));
+
+    await env.EMAIL_STORAGE.put(
+      `feed:${VALID_FEED_ID}:metadata`,
+      JSON.stringify({
+        emails: [
+          {
+            key: oldKey,
+            subject: "Old",
+            receivedAt: 111,
+            size: oldEmail.length,
+            attachmentIds: [oldAttachmentId],
+          },
+        ],
+      }),
+    );
+
+    // Process with tight size budget to force trimming
+    const tinyEnv = { ...env, FEED_MAX_SIZE_BYTES: "50" };
+    const res = await processEmail(makeInput({ subject: "New" }), tinyEnv as any);
+    expect(res.status).toBe(200);
+
+    // Old attachment should be deleted from R2
+    expect(mockR2._has(oldAttachmentId)).toBe(false);
   });
 });

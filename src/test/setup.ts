@@ -158,11 +158,91 @@ afterEach(() => {
 });
 
 /**
+ * Mock R2 bucket implementation
+ * Simulates Cloudflare Workers R2 storage using an in-memory Map
+ */
+export class MockR2 {
+  private store: Map<
+    string,
+    {
+      body: ArrayBuffer;
+      httpMetadata?: { contentType?: string; contentDisposition?: string };
+      httpEtag: string;
+    }
+  > = new Map();
+
+  async put(
+    key: string,
+    value: ReadableStream | ArrayBuffer | ArrayBufferView | string | null | Blob,
+    options?: {
+      httpMetadata?: { contentType?: string; contentDisposition?: string };
+    },
+  ) {
+    let buffer: ArrayBuffer;
+    if (value instanceof ArrayBuffer) {
+      buffer = value;
+    } else if (typeof value === "string") {
+      buffer = new TextEncoder().encode(value).buffer as ArrayBuffer;
+    } else if (ArrayBuffer.isView(value)) {
+      buffer = value.buffer as ArrayBuffer;
+    } else {
+      buffer = new ArrayBuffer(0);
+    }
+    this.store.set(key, {
+      body: buffer,
+      httpMetadata: options?.httpMetadata,
+      httpEtag: `"mock-etag-${key}"`,
+    });
+  }
+
+  async get(key: string) {
+    const entry = this.store.get(key);
+    if (!entry) return null;
+    return {
+      key,
+      body: new ReadableStream({
+        start(controller) {
+          controller.enqueue(new Uint8Array(entry.body));
+          controller.close();
+        },
+      }),
+      httpEtag: entry.httpEtag,
+      httpMetadata: entry.httpMetadata,
+      size: entry.body.byteLength,
+      arrayBuffer: async () => entry.body,
+      text: async () => new TextDecoder().decode(entry.body),
+      writeHttpMetadata: (headers: Headers) => {
+        if (entry.httpMetadata?.contentType) {
+          headers.set("Content-Type", entry.httpMetadata.contentType);
+        }
+        if (entry.httpMetadata?.contentDisposition) {
+          headers.set("Content-Disposition", entry.httpMetadata.contentDisposition);
+        }
+      },
+    };
+  }
+
+  async delete(keys: string | string[]) {
+    const arr = Array.isArray(keys) ? keys : [keys];
+    for (const k of arr) {
+      this.store.delete(k);
+    }
+  }
+
+  _has(key: string) {
+    return this.store.has(key);
+  }
+}
+
+/**
  * Create a mock environment for testing
  * @returns Mock environment with KV storage and configuration
  */
-export const createMockEnv = () => ({
+export const createMockEnv = (options: { withR2?: boolean } = {}) => ({
   EMAIL_STORAGE: new MockKV(),
   DOMAIN: "test.getmynews.app",
   ADMIN_PASSWORD: "test-password",
+  ...(options.withR2
+    ? { ATTACHMENT_BUCKET: new MockR2() as unknown as R2Bucket }
+    : {}),
 });

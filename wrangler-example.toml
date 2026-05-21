@@ -8,6 +8,11 @@ kv_namespaces = [
   { binding = "EMAIL_STORAGE", id = "REPLACE_WITH_YOUR_KV_NAMESPACE_ID", preview_id = "REPLACE_WITH_YOUR_PREVIEW_KV_NAMESPACE_ID" }
 ]
 
+# Optional: R2 bucket for storing email attachment enclosures
+# r2_buckets = [
+#   { binding = "ATTACHMENT_BUCKET", bucket_name = "REPLACE_WITH_YOUR_BUCKET_NAME", preview_bucket_name = "REPLACE_WITH_YOUR_PREVIEW_BUCKET_NAME" }
+# ]
+
 # Workers Observability (keeps config in sync with dashboard toggle)
 [observability.logs]
 enabled = true
@@ -41,6 +46,11 @@ workers_dev = false
 kv_namespaces = [
   { binding = "EMAIL_STORAGE", id = "REPLACE_WITH_YOUR_KV_NAMESPACE_ID" }
 ]
+
+# Optional: R2 bucket for storing email attachment enclosures
+# r2_buckets = [
+#   { binding = "ATTACHMENT_BUCKET", bucket_name = "REPLACE_WITH_YOUR_BUCKET_NAME" }
+# ]
 
 routes = [
   { pattern = "REPLACE_WITH_YOUR_DOMAIN", custom_domain = true },

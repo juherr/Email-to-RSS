@@ -1,5 +1,11 @@
 import { EmailParser } from "../utils/email-parser";
-import { Env, FeedConfig, FeedMetadata } from "../types";
+import { AttachmentData, EmailMetadata, Env, FeedConfig, FeedMetadata } from "../types";
+
+export interface RawAttachment {
+  filename: string;
+  contentType: string;
+  content: ArrayBuffer;
+}
 
 export interface ProcessEmailInput {
   toAddress: string;
@@ -9,6 +15,7 @@ export interface ProcessEmailInput {
   content: string;
   receivedAt: number;
   headers?: Record<string, string>;
+  attachments?: RawAttachment[];
 }
 
 function normalizeEmail(value: string): string {
@@ -32,6 +39,29 @@ function senderMatchesAllowlist(
     ? allowedSender.slice(1)
     : allowedSender;
   return senderDomain === normalizedDomain;
+}
+
+async function uploadAttachments(
+  attachments: RawAttachment[],
+  bucket: R2Bucket,
+): Promise<AttachmentData[]> {
+  return Promise.all(
+    attachments.map(async (att) => {
+      const id = crypto.randomUUID();
+      await bucket.put(id, att.content, {
+        httpMetadata: {
+          contentType: att.contentType,
+          contentDisposition: `attachment; filename="${att.filename}"`,
+        },
+      });
+      return {
+        id,
+        filename: att.filename,
+        contentType: att.contentType,
+        size: att.content.byteLength,
+      };
+    }),
+  );
 }
 
 export async function processEmail(
@@ -74,12 +104,18 @@ export async function processEmail(
     }
   }
 
+  const storedAttachments: AttachmentData[] =
+    env.ATTACHMENT_BUCKET && input.attachments?.length
+      ? await uploadAttachments(input.attachments, env.ATTACHMENT_BUCKET)
+      : [];
+
   const emailData = {
     subject: input.subject,
     from: input.from,
     content: input.content,
     receivedAt: input.receivedAt,
     headers: input.headers ?? {},
+    ...(storedAttachments.length > 0 ? { attachments: storedAttachments } : {}),
   };
 
   const emailKey = `feed:${feedId}:${Date.now()}`;
@@ -104,24 +140,36 @@ export async function processEmail(
 
   const serialised = JSON.stringify(emailData);
   const serialisedSize = new TextEncoder().encode(serialised).byteLength;
-  feedMetadata.emails.unshift({
+  const newEntry: EmailMetadata = {
     key: emailKey,
     subject: emailData.subject,
     receivedAt: emailData.receivedAt,
     size: serialisedSize,
-  });
+    ...(storedAttachments.length > 0
+      ? { attachmentIds: storedAttachments.map((a) => a.id) }
+      : {}),
+  };
+  feedMetadata.emails.unshift(newEntry);
 
   let totalSize = feedMetadata.emails.reduce((sum, e) => sum + (e.size ?? 0), 0);
-  const toDelete: string[] = [];
+  const toDelete: EmailMetadata[] = [];
   while (totalSize > maxBytes && feedMetadata.emails.length > 1) {
     const dropped = feedMetadata.emails.pop()!;
     totalSize -= dropped.size ?? 0;
-    toDelete.push(dropped.key);
+    toDelete.push(dropped);
   }
+
+  const r2Deletions =
+    env.ATTACHMENT_BUCKET && toDelete.length > 0
+      ? toDelete
+          .flatMap((e) => e.attachmentIds ?? [])
+          .map((id) => env.ATTACHMENT_BUCKET!.delete(id))
+      : [];
 
   await Promise.all([
     env.EMAIL_STORAGE.put(feedMetadataKey, JSON.stringify(feedMetadata)),
-    ...toDelete.map((k) => env.EMAIL_STORAGE.delete(k)),
+    ...toDelete.map((e) => env.EMAIL_STORAGE.delete(e.key)),
+    ...r2Deletions,
   ]);
 
   console.log(`Successfully processed email for feed ${feedId}`);

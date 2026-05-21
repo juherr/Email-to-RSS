@@ -4,6 +4,7 @@ import { handle as handleRSS } from "./routes/rss";
 import { handle as handleAtom } from "./routes/atom";
 import { handle as handleAdmin } from "./routes/admin";
 import { handle as handleEntry } from "./routes/entries";
+import { handle as handleFiles } from "./routes/files";
 import { handleCloudflareEmail } from "./lib/cloudflare-email";
 import { Env } from "./types";
 
@@ -105,6 +106,7 @@ const api = new Hono();
 const rss = new Hono();
 const atom = new Hono();
 const entries = new Hono();
+const files = new Hono();
 const admin = new Hono();
 
 // Webhook security middleware for /inbound - verify ForwardEmail.net IP
@@ -141,6 +143,9 @@ atom.get("/:feedId", handleAtom);
 // Email entry HTML view (public)
 entries.get("/:feedId/:entryId", handleEntry);
 
+// Attachment file serving (public)
+files.get("/:attachmentId/:filename", handleFiles);
+
 // Admin routes (protected)
 admin.route("/", handleAdmin);
 
@@ -149,6 +154,7 @@ app.route("/api", api);
 app.route("/rss", rss);
 app.route("/atom", atom);
 app.route("/entries", entries);
+app.route("/files", files);
 app.route("/admin", admin);
 
 // Root path redirects to admin dashboard

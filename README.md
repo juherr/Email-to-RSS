@@ -21,6 +21,8 @@ Email-to-RSS keeps the same workflow while avoiding shared domains and shared da
 - ForwardEmail webhook ingestion with source-IP verification (optional alternative)
 - Optional per-feed sender allowlist (`email@domain.com` or `domain.com`)
 - RSS generation on demand (`/rss/:feedId`)
+- Atom feed at `/atom/:feedId`
+- Email attachments stored in Cloudflare R2 and exposed as RSS enclosures (optional)
 - Cloudflare KV storage for feed config + email metadata/content
 - Password-protected admin UI
 
@@ -45,6 +47,8 @@ Main routes:
 - `src/lib/cloudflare-email.ts`: Cloudflare Email Workers ingestion
 - `src/routes/inbound.ts`: ForwardEmail webhook ingestion
 - `src/routes/rss.ts`: RSS rendering
+- `src/routes/atom.ts`: Atom feed rendering
+- `src/routes/files.ts`: attachment file serving from R2
 - `src/routes/admin.ts`: admin UI + feed CRUD
 
 ## Requirements
@@ -141,6 +145,32 @@ To override the threshold, add to `wrangler.toml` under `[vars]`:
 FEED_MAX_SIZE_BYTES = "524288"   # 512 KB — adjust as needed
 ```
 
+### Email attachments (R2)
+
+When an incoming email contains attachments, the Worker can store them in a Cloudflare R2 bucket and expose them as `<enclosure>` elements in the RSS feed (and `<link rel="enclosure">` in Atom). Each attachment is served at `/files/{id}/{filename}` with an immutable cache header.
+
+This feature is **optional**. If no R2 bucket is bound, attachments are silently ignored and nothing else changes.
+
+**Setup:**
+
+1. Create an R2 bucket in the Cloudflare dashboard (*R2 Object Storage → Create bucket*), or with Wrangler:
+   ```bash
+   npx wrangler r2 bucket create your-bucket-name
+   ```
+2. In `wrangler.toml`, uncomment and fill in the R2 binding (the commented block from `wrangler-example.toml`):
+   ```toml
+   r2_buckets = [
+     { binding = "ATTACHMENT_BUCKET", bucket_name = "your-bucket-name", preview_bucket_name = "your-bucket-name-preview" }
+   ]
+   ```
+   Do the same under `[env.production]` (without `preview_bucket_name`).
+3. Redeploy:
+   ```bash
+   npm run deploy
+   ```
+
+Attachments are deleted from R2 automatically when the corresponding email is deleted from the admin UI, or when an email is dropped during feed size trimming.
+
 ### External auth provider (Authelia / Authentik / reverse proxy)
 
 Instead of the built-in password login you can delegate admin authentication to a reverse proxy that sets a trusted user header (`Remote-User` or `X-Forwarded-User`).
@@ -187,6 +217,11 @@ npm run build
 ```
 
 Then update `compatibility_date` and redeploy.
+
+## Acknowledgements
+
+- [kill-the-newsletter](https://github.com/leafac/kill-the-newsletter) by Leandro Facchinetti — the inspiration for this project and the reference implementation for feature ideas (Atom feeds, attachment enclosures, entry HTML views, and more).
+- [Email-to-RSS](https://github.com/yl8976/Email-to-RSS) by yl8976 — the initial codebase this project is based on.
 
 ## License
 
