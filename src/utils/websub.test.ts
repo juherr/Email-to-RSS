@@ -313,6 +313,29 @@ describe("verifyAndStoreSubscription", () => {
     const subs = await getSubscriptions("feed1", env);
     expect(subs).toHaveLength(0);
   });
+
+  it("returns false when callback returns non-ok HTTP status", async () => {
+    const env = mockEnv();
+    server.use(
+      http.get("https://reader.example/callback", ({ request }) => {
+        const challenge =
+          new URL(request.url).searchParams.get("hub.challenge") ?? "";
+        return HttpResponse.text(challenge, { status: 500 });
+      }),
+    );
+
+    const result = await verifyAndStoreSubscription(
+      "feed1",
+      "https://reader.example/callback",
+      undefined,
+      86400,
+      env,
+    );
+
+    expect(result).toBe(false);
+    const subs = await getSubscriptions("feed1", env);
+    expect(subs).toHaveLength(0);
+  });
 });
 
 describe("verifyAndDeleteSubscription", () => {
@@ -364,6 +387,33 @@ describe("verifyAndDeleteSubscription", () => {
       http.get("https://reader.example/callback", () =>
         HttpResponse.text("nope"),
       ),
+    );
+
+    const result = await verifyAndDeleteSubscription(
+      "feed1",
+      "https://reader.example/callback",
+      env,
+    );
+    expect(result).toBe(false);
+    const subs = await getSubscriptions("feed1", env);
+    expect(subs).toHaveLength(1);
+  });
+
+  it("returns false and leaves subscription intact when callback fetch fails", async () => {
+    const env = mockEnv();
+    await saveSubscriptions(
+      "feed1",
+      [
+        {
+          callbackUrl: "https://reader.example/callback",
+          expiresAt: Date.now() + 60000,
+        },
+      ],
+      env,
+    );
+
+    server.use(
+      http.get("https://reader.example/callback", () => HttpResponse.error()),
     );
 
     const result = await verifyAndDeleteSubscription(
