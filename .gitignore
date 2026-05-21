@@ -4,6 +4,7 @@ yarn.lock
 
 # Build
 dist/
+coverage/
 .wrangler/
 .dev.vars
 
