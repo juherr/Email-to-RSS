@@ -1,9 +1,18 @@
-import { Hono } from "hono";
+import { Hono, type Context } from "hono";
 import { Env } from "../types";
 import {
   verifyAndStoreSubscription,
   verifyAndDeleteSubscription,
 } from "../utils/websub";
+
+function waitUntilSafe(c: Context, promise: Promise<unknown>) {
+  // Hono throws when ExecutionContext isn't present (e.g. Node unit tests).
+  try {
+    c.executionCtx.waitUntil(promise);
+  } catch {
+    // ignore
+  }
+}
 
 const DEFAULT_LEASE_SECONDS = 86400;
 const MAX_LEASE_SECONDS = 30 * 24 * 3600; // 30 days
@@ -82,7 +91,8 @@ hubRouter.post("/", async (c) => {
 
   // Return 202 immediately; verification is async
   if (mode === "subscribe") {
-    c.executionCtx.waitUntil(
+    waitUntilSafe(
+      c,
       verifyAndStoreSubscription(
         feedId,
         callbackUrl as string,
@@ -92,7 +102,8 @@ hubRouter.post("/", async (c) => {
       ),
     );
   } else {
-    c.executionCtx.waitUntil(
+    waitUntilSafe(
+      c,
       verifyAndDeleteSubscription(feedId, callbackUrl as string, env),
     );
   }
