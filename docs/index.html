@@ -1,0 +1,595 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>kill-the-news — Private newsletter feeds on Cloudflare Workers</title>
+  <meta name="description" content="Convert email newsletters into private RSS feeds using Cloudflare Workers. Self-hosted, free tier, your own domain." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0a0a0a;
+      --surface: #111111;
+      --border: #222222;
+      --text: #f0f0f0;
+      --muted: #888888;
+      --accent: #f6821f;
+      --accent-dim: rgba(246,130,31,0.12);
+      --radius: 10px;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'Inter', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      font-size: 16px;
+    }
+
+    a { color: inherit; text-decoration: none; }
+
+    /* ── Nav ── */
+    nav {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 2rem;
+      height: 60px;
+      background: rgba(10,10,10,0.85);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .nav-logo {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-weight: 600;
+      font-size: 1rem;
+    }
+
+    .nav-logo svg { color: var(--accent); }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.45rem 1rem;
+      border-radius: 6px;
+      font-size: 0.875rem;
+      font-weight: 500;
+      font-family: inherit;
+      cursor: pointer;
+      transition: opacity 0.15s, background 0.15s;
+      border: none;
+    }
+
+    .btn-outline {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text);
+    }
+    .btn-outline:hover { background: var(--surface); }
+
+    .btn-primary {
+      background: var(--accent);
+      color: #fff;
+    }
+    .btn-primary:hover { opacity: 0.88; }
+
+    /* ── Hero ── */
+    .hero {
+      position: relative;
+      overflow: hidden;
+      padding: 6rem 2rem 5rem;
+      text-align: center;
+    }
+
+    .hero-glow {
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(ellipse 80% 60% at 50% -10%, rgba(246,130,31,0.18) 0%, transparent 70%);
+      pointer-events: none;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      padding: 0.3rem 0.75rem;
+      border-radius: 999px;
+      border: 1px solid rgba(246,130,31,0.35);
+      background: var(--accent-dim);
+      color: var(--accent);
+      font-size: 0.8rem;
+      font-weight: 500;
+      margin-bottom: 1.5rem;
+    }
+
+    .hero h1 {
+      font-size: clamp(2.2rem, 5vw, 3.5rem);
+      font-weight: 700;
+      line-height: 1.15;
+      letter-spacing: -0.02em;
+      max-width: 720px;
+      margin: 0 auto 1.25rem;
+    }
+
+    .hero h1 span { color: var(--accent); }
+
+    .hero p {
+      font-size: 1.1rem;
+      color: var(--muted);
+      max-width: 520px;
+      margin: 0 auto 2.5rem;
+    }
+
+    .hero-ctas {
+      display: flex;
+      gap: 0.75rem;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    /* ── Section layout ── */
+    section {
+      padding: 5rem 2rem;
+      max-width: 1100px;
+      margin: 0 auto;
+    }
+
+    .section-label {
+      font-size: 0.75rem;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 0.75rem;
+    }
+
+    .section-title {
+      font-size: clamp(1.6rem, 3vw, 2.2rem);
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      margin-bottom: 0.75rem;
+    }
+
+    .section-sub {
+      color: var(--muted);
+      font-size: 1rem;
+      max-width: 520px;
+    }
+
+    .section-header { margin-bottom: 3rem; }
+
+    /* ── Features ── */
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+      gap: 1.25rem;
+    }
+
+    .feature-card {
+      padding: 1.5rem;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--surface);
+      transition: border-color 0.2s;
+    }
+    .feature-card:hover { border-color: rgba(246,130,31,0.4); }
+
+    .feature-icon {
+      width: 38px;
+      height: 38px;
+      border-radius: 8px;
+      background: var(--accent-dim);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--accent);
+      margin-bottom: 1rem;
+    }
+
+    .feature-card h3 {
+      font-size: 0.95rem;
+      font-weight: 600;
+      margin-bottom: 0.4rem;
+    }
+
+    .feature-card p {
+      font-size: 0.875rem;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+
+    /* ── How it works ── */
+    #how-it-works { background: var(--surface); max-width: none; padding: 5rem 2rem; }
+    #how-it-works .inner { max-width: 1100px; margin: 0 auto; }
+
+    .steps {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 0;
+      margin-top: 3rem;
+      position: relative;
+    }
+
+    .step {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      padding: 2rem 2rem 2rem 0;
+      position: relative;
+    }
+
+    .step:not(:last-child)::after {
+      content: '';
+      position: absolute;
+      right: 0;
+      top: 2.75rem;
+      width: 1px;
+      height: calc(100% - 5.5rem);
+      background: var(--border);
+    }
+
+    .step-num {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: var(--accent);
+      color: #fff;
+      font-weight: 700;
+      font-size: 0.95rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 1rem;
+      flex-shrink: 0;
+    }
+
+    .step h3 {
+      font-size: 1rem;
+      font-weight: 600;
+      margin-bottom: 0.4rem;
+    }
+
+    .step p {
+      font-size: 0.875rem;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+
+    /* ── Quick Start ── */
+    #quick-start {}
+
+    .code-block {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+
+    .code-block-header {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.75rem 1rem;
+      border-bottom: 1px solid var(--border);
+      font-size: 0.8rem;
+      color: var(--muted);
+    }
+
+    .code-block-header span {
+      display: inline-block;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+    }
+    .dot-r { background: #ff5f57; }
+    .dot-y { background: #febc2e; }
+    .dot-g { background: #28c840; }
+
+    .code-block pre {
+      padding: 1.25rem 1.5rem;
+      font-family: 'JetBrains Mono', 'Courier New', monospace;
+      font-size: 0.85rem;
+      line-height: 1.75;
+      overflow-x: auto;
+    }
+
+    .code-block pre .prompt { color: var(--muted); user-select: none; }
+    .code-block pre .cmd { color: var(--text); }
+    .code-block pre .comment { color: #555; }
+
+    .ingestion-options {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 1rem;
+      margin-top: 2rem;
+    }
+
+    .ingestion-card {
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.25rem 1.5rem;
+      background: var(--surface);
+    }
+
+    .ingestion-card.recommended { border-color: rgba(246,130,31,0.4); }
+
+    .ingestion-card .tag {
+      display: inline-block;
+      padding: 0.2rem 0.55rem;
+      border-radius: 4px;
+      font-size: 0.7rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 0.75rem;
+    }
+    .tag-recommended { background: var(--accent-dim); color: var(--accent); }
+    .tag-alt { background: rgba(255,255,255,0.06); color: var(--muted); }
+
+    .ingestion-card h3 { font-size: 0.95rem; font-weight: 600; margin-bottom: 0.4rem; }
+    .ingestion-card p { font-size: 0.85rem; color: var(--muted); line-height: 1.6; }
+
+    /* ── Tech stack ── */
+    .tech-pills {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.65rem;
+      margin-top: 2rem;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.4rem 0.9rem;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      font-size: 0.85rem;
+      background: var(--surface);
+      color: var(--text);
+      font-weight: 500;
+    }
+
+    /* ── Footer ── */
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 2.5rem 2rem;
+      text-align: center;
+      color: var(--muted);
+      font-size: 0.85rem;
+    }
+
+    footer a { color: var(--muted); border-bottom: 1px solid var(--border); transition: color 0.15s; }
+    footer a:hover { color: var(--text); }
+    footer .sep { margin: 0 0.5rem; }
+
+    @media (max-width: 600px) {
+      .step:not(:last-child)::after { display: none; }
+      .step { padding-right: 0; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- Nav -->
+<nav>
+  <div class="nav-logo">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+      <polyline points="22,6 12,13 2,6"/>
+    </svg>
+    kill-the-news
+  </div>
+  <a href="https://github.com/juherr/kill-the-news" class="btn btn-outline" target="_blank" rel="noopener">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.3 3.44 9.8 8.2 11.38.6.11.82-.26.82-.58v-2.03c-3.34.73-4.04-1.61-4.04-1.61-.54-1.38-1.33-1.75-1.33-1.75-1.09-.74.08-.73.08-.73 1.2.09 1.84 1.24 1.84 1.24 1.07 1.83 2.8 1.3 3.49 1 .11-.78.42-1.3.76-1.6-2.67-.3-5.47-1.33-5.47-5.93 0-1.31.47-2.38 1.24-3.22-.12-.3-.54-1.52.12-3.17 0 0 1.01-.32 3.3 1.23a11.5 11.5 0 0 1 3-.4c1.02.005 2.04.14 3 .4 2.28-1.55 3.29-1.23 3.29-1.23.66 1.65.24 2.87.12 3.17.77.84 1.24 1.91 1.24 3.22 0 4.61-2.81 5.63-5.48 5.92.43.37.81 1.1.81 2.22v3.29c0 .32.22.7.83.58C20.57 21.8 24 17.3 24 12c0-6.63-5.37-12-12-12z"/></svg>
+    GitHub
+  </a>
+</nav>
+
+<!-- Hero -->
+<div class="hero">
+  <div class="hero-glow"></div>
+  <div class="badge">
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="10"/></svg>
+    Open Source · MIT · Free Tier
+  </div>
+  <h1>Turn email newsletters into <span>private RSS feeds</span></h1>
+  <p>Self-hosted on Cloudflare Workers. Your data stays in your own account, served from your own domain.</p>
+  <div class="hero-ctas">
+    <a href="https://github.com/juherr/kill-the-news" class="btn btn-primary" target="_blank" rel="noopener">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.3 3.44 9.8 8.2 11.38.6.11.82-.26.82-.58v-2.03c-3.34.73-4.04-1.61-4.04-1.61-.54-1.38-1.33-1.75-1.33-1.75-1.09-.74.08-.73.08-.73 1.2.09 1.84 1.24 1.84 1.24 1.07 1.83 2.8 1.3 3.49 1 .11-.78.42-1.3.76-1.6-2.67-.3-5.47-1.33-5.47-5.93 0-1.31.47-2.38 1.24-3.22-.12-.3-.54-1.52.12-3.17 0 0 1.01-.32 3.3 1.23a11.5 11.5 0 0 1 3-.4c1.02.005 2.04.14 3 .4 2.28-1.55 3.29-1.23 3.29-1.23.66 1.65.24 2.87.12 3.17.77.84 1.24 1.91 1.24 3.22 0 4.61-2.81 5.63-5.48 5.92.43.37.81 1.1.81 2.22v3.29c0 .32.22.7.83.58C20.57 21.8 24 17.3 24 12c0-6.63-5.37-12-12-12z"/></svg>
+      View on GitHub
+    </a>
+    <a href="#quick-start" class="btn btn-outline">Quick Start ↓</a>
+  </div>
+</div>
+
+<!-- Features -->
+<section id="features">
+  <div class="section-header">
+    <div class="section-label">Features</div>
+    <h2 class="section-title">Everything you need, nothing you don't</h2>
+    <p class="section-sub">Built on serverless infrastructure — zero servers to maintain, no subscription fees.</p>
+  </div>
+  <div class="features-grid">
+
+    <div class="feature-card">
+      <div class="feature-icon">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+      </div>
+      <h3>Self-Hosted &amp; Private</h3>
+      <p>Your emails and feeds live exclusively in your own Cloudflare account. No shared infrastructure, no data mining.</p>
+    </div>
+
+    <div class="feature-card">
+      <div class="feature-icon">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+      </div>
+      <h3>Free Cloudflare Tier</h3>
+      <p>Cloudflare Workers, KV, and Email Routing all fall within the generous free tier. Deploy at zero cost.</p>
+    </div>
+
+    <div class="feature-card">
+      <div class="feature-icon">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+      </div>
+      <h3>Your Own Domain</h3>
+      <p>Subscribe to newsletters using addresses on your own domain (e.g. <code style="font-family:monospace;font-size:0.8em;color:var(--accent)">apple@yourdomain.com</code>). No lock-in.</p>
+    </div>
+
+    <div class="feature-card">
+      <div class="feature-icon">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
+      </div>
+      <h3>Two Ingestion Methods</h3>
+      <p>Use Cloudflare Email Routing (no third-party) or ForwardEmail webhooks — whichever fits your setup.</p>
+    </div>
+
+    <div class="feature-card">
+      <div class="feature-icon">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+      </div>
+      <h3>Attachment Enclosures</h3>
+      <p>Email attachments are stored in Cloudflare R2 and exposed as RSS enclosures — no extra hosting needed.</p>
+    </div>
+
+    <div class="feature-card">
+      <div class="feature-icon">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+      </div>
+      <h3>External Auth Support</h3>
+      <p>Optionally delegate admin authentication to Authelia, Authentik, or any reverse proxy that sets <code style="font-family:monospace;font-size:0.8em;color:var(--accent)">Remote-User</code>.</p>
+    </div>
+
+  </div>
+</section>
+
+<!-- How it works -->
+<div id="how-it-works">
+  <div class="inner">
+    <div class="section-header">
+      <div class="section-label">How it works</div>
+      <h2 class="section-title">Three steps, done</h2>
+      <p class="section-sub">From email delivery to your RSS reader in milliseconds, with no moving parts.</p>
+    </div>
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">1</div>
+        <h3>Subscribe with your address</h3>
+        <p>Create a feed in the admin UI and get a unique address like <code style="font-family:monospace;font-size:0.8em;color:var(--accent)">newsletter.42@yourdomain.com</code>. Subscribe to any newsletter with it.</p>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <h3>Worker ingests the email</h3>
+        <p>When a newsletter arrives, Cloudflare routes it to your Worker. It parses the content and stores it in KV — attachments go to R2.</p>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <h3>Read in your RSS reader</h3>
+        <p>Your feed is live at <code style="font-family:monospace;font-size:0.8em;color:var(--accent)">/rss/:feedId</code>. Add it to any RSS client and never miss an issue.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Quick Start -->
+<section id="quick-start">
+  <div class="section-header">
+    <div class="section-label">Quick Start</div>
+    <h2 class="section-title">Up and running in minutes</h2>
+    <p class="section-sub">A single setup script handles KV namespaces, secrets, and <code style="font-family:monospace;font-size:0.9em">wrangler.toml</code> generation.</p>
+  </div>
+
+  <div class="code-block">
+    <div class="code-block-header">
+      <span class="dot-r"></span><span class="dot-y"></span><span class="dot-g"></span>
+      Terminal
+    </div>
+    <pre><span class="comment"># 1. Clone the repo</span>
+<span class="prompt">$ </span><span class="cmd">git clone https://github.com/juherr/kill-the-news.git &amp;&amp; cd kill-the-news</span>
+
+<span class="comment"># 2. Log in to Cloudflare</span>
+<span class="prompt">$ </span><span class="cmd">npx wrangler login</span>
+
+<span class="comment"># 3. Run the interactive setup (creates KV, sets secrets, writes wrangler.toml)</span>
+<span class="prompt">$ </span><span class="cmd">bash setup.sh</span>
+
+<span class="comment"># 4. Deploy to the edge</span>
+<span class="prompt">$ </span><span class="cmd">npm run deploy</span></pre>
+  </div>
+
+  <div style="margin-top:2rem;">
+    <p style="font-size:0.9rem;color:var(--muted);margin-bottom:1rem;">Then choose how emails reach your Worker:</p>
+    <div class="ingestion-options">
+      <div class="ingestion-card recommended">
+        <div class="tag tag-recommended">Recommended</div>
+        <h3>Cloudflare Email Routing</h3>
+        <p>Enable Email Routing on your domain and add a catch-all rule that forwards to the Worker. No third-party service required.</p>
+      </div>
+      <div class="ingestion-card">
+        <div class="tag tag-alt">Alternative</div>
+        <h3>ForwardEmail Webhook</h3>
+        <p>Point ForwardEmail MX records at your domain. ForwardEmail parses incoming mail and POSTs a JSON payload to <code style="font-family:monospace;font-size:0.8em">/api/inbound</code>.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Tech Stack -->
+<section id="tech-stack" style="padding-top:0;">
+  <div class="section-header">
+    <div class="section-label">Tech Stack</div>
+    <h2 class="section-title">Built on reliable primitives</h2>
+    <p class="section-sub">Minimal dependencies, maximum portability — runs entirely on Cloudflare's global network.</p>
+  </div>
+  <div class="tech-pills">
+    <span class="pill">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" style="color:var(--accent)"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+      Cloudflare Workers
+    </span>
+    <span class="pill">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--accent)"><rect x="2" y="2" width="9" height="9"/><rect x="13" y="2" width="9" height="9"/><rect x="13" y="13" width="9" height="9"/><rect x="2" y="13" width="9" height="9"/></svg>
+      Hono
+    </span>
+    <span class="pill">KV Storage</span>
+    <span class="pill">R2 Object Storage</span>
+    <span class="pill">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" style="color:#3178c6"><path d="M0 12v12h24V0H0zm19.341-.956c.61.152 1.074.423 1.501.865.221.236.549.666.575.769.008.03-1.036.73-1.668 1.123-.023.015-.115-.084-.217-.236-.31-.45-.633-.644-1.128-.678-.728-.05-1.196.331-1.192.967a.88.88 0 0 0 .102.45c.16.331.458.53 1.39.933 1.719.74 2.454 1.227 2.911 1.92.51.773.625 2.008.278 2.926-.38.998-1.325 1.676-2.655 1.9-.411.073-1.386.062-1.828-.018-.964-.172-1.878-.648-2.442-1.273-.221-.243-.652-.88-.625-.925.011-.016.11-.077.22-.141.108-.061.511-.294.892-.515l.69-.4.145.214c.202.308.643.731.91.872.766.404 1.817.347 2.335-.118a.883.883 0 0 0 .313-.72c0-.278-.035-.4-.18-.61-.186-.266-.567-.49-1.649-.96-1.238-.533-1.771-.864-2.259-1.39a3.165 3.165 0 0 1-.659-1.2c-.091-.339-.114-1.189-.042-1.531.255-1.197 1.158-2.03 2.461-2.278.423-.08 1.406-.05 1.821.053z"/></svg>
+      TypeScript
+    </span>
+    <span class="pill">RSS 2.0</span>
+    <span class="pill">Atom</span>
+    <span class="pill">postal-mime</span>
+    <span class="pill">Zod</span>
+    <span class="pill">Vitest</span>
+  </div>
+</section>
+
+<!-- Footer -->
+<footer>
+  <p>
+    <a href="https://github.com/juherr/kill-the-news" target="_blank" rel="noopener">kill-the-news</a>
+    <span class="sep">·</span>
+    MIT License
+    <span class="sep">·</span>
+    Built on <a href="https://workers.cloudflare.com/" target="_blank" rel="noopener">Cloudflare Workers</a>
+    <span class="sep">·</span>
+    Inspired by <a href="https://github.com/leafac/kill-the-newsletter" target="_blank" rel="noopener">kill-the-newsletter</a>
+  </p>
+</footer>
+
+</body>
+</html>

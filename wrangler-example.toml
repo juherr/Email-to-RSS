@@ -1,4 +1,4 @@
-name = "email-to-rss"
+name = "kill-the-news"
 main = "src/index.ts"
 compatibility_date = "REPLACE_WITH_COMPATIBILITY_DATE"
 compatibility_flags = ["nodejs_compat"]

@@ -1,14 +1,14 @@
-# Email-to-RSS
+# kill-the-news
 
-Convert email newsletters into a private RSS feed using Cloudflare Workers.
+Convert email newsletters into private RSS feeds using Cloudflare Workers.
 
-This project is self-hosted, uses your own domain, and keeps your data in your own Cloudflare account.
+Self-hosted, uses your own domain, and keeps your data in your own Cloudflare account. Live at [kill-the.news](https://kill-the.news).
 
 ## Why this exists
 
 Many newsletters only support email delivery. RSS readers offer a better reading experience, but getting email-only newsletters into RSS usually means relying on shared third-party infrastructure.
 
-Email-to-RSS keeps the same workflow while avoiding shared domains and shared data stores.
+kill-the-news keeps the same workflow while avoiding shared domains and shared data stores.
 
 ## Features
 
@@ -91,7 +91,7 @@ No third-party service required. Cloudflare receives the email and hands it dire
 1. In the Cloudflare dashboard, go to _Email → Email Routing_ for your zone and click **Enable Email Routing**. Cloudflare will prompt you to add MX and SPF records — accept and it adds them automatically.
 2. Under _Email Routing → Routing Rules_, add a **Catch-all** rule:
    - Action: **Send to Worker**
-   - Worker: `email-to-rss` (the name from `wrangler.toml`)
+   - Worker: `kill-the-news` (the name from `wrangler.toml`)
 
 That's it. No webhook configuration is needed.
 
@@ -122,7 +122,7 @@ The Worker verifies each webhook request against ForwardEmail's published MX IP 
 
 6. Open `https://yourdomain.com/admin` and sign in.
 
-> **Tip:** To verify the Worker is running, check _Workers & Pages → email-to-rss_ in the Cloudflare dashboard. The _Custom Domains_ tab should list your domain once the deploy succeeds.
+> **Tip:** To verify the Worker is running, check _Workers & Pages → kill-the-news_ in the Cloudflare dashboard. The _Custom Domains_ tab should list your domain once the deploy succeeds.
 
 ## Development
 

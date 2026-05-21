@@ -4,7 +4,7 @@ This file gives coding agents fast context for working in this repository.
 
 ## Project summary
 
-Email-to-RSS is a Cloudflare Worker that ingests newsletters from ForwardEmail and exposes them as RSS feeds.
+kill-the-news is a Cloudflare Worker that ingests email newsletters and exposes them as private RSS feeds.
 
 Core goals:
 

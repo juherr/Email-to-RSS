@@ -1,7 +1,7 @@
 {
-  "name": "email-to-rss",
+  "name": "kill-the-news",
   "version": "0.1.0",
-  "description": "A service that converts email newsletters to RSS feeds using Cloudflare Workers",
+  "description": "Convert email newsletters into private RSS feeds using Cloudflare Workers",
   "main": "dist/worker.js",
   "scripts": {
     "build": "wrangler deploy --dry-run --outdir=dist",

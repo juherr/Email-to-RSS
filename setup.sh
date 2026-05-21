@@ -2,7 +2,7 @@
 
 set -euo pipefail
 
-echo "🚀 Setting up Email to RSS service..."
+echo "🚀 Setting up kill-the-news..."
 
 if ! command -v npm >/dev/null 2>&1 || ! command -v npx >/dev/null 2>&1 || ! command -v node >/dev/null 2>&1; then
   echo "❌ Error: Node.js (with npm and npx) is required but not found."
@@ -17,7 +17,7 @@ fi
 
 WORKER_NAME="$(grep -E '^name = "' wrangler-example.toml | head -1 | cut -d'"' -f2)"
 if [ -z "$WORKER_NAME" ]; then
-  WORKER_NAME="email-to-rss"
+  WORKER_NAME="kill-the-news"
 fi
 
 echo "📦 Installing dependencies..."
