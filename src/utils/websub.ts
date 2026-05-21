@@ -8,7 +8,6 @@ import {
 import { generateRssFeed } from "./feed-generator";
 
 const KV_PREFIX = "websub:subs:";
-const _DEFAULT_LEASE_SECONDS = 86400; // 24 h
 
 export function subscriptionKey(feedId: string): string {
   return `${KV_PREFIX}${feedId}`;
@@ -74,14 +73,14 @@ async function buildFeedXml(feedId: string, env: Env): Promise<string | null> {
   };
 
   const emails = feedMetadata.emails.slice(0, 20);
-  const emailsData: EmailData[] = [];
-  for (const meta of emails) {
-    const data = (await env.EMAIL_STORAGE.get(
-      meta.key,
-      "json",
-    )) as EmailData | null;
-    if (data) emailsData.push(data);
-  }
+  const emailsData = (
+    await Promise.all(
+      emails.map(
+        (m) =>
+          env.EMAIL_STORAGE.get(m.key, "json") as Promise<EmailData | null>,
+      ),
+    )
+  ).filter((d): d is EmailData => d !== null);
 
   return generateRssFeed(
     feedConfig,
@@ -119,13 +118,21 @@ export async function notifySubscribers(
         Link: linkHeader,
       };
       if (sub.secret) {
-        headers["X-Hub-Signature"] = await buildHmacSignature(
+        headers["X-Hub-Signature-256"] = await buildHmacSignature(
           feedXml,
           sub.secret,
         );
-        headers["X-Hub-Signature-256"] = headers["X-Hub-Signature"];
       }
-      await fetch(sub.callbackUrl, { method: "POST", headers, body: feedXml });
+      const res = await fetch(sub.callbackUrl, {
+        method: "POST",
+        headers,
+        body: feedXml,
+      });
+      if (!res.ok) {
+        console.error(
+          `WebSub: delivery failed ${sub.callbackUrl}: ${res.status}`,
+        );
+      }
     }),
   );
 
@@ -140,7 +147,7 @@ export async function verifyAndStoreSubscription(
   secret: string | undefined,
   leaseSeconds: number,
   env: Env,
-): Promise<void> {
+): Promise<boolean> {
   const challenge = crypto.randomUUID().replace(/-/g, "");
   const topicUrl = `https://${env.DOMAIN}/rss/${feedId}`;
   const verifyUrl = new URL(callbackUrl);
@@ -153,12 +160,12 @@ export async function verifyAndStoreSubscription(
   try {
     res = await fetch(verifyUrl.toString());
   } catch {
-    return;
+    return false;
   }
 
-  if (!res.ok) return;
+  if (!res.ok) return false;
   const body = await res.text();
-  if (body.trim() !== challenge) return;
+  if (body.trim() !== challenge) return false;
 
   const subs = await getSubscriptions(feedId, env);
   const idx = subs.findIndex((s) => s.callbackUrl === callbackUrl);
@@ -173,13 +180,14 @@ export async function verifyAndStoreSubscription(
     subs.push(entry);
   }
   await saveSubscriptions(feedId, subs, env);
+  return true;
 }
 
 export async function verifyAndDeleteSubscription(
   feedId: string,
   callbackUrl: string,
   env: Env,
-): Promise<void> {
+): Promise<boolean> {
   const challenge = crypto.randomUUID().replace(/-/g, "");
   const topicUrl = `https://${env.DOMAIN}/rss/${feedId}`;
   const verifyUrl = new URL(callbackUrl);
@@ -191,12 +199,12 @@ export async function verifyAndDeleteSubscription(
   try {
     res = await fetch(verifyUrl.toString());
   } catch {
-    return;
+    return false;
   }
 
-  if (!res.ok) return;
+  if (!res.ok) return false;
   const body = await res.text();
-  if (body.trim() !== challenge) return;
+  if (body.trim() !== challenge) return false;
 
   const subs = await getSubscriptions(feedId, env);
   await saveSubscriptions(
@@ -204,4 +212,5 @@ export async function verifyAndDeleteSubscription(
     subs.filter((s) => s.callbackUrl !== callbackUrl),
     env,
   );
+  return true;
 }
