@@ -55,7 +55,11 @@ describe("handleCloudflareEmail", () => {
       JSON.stringify({}),
     );
 
-    await handleCloudflareEmail(makeMessage(), env as any, {} as any);
+    await handleCloudflareEmail(
+      makeMessage(),
+      env as any,
+      { waitUntil: () => {} } as any,
+    );
 
     const metadata = await env.EMAIL_STORAGE.get(
       `feed:${VALID_FEED_ID}:metadata`,
@@ -67,14 +71,18 @@ describe("handleCloudflareEmail", () => {
 
   it("does not throw when feed does not exist", async () => {
     await expect(
-      handleCloudflareEmail(makeMessage(), env as any, {} as any),
+      handleCloudflareEmail(
+        makeMessage(),
+        env as any,
+        { waitUntil: () => {} } as any,
+      ),
     ).resolves.toBeUndefined();
   });
 
   it("does not throw when email is malformed", async () => {
     const msg = makeMessage({ rawText: "not a valid email" });
     await expect(
-      handleCloudflareEmail(msg, env as any, {} as any),
+      handleCloudflareEmail(msg, env as any, { waitUntil: () => {} } as any),
     ).resolves.toBeUndefined();
   });
 
@@ -84,7 +92,11 @@ describe("handleCloudflareEmail", () => {
       JSON.stringify({ allowed_senders: ["sender@example.com"] }),
     );
 
-    await handleCloudflareEmail(makeMessage(), env as any, {} as any);
+    await handleCloudflareEmail(
+      makeMessage(),
+      env as any,
+      { waitUntil: () => {} } as any,
+    );
 
     const metadata = await env.EMAIL_STORAGE.get(
       `feed:${VALID_FEED_ID}:metadata`,
@@ -99,7 +111,11 @@ describe("handleCloudflareEmail", () => {
       JSON.stringify({ allowed_senders: ["other@example.com"] }),
     );
 
-    await handleCloudflareEmail(makeMessage(), env as any, {} as any);
+    await handleCloudflareEmail(
+      makeMessage(),
+      env as any,
+      { waitUntil: () => {} } as any,
+    );
 
     const metadata = await env.EMAIL_STORAGE.get(
       `feed:${VALID_FEED_ID}:metadata`,

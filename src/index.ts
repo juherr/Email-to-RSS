@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { cors } from "hono/cors";
 import { handle as handleInbound } from "./routes/inbound";
 import { handle as handleRSS } from "./routes/rss";
 import { handle as handleAtom } from "./routes/atom";
@@ -9,7 +10,6 @@ import { hubRouter } from "./routes/hub";
 import { handleCloudflareEmail } from "./lib/cloudflare-email";
 import { Env } from "./types";
 
-// Define allowed origins for CORS
 const ALLOWED_ORIGINS = ["https://getmynews.app", "https://www.getmynews.app"];
 
 // Fallback ForwardEmail.net IP addresses in case API fetch fails
@@ -84,23 +84,15 @@ async function getForwardEmailIps(): Promise<string[]> {
   }
 }
 
-// CORS middleware
-app.use("*", async (c, next) => {
-  const origin = c.req.header("Origin");
-  if (origin && ALLOWED_ORIGINS.includes(origin)) {
-    c.header("Access-Control-Allow-Origin", origin);
-    c.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-    c.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
-    c.header("Access-Control-Max-Age", "86400");
-  }
-
-  // Handle preflight requests
-  if (c.req.method === "OPTIONS") {
-    return c.body(null, 204);
-  }
-
-  await next();
-});
+app.use(
+  "*",
+  cors({
+    origin: ALLOWED_ORIGINS,
+    allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowHeaders: ["Content-Type", "Authorization"],
+    maxAge: 86400,
+  }),
+);
 
 // Group routes by functionality
 const api = new Hono();
