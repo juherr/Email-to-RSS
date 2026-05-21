@@ -21,7 +21,9 @@ export async function handle(c: Context): Promise<Response> {
     return new Response("Feed not found", { status: 404 });
   }
 
-  const metaEntry = feedMetadata.emails.find((e) => e.receivedAt === receivedAt);
+  const metaEntry = feedMetadata.emails.find(
+    (e) => e.receivedAt === receivedAt,
+  );
   if (!metaEntry) {
     return new Response("Entry not found", { status: 404 });
   }
@@ -39,26 +41,50 @@ export async function handle(c: Context): Promise<Response> {
     "default-src 'none'; style-src 'unsafe-inline'; img-src *; frame-src 'none'",
   );
 
-  return c.html(html`<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${emailData.subject}</title>
-  <style>
-    body { font-family: sans-serif; max-width: 800px; margin: 0 auto; padding: 1rem; }
-    .meta { color: #666; font-size: 0.875rem; margin-bottom: 1.5rem; border-bottom: 1px solid #eee; padding-bottom: 0.75rem; }
-    .meta dt { display: inline; font-weight: bold; }
-    .meta dd { display: inline; margin: 0 1rem 0 0.25rem; }
-  </style>
-</head>
-<body>
-  <h1>${emailData.subject}</h1>
-  <dl class="meta">
-    <dt>From:</dt><dd>${emailData.from}</dd>
-    <dt>Date:</dt><dd>${new Date(emailData.receivedAt).toUTCString()}</dd>
-  </dl>
-  <div class="content">${raw(emailData.content)}</div>
-</body>
-</html>`);
+  return c.html(
+    html`<!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="UTF-8" />
+          <meta
+            name="viewport"
+            content="width=device-width, initial-scale=1.0"
+          />
+          <title>${emailData.subject}</title>
+          <style>
+            body {
+              font-family: sans-serif;
+              max-width: 800px;
+              margin: 0 auto;
+              padding: 1rem;
+            }
+            .meta {
+              color: #666;
+              font-size: 0.875rem;
+              margin-bottom: 1.5rem;
+              border-bottom: 1px solid #eee;
+              padding-bottom: 0.75rem;
+            }
+            .meta dt {
+              display: inline;
+              font-weight: bold;
+            }
+            .meta dd {
+              display: inline;
+              margin: 0 1rem 0 0.25rem;
+            }
+          </style>
+        </head>
+        <body>
+          <h1>${emailData.subject}</h1>
+          <dl class="meta">
+            <dt>From:</dt>
+            <dd>${emailData.from}</dd>
+            <dt>Date:</dt>
+            <dd>${new Date(emailData.receivedAt).toUTCString()}</dd>
+          </dl>
+          <div class="content">${raw(emailData.content)}</div>
+        </body>
+      </html>`,
+  );
 }

@@ -38,13 +38,23 @@ const FEED_ID = "abc123";
 
 describe("generateRssFeed", () => {
   it("returns RSS 2.0 with channel element", () => {
-    const result = generateRssFeed(mockFeedConfig, mockEmails, BASE_URL, FEED_ID);
+    const result = generateRssFeed(
+      mockFeedConfig,
+      mockEmails,
+      BASE_URL,
+      FEED_ID,
+    );
     expect(result).toContain("<channel>");
     expect(result).toContain("<title>Test Newsletter</title>");
   });
 
   it("includes <enclosure> element for email with attachment", () => {
-    const result = generateRssFeed(mockFeedConfig, [mockEmailWithAttachment], BASE_URL, FEED_ID);
+    const result = generateRssFeed(
+      mockFeedConfig,
+      [mockEmailWithAttachment],
+      BASE_URL,
+      FEED_ID,
+    );
     expect(result).toContain("<enclosure");
     expect(result).toContain("550e8400-e29b-41d4-a716-446655440000");
     expect(result).toContain("report.pdf");
@@ -53,22 +63,44 @@ describe("generateRssFeed", () => {
   });
 
   it("does not include <enclosure> for email without attachments", () => {
-    const result = generateRssFeed(mockFeedConfig, mockEmails, BASE_URL, FEED_ID);
+    const result = generateRssFeed(
+      mockFeedConfig,
+      mockEmails,
+      BASE_URL,
+      FEED_ID,
+    );
     expect(result).not.toContain("<enclosure");
   });
 
   it("enclosure URL uses /files/{id}/{filename} scheme", () => {
-    const result = generateRssFeed(mockFeedConfig, [mockEmailWithAttachment], BASE_URL, FEED_ID);
-    expect(result).toContain(`${BASE_URL}/files/550e8400-e29b-41d4-a716-446655440000/report.pdf`);
+    const result = generateRssFeed(
+      mockFeedConfig,
+      [mockEmailWithAttachment],
+      BASE_URL,
+      FEED_ID,
+    );
+    expect(result).toContain(
+      `${BASE_URL}/files/550e8400-e29b-41d4-a716-446655440000/report.pdf`,
+    );
   });
 
   it("includes rss self-link in RSS output", () => {
-    const result = generateRssFeed(mockFeedConfig, mockEmails, BASE_URL, FEED_ID);
+    const result = generateRssFeed(
+      mockFeedConfig,
+      mockEmails,
+      BASE_URL,
+      FEED_ID,
+    );
     expect(result).toContain(`${BASE_URL}/rss/${FEED_ID}`);
   });
 
   it("includes email entries as <item> elements", () => {
-    const result = generateRssFeed(mockFeedConfig, mockEmails, BASE_URL, FEED_ID);
+    const result = generateRssFeed(
+      mockFeedConfig,
+      mockEmails,
+      BASE_URL,
+      FEED_ID,
+    );
     expect(result).toContain("<item>");
     expect(result).toContain("Hello World");
   });
@@ -82,39 +114,74 @@ describe("generateRssFeed", () => {
 
 describe("generateAtomFeed", () => {
   it("returns Atom 1.0 namespace", () => {
-    const result = generateAtomFeed(mockFeedConfig, mockEmails, BASE_URL, FEED_ID);
+    const result = generateAtomFeed(
+      mockFeedConfig,
+      mockEmails,
+      BASE_URL,
+      FEED_ID,
+    );
     expect(result).toContain('xmlns="http://www.w3.org/2005/Atom"');
   });
 
   it("contains <feed> root element", () => {
-    const result = generateAtomFeed(mockFeedConfig, mockEmails, BASE_URL, FEED_ID);
+    const result = generateAtomFeed(
+      mockFeedConfig,
+      mockEmails,
+      BASE_URL,
+      FEED_ID,
+    );
     expect(result).toContain("<feed");
     expect(result).toContain("</feed>");
   });
 
   it("includes feed title", () => {
-    const result = generateAtomFeed(mockFeedConfig, mockEmails, BASE_URL, FEED_ID);
+    const result = generateAtomFeed(
+      mockFeedConfig,
+      mockEmails,
+      BASE_URL,
+      FEED_ID,
+    );
     expect(result).toContain("Test Newsletter");
   });
 
   it("includes <entry> elements for each email", () => {
-    const result = generateAtomFeed(mockFeedConfig, mockEmails, BASE_URL, FEED_ID);
+    const result = generateAtomFeed(
+      mockFeedConfig,
+      mockEmails,
+      BASE_URL,
+      FEED_ID,
+    );
     expect(result).toContain("<entry>");
     expect(result).toContain("Hello World");
   });
 
   it("includes author information", () => {
-    const result = generateAtomFeed(mockFeedConfig, mockEmails, BASE_URL, FEED_ID);
+    const result = generateAtomFeed(
+      mockFeedConfig,
+      mockEmails,
+      BASE_URL,
+      FEED_ID,
+    );
     expect(result).toContain("Alice");
   });
 
   it("self-link points to atom URL", () => {
-    const result = generateAtomFeed(mockFeedConfig, mockEmails, BASE_URL, FEED_ID);
+    const result = generateAtomFeed(
+      mockFeedConfig,
+      mockEmails,
+      BASE_URL,
+      FEED_ID,
+    );
     expect(result).toContain(`${BASE_URL}/atom/${FEED_ID}`);
   });
 
   it("includes rss alternate link", () => {
-    const result = generateAtomFeed(mockFeedConfig, mockEmails, BASE_URL, FEED_ID);
+    const result = generateAtomFeed(
+      mockFeedConfig,
+      mockEmails,
+      BASE_URL,
+      FEED_ID,
+    );
     expect(result).toContain(`${BASE_URL}/rss/${FEED_ID}`);
   });
 
@@ -125,26 +192,49 @@ describe("generateAtomFeed", () => {
   });
 
   it("handles config without description", () => {
-    const configNoDesc: FeedConfig = { ...mockFeedConfig, description: undefined };
-    const result = generateAtomFeed(configNoDesc, mockEmails, BASE_URL, FEED_ID);
+    const configNoDesc: FeedConfig = {
+      ...mockFeedConfig,
+      description: undefined,
+    };
+    const result = generateAtomFeed(
+      configNoDesc,
+      mockEmails,
+      BASE_URL,
+      FEED_ID,
+    );
     expect(result).toContain('xmlns="http://www.w3.org/2005/Atom"');
   });
 
   it("handles config with author field", () => {
     const configWithAuthor: FeedConfig = { ...mockFeedConfig, author: "Bob" };
-    const result = generateAtomFeed(configWithAuthor, mockEmails, BASE_URL, FEED_ID);
+    const result = generateAtomFeed(
+      configWithAuthor,
+      mockEmails,
+      BASE_URL,
+      FEED_ID,
+    );
     expect(result).toContain("Bob");
   });
 
   it("includes enclosure link for email with attachment in Atom feed", () => {
-    const result = generateAtomFeed(mockFeedConfig, [mockEmailWithAttachment], BASE_URL, FEED_ID);
+    const result = generateAtomFeed(
+      mockFeedConfig,
+      [mockEmailWithAttachment],
+      BASE_URL,
+      FEED_ID,
+    );
     expect(result).toContain('rel="enclosure"');
     expect(result).toContain("550e8400-e29b-41d4-a716-446655440000");
     expect(result).toContain("report.pdf");
   });
 
   it("does not include enclosure link for email without attachments in Atom feed", () => {
-    const result = generateAtomFeed(mockFeedConfig, mockEmails, BASE_URL, FEED_ID);
+    const result = generateAtomFeed(
+      mockFeedConfig,
+      mockEmails,
+      BASE_URL,
+      FEED_ID,
+    );
     expect(result).not.toContain('rel="enclosure"');
   });
 });

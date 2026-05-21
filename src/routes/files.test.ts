@@ -39,7 +39,8 @@ describe("GET /files/:attachmentId/:filename", () => {
   });
 
   it("returns 200 with stored content when attachment exists", async () => {
-    const content = new TextEncoder().encode("PDF content").buffer as ArrayBuffer;
+    const content = new TextEncoder().encode("PDF content")
+      .buffer as ArrayBuffer;
     await mockR2.put("test-uuid", content, {
       httpMetadata: { contentType: "application/pdf" },
     });

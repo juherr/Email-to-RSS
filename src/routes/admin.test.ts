@@ -14,7 +14,8 @@ describe("Admin Routes", () => {
     mockEnv = createMockEnv() as unknown as Env;
     testApp = new Hono();
     testApp.route("/admin", app);
-    request = (path, init = {}) => Promise.resolve(testApp.request(path, init, mockEnv));
+    request = (path, init = {}) =>
+      Promise.resolve(testApp.request(path, init, mockEnv));
     loginAndGetCookie = async () => {
       const formData = new FormData();
       formData.append("password", "test-password");
@@ -366,7 +367,10 @@ describe("Admin Routes", () => {
         } as unknown as Env;
       }
 
-      function makeProxyRequest(path: string, headers: Record<string, string> = {}) {
+      function makeProxyRequest(
+        path: string,
+        headers: Record<string, string> = {},
+      ) {
         const proxyApp = new Hono();
         proxyApp.route("/admin", app);
         return proxyApp.request(path, { headers }, proxyEnv());
