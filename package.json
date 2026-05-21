@@ -32,6 +32,7 @@
     "@types/mailparser": "^3.4.6",
     "@types/rss": "^0.0.32",
     "@vitest/coverage-v8": "^4.0.18",
+    "eslint": "^10.0.0",
     "eslint-config-prettier": "^10.1.8",
     "happy-dom": "^20.5.0",
     "husky": "^9.1.7",
