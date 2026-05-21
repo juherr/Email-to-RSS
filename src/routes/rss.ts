@@ -65,11 +65,17 @@ export async function handle(c: Context): Promise<Response> {
     const rssXml = generateRssFeed(feedConfig, emailsData, baseUrl, feedId);
 
     // Return the RSS feed with appropriate content type
+    const linkHeader = [
+      `<https://${env.DOMAIN}/hub>; rel="hub"`,
+      `<https://${env.DOMAIN}/rss/${feedId}>; rel="self"`,
+    ].join(", ");
+
     return new Response(rssXml, {
       status: 200,
       headers: {
         "Content-Type": "application/rss+xml",
         "Cache-Control": "max-age=1800", // 30 minutes cache
+        Link: linkHeader,
       },
     });
   } catch (error) {
