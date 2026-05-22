@@ -72,6 +72,82 @@ const CopyField = ({ label, value, display }: CopyFieldProps) => (
   </div>
 );
 
+function extractSenderEmail(from: string): string {
+  const match = from.match(/<([^>]+@[^>]+)>/);
+  return match ? match[1].trim().toLowerCase() : from.trim().toLowerCase();
+}
+
+type SenderFieldProps = {
+  from: string;
+  feedId: string;
+};
+
+const SenderField = ({ from, feedId }: SenderFieldProps) => {
+  const senderEmail = extractSenderEmail(from);
+  const senderDomain = senderEmail.split("@")[1] || "";
+
+  return (
+    <div class="copyable">
+      <span class="copyable-label">From:</span>
+      <div class="copyable-content">
+        <span class="copyable-value" data-copy={from}>
+          {from}
+        </span>
+        <div class="copy-icon-container">
+          <CopyIcon />
+          <CheckIcon />
+        </div>
+      </div>
+      <div
+        class="sender-filter-dropdown"
+        data-feed-id={feedId}
+        data-email={senderEmail}
+        data-domain={senderDomain}
+      >
+        <button
+          type="button"
+          class="sender-filter-btn"
+          aria-label="Sender filter options"
+          onclick="toggleSenderFilter(this)"
+        >
+          ⋮
+        </button>
+        <div class="sender-filter-menu" role="menu">
+          <button
+            type="button"
+            class="sender-filter-item sender-filter-allow"
+            data-action="allow_sender"
+          >
+            Allow {senderEmail}
+          </button>
+          <button
+            type="button"
+            class="sender-filter-item sender-filter-allow"
+            data-action="allow_domain"
+          >
+            Allow @{senderDomain}
+          </button>
+          <button
+            type="button"
+            class="sender-filter-item sender-filter-block"
+            data-action="block_sender"
+          >
+            Block {senderEmail}
+          </button>
+          <button
+            type="button"
+            class="sender-filter-item sender-filter-block"
+            data-action="block_domain"
+          >
+            Block @{senderDomain}
+          </button>
+        </div>
+        <span class="sender-filter-feedback" aria-live="polite"></span>
+      </div>
+    </div>
+  );
+};
+
 // ── View all emails for a feed ────────────────────────────────────────────────
 
 emailsRouter.get("/feeds/:feedId/emails", async (c) => {
@@ -397,6 +473,51 @@ emailsRouter.get("/emails/:emailKey", async (c) => {
             };
           } catch (e) { /* cross-origin */ }
         });
+        function toggleSenderFilter(btn) {
+          var dropdown = btn.closest('.sender-filter-dropdown');
+          var isOpen = dropdown.hasAttribute('data-open');
+          document.querySelectorAll('.sender-filter-dropdown[data-open]').forEach(function(d) {
+            d.removeAttribute('data-open');
+          });
+          if (!isOpen) dropdown.setAttribute('data-open', '');
+        }
+        function showSenderFeedback(feedback, ok, msg) {
+          feedback.textContent = msg;
+          feedback.className = 'sender-filter-feedback ' + (ok ? 'sender-filter-feedback-ok' : 'sender-filter-feedback-error');
+          setTimeout(function() {
+            feedback.textContent = '';
+            feedback.className = 'sender-filter-feedback';
+          }, 3000);
+        }
+        document.addEventListener('click', function(e) {
+          var item = e.target.closest('.sender-filter-item');
+          if (item) {
+            var dropdown = item.closest('.sender-filter-dropdown');
+            var action = item.dataset.action;
+            var value = (action === 'allow_sender' || action === 'block_sender')
+              ? dropdown.dataset.email
+              : dropdown.dataset.domain;
+            dropdown.removeAttribute('data-open');
+            var feedback = dropdown.querySelector('.sender-filter-feedback');
+            fetch('/admin/feeds/' + dropdown.dataset.feedId + '/sender-filter', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ action: action, value: value })
+            }).then(function(res) {
+              return res.json();
+            }).then(function(data) {
+              showSenderFeedback(feedback, data.ok, data.ok ? 'Saved' : (data.error || 'Error'));
+            }).catch(function() {
+              showSenderFeedback(feedback, false, 'Network error');
+            });
+            return;
+          }
+          if (!e.target.closest('.sender-filter-dropdown')) {
+            document.querySelectorAll('.sender-filter-dropdown[data-open]').forEach(function(d) {
+              d.removeAttribute('data-open');
+            });
+          }
+        });
       `;
 
   return c.html(
@@ -424,7 +545,7 @@ emailsRouter.get("/emails/:emailKey", async (c) => {
                 label="Received:"
                 value={new Date(emailData.receivedAt).toLocaleString()}
               />
-              <CopyField label="From:" value={emailData.from} />
+              <SenderField from={emailData.from} feedId={feedId} />
               <CopyField
                 label="To:"
                 value={feedEmailAddress(feedId, env)}

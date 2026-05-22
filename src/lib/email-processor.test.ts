@@ -86,6 +86,69 @@ describe("processEmail", () => {
     expect(res.status).toBe(200);
   });
 
+  it("returns 403 when sender is in blocklist by exact address", async () => {
+    await env.EMAIL_STORAGE.put(
+      `feed:${VALID_FEED_ID}:config`,
+      JSON.stringify({ blocked_senders: ["sender@example.com"] }),
+    );
+    const res = await processEmail(makeInput(), env as any);
+    expect(res.status).toBe(403);
+  });
+
+  it("returns 403 when sender is in blocklist by domain", async () => {
+    await env.EMAIL_STORAGE.put(
+      `feed:${VALID_FEED_ID}:config`,
+      JSON.stringify({ blocked_senders: ["example.com"] }),
+    );
+    const res = await processEmail(makeInput(), env as any);
+    expect(res.status).toBe(403);
+  });
+
+  it("returns 200 when sender is not in blocklist", async () => {
+    await env.EMAIL_STORAGE.put(
+      `feed:${VALID_FEED_ID}:config`,
+      JSON.stringify({ blocked_senders: ["other@example.com"] }),
+    );
+    const res = await processEmail(makeInput(), env as any);
+    expect(res.status).toBe(200);
+  });
+
+  it("exact block takes precedence over domain allow", async () => {
+    await env.EMAIL_STORAGE.put(
+      `feed:${VALID_FEED_ID}:config`,
+      JSON.stringify({
+        allowed_senders: ["example.com"],
+        blocked_senders: ["sender@example.com"],
+      }),
+    );
+    const res = await processEmail(makeInput(), env as any);
+    expect(res.status).toBe(403);
+  });
+
+  it("exact allow overrides domain block (exception use case)", async () => {
+    await env.EMAIL_STORAGE.put(
+      `feed:${VALID_FEED_ID}:config`,
+      JSON.stringify({
+        allowed_senders: ["sender@example.com"],
+        blocked_senders: ["example.com"],
+      }),
+    );
+    const res = await processEmail(makeInput(), env as any);
+    expect(res.status).toBe(200);
+  });
+
+  it("exact block takes precedence over exact allow", async () => {
+    await env.EMAIL_STORAGE.put(
+      `feed:${VALID_FEED_ID}:config`,
+      JSON.stringify({
+        allowed_senders: ["sender@example.com"],
+        blocked_senders: ["sender@example.com"],
+      }),
+    );
+    const res = await processEmail(makeInput(), env as any);
+    expect(res.status).toBe(403);
+  });
+
   it("stores email data and updates metadata in KV", async () => {
     await env.EMAIL_STORAGE.put(
       `feed:${VALID_FEED_ID}:config`,

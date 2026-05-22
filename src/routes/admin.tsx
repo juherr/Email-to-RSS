@@ -380,6 +380,22 @@ app.get("/", async (c) => {
               </small>
             </div>
 
+            <div class="form-group">
+              <label for="blocked_senders">
+                Blocked senders (optional, one email or domain per line)
+              </label>
+              <textarea
+                id="blocked_senders"
+                name="blocked_senders"
+                rows={3}
+                placeholder={"spam@example.com\nunwanted.com"}
+              ></textarea>
+              <small>
+                Emails from these senders/domains are always rejected, even if
+                they match the allowlist.
+              </small>
+            </div>
+
             <input type="hidden" id="language" name="language" value="en" />
             <input type="hidden" name="view" value={view} />
 

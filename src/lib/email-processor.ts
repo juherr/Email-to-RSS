@@ -35,23 +35,32 @@ function normalizeEmail(value: string): string {
   return value.trim().toLowerCase();
 }
 
-function senderMatchesAllowlist(
+type SenderDecision = "blocked" | "allowed" | "neutral";
+
+function evaluateSender(
   sender: string,
-  allowedSender: string,
-): boolean {
-  if (!allowedSender) return false;
+  allowedSenders: string[],
+  blockedSenders: string[],
+): SenderDecision {
+  const normalized = normalizeEmail(sender);
+  const domain = normalized.split("@")[1] || "";
 
-  const normalizedSender = normalizeEmail(sender);
+  const normalizeDomain = (e: string) => (e.startsWith("@") ? e.slice(1) : e);
 
-  if (allowedSender.includes("@")) {
-    return normalizedSender === allowedSender;
-  }
+  const exactBlocked = blockedSenders.filter((e) => e.includes("@"));
+  const exactAllowed = allowedSenders.filter((e) => e.includes("@"));
+  const domainBlocked = blockedSenders
+    .filter((e) => !e.includes("@"))
+    .map(normalizeDomain);
+  const domainAllowed = allowedSenders
+    .filter((e) => !e.includes("@"))
+    .map(normalizeDomain);
 
-  const senderDomain = normalizedSender.split("@")[1] || "";
-  const normalizedDomain = allowedSender.startsWith("@")
-    ? allowedSender.slice(1)
-    : allowedSender;
-  return senderDomain === normalizedDomain;
+  if (exactBlocked.includes(normalized)) return "blocked";
+  if (exactAllowed.includes(normalized)) return "allowed";
+  if (domain && domainBlocked.includes(domain)) return "blocked";
+  if (domain && domainAllowed.includes(domain)) return "allowed";
+  return "neutral";
 }
 
 async function uploadAttachments(
@@ -107,17 +116,25 @@ export async function validateEmail(
   const allowedSenders = (feedConfig.allowed_senders || [])
     .map(normalizeEmail)
     .filter(Boolean);
-  if (allowedSenders.length > 0) {
-    const senderAllowed = input.senders.some((sender) =>
-      allowedSenders.some((allowedSender) =>
-        senderMatchesAllowlist(sender, allowedSender),
-      ),
-    );
-    if (!senderAllowed) {
-      logger.warn("Rejected email: sender not in allowlist", {
+  const blockedSenders = (feedConfig.blocked_senders || [])
+    .map(normalizeEmail)
+    .filter(Boolean);
+
+  if (allowedSenders.length > 0 || blockedSenders.length > 0) {
+    const hasAllowlist = allowedSenders.length > 0;
+    const accepted = input.senders.some((sender) => {
+      const decision = evaluateSender(sender, allowedSenders, blockedSenders);
+      if (decision === "allowed") return true;
+      if (decision === "blocked") return false;
+      return !hasAllowlist;
+    });
+
+    if (!accepted) {
+      logger.warn("Rejected email: sender filter", {
         feedId,
         senders: input.senders,
         allowedSenders,
+        blockedSenders,
       });
       return {
         ok: false,

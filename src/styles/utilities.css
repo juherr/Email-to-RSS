@@ -124,3 +124,106 @@
   opacity: 1;
   transform: translate(-50%, -50%) scale(1);
 }
+
+/* ── Sender filter dropdown ── */
+
+.sender-filter-dropdown {
+  position: relative;
+  flex-shrink: 0;
+  margin-left: var(--spacing-xs);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.sender-filter-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  background: none;
+  border: none;
+  border-radius: var(--radius-sm);
+  color: var(--color-text-secondary);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  transition:
+    background-color var(--transition-fast),
+    color var(--transition-fast);
+}
+
+.sender-filter-btn:hover {
+  background-color: rgba(255, 255, 255, 0.08);
+  color: var(--color-text-primary);
+}
+
+.sender-filter-menu {
+  display: none;
+  position: absolute;
+  right: 0;
+  top: calc(100% + 4px);
+  min-width: 220px;
+  background-color: var(--color-card);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  z-index: 100;
+  overflow: hidden;
+}
+
+.sender-filter-dropdown[data-open] .sender-filter-menu {
+  display: block;
+}
+
+.sender-filter-item {
+  display: block;
+  width: 100%;
+  padding: var(--spacing-sm) var(--spacing-md);
+  text-align: left;
+  background: none;
+  border: none;
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+  transition: background-color var(--transition-fast);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sender-filter-allow {
+  color: var(--color-success);
+}
+
+.sender-filter-allow:hover {
+  background-color: rgba(48, 209, 88, 0.12);
+}
+
+.sender-filter-block {
+  color: var(--color-danger);
+}
+
+.sender-filter-block:hover {
+  background-color: rgba(255, 69, 58, 0.12);
+}
+
+/* Divider between allow and block groups */
+.sender-filter-block:first-of-type {
+  border-top: 1px solid var(--color-border);
+}
+
+.sender-filter-feedback {
+  font-size: var(--font-size-xs);
+  white-space: nowrap;
+  min-height: 16px;
+}
+
+.sender-filter-feedback-ok {
+  color: var(--color-success);
+}
+
+.sender-filter-feedback-error {
+  color: var(--color-danger);
+}

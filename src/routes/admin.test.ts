@@ -563,4 +563,129 @@ describe("Admin Routes", () => {
       });
     });
   });
+
+  describe("Sender filter", () => {
+    let authCookie: string;
+    let feedId: string;
+
+    beforeEach(async () => {
+      authCookie = await loginAndGetCookie();
+      const createRes = await request("/admin/feeds/create", {
+        method: "POST",
+        headers: {
+          Cookie: authCookie,
+          "Content-Type": "application/json",
+          Origin: "https://test.getmynews.app",
+        },
+        body: JSON.stringify({ title: "Filter Test Feed" }),
+      });
+      const payload = (await createRes.json()) as { feedId: string };
+      feedId = payload.feedId;
+    });
+
+    const post = (body: object, cookie = authCookie) =>
+      request(`/admin/feeds/${feedId}/sender-filter`, {
+        method: "POST",
+        headers: {
+          Cookie: cookie,
+          "Content-Type": "application/json",
+          Origin: "https://test.getmynews.app",
+        },
+        body: JSON.stringify(body),
+      });
+
+    it("adds exact email to allowlist", async () => {
+      const res = await post({
+        action: "allow_sender",
+        value: "alice@example.com",
+      });
+      expect(res.status).toBe(200);
+      expect(((await res.json()) as any).ok).toBe(true);
+      const cfg = (await mockEnv.EMAIL_STORAGE.get(
+        `feed:${feedId}:config`,
+        "json",
+      )) as any;
+      expect(cfg.allowed_senders).toContain("alice@example.com");
+    });
+
+    it("adds domain to allowlist", async () => {
+      const res = await post({ action: "allow_domain", value: "example.com" });
+      expect(res.status).toBe(200);
+      const cfg = (await mockEnv.EMAIL_STORAGE.get(
+        `feed:${feedId}:config`,
+        "json",
+      )) as any;
+      expect(cfg.allowed_senders).toContain("example.com");
+    });
+
+    it("adds exact email to blocklist", async () => {
+      const res = await post({ action: "block_sender", value: "spam@bad.com" });
+      expect(res.status).toBe(200);
+      const cfg = (await mockEnv.EMAIL_STORAGE.get(
+        `feed:${feedId}:config`,
+        "json",
+      )) as any;
+      expect(cfg.blocked_senders).toContain("spam@bad.com");
+    });
+
+    it("adds domain to blocklist", async () => {
+      const res = await post({ action: "block_domain", value: "bad.com" });
+      expect(res.status).toBe(200);
+      const cfg = (await mockEnv.EMAIL_STORAGE.get(
+        `feed:${feedId}:config`,
+        "json",
+      )) as any;
+      expect(cfg.blocked_senders).toContain("bad.com");
+    });
+
+    it("returns 409 when value already exists in the opposite list", async () => {
+      await post({ action: "block_sender", value: "alice@example.com" });
+      const res = await post({
+        action: "allow_sender",
+        value: "alice@example.com",
+      });
+      expect(res.status).toBe(409);
+      const data = (await res.json()) as any;
+      expect(data.ok).toBe(false);
+      expect(data.error).toMatch(/blocklist/);
+    });
+
+    it("is idempotent when value already in target list", async () => {
+      await post({ action: "allow_sender", value: "alice@example.com" });
+      const res = await post({
+        action: "allow_sender",
+        value: "alice@example.com",
+      });
+      expect(res.status).toBe(200);
+      const cfg = (await mockEnv.EMAIL_STORAGE.get(
+        `feed:${feedId}:config`,
+        "json",
+      )) as any;
+      expect(
+        cfg.allowed_senders.filter((s: string) => s === "alice@example.com")
+          .length,
+      ).toBe(1);
+    });
+
+    it("returns 400 for invalid action", async () => {
+      const res = await post({
+        action: "invalid_action",
+        value: "alice@example.com",
+      });
+      expect(res.status).toBe(400);
+    });
+
+    it("normalizes value to lowercase", async () => {
+      const res = await post({
+        action: "allow_sender",
+        value: "Alice@Example.COM",
+      });
+      expect(res.status).toBe(200);
+      const cfg = (await mockEnv.EMAIL_STORAGE.get(
+        `feed:${feedId}:config`,
+        "json",
+      )) as any;
+      expect(cfg.allowed_senders).toContain("alice@example.com");
+    });
+  });
 });

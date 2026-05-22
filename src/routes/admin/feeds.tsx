@@ -31,6 +31,7 @@ const createFeedSchema = z.object({
   description: z.string().optional(),
   language: z.string().optional().default("en"),
   allowedSenders: z.array(z.string()).optional().default([]),
+  blockedSenders: z.array(z.string()).optional().default([]),
 });
 
 const updateFeedSchema = z.object({
@@ -38,6 +39,12 @@ const updateFeedSchema = z.object({
   description: z.string().optional(),
   language: z.string().optional().default("en"),
   allowedSenders: z.array(z.string()).optional().default([]),
+  blockedSenders: z.array(z.string()).optional().default([]),
+});
+
+const senderFilterSchema = z.object({
+  action: z.enum(["allow_sender", "allow_domain", "block_sender", "block_domain"]),
+  value: z.string().min(1),
 });
 
 // ── Delete helpers ────────────────────────────────────────────────────────────
@@ -156,6 +163,7 @@ feedsRouter.post("/create", async (c) => {
     let language: string;
     let view: string;
     let allowedSenders: string[];
+    let blockedSenders: string[];
 
     if (isJson) {
       const body = await c.req.json<Record<string, unknown>>();
@@ -169,6 +177,11 @@ feedsRouter.post("/create", async (c) => {
             (body.allowedSenders as unknown[]).map(String),
           )
         : [];
+      blockedSenders = Array.isArray(body.blockedSenders)
+        ? normalizeAllowedSenders(
+            (body.blockedSenders as unknown[]).map(String),
+          )
+        : [];
     } else {
       const formData = await c.req.formData();
       title = formData.get("title")?.toString() || "";
@@ -178,6 +191,9 @@ feedsRouter.post("/create", async (c) => {
       allowedSenders = parseAllowedSenders(
         formData.get("allowed_senders")?.toString() || "",
       );
+      blockedSenders = parseAllowedSenders(
+        formData.get("blocked_senders")?.toString() || "",
+      );
     }
 
     const parsedData = createFeedSchema.parse({
@@ -185,6 +201,7 @@ feedsRouter.post("/create", async (c) => {
       description,
       language,
       allowedSenders,
+      blockedSenders,
     });
 
     const feedId = generateFeedId();
@@ -194,6 +211,7 @@ feedsRouter.post("/create", async (c) => {
       description: parsedData.description,
       language: parsedData.language,
       allowed_senders: parsedData.allowedSenders,
+      blocked_senders: parsedData.blockedSenders,
       created_at: Date.now(),
       updated_at: Date.now(),
     };
@@ -295,6 +313,24 @@ feedsRouter.get("/:feedId/edit", async (c) => {
               </small>
             </div>
 
+            <div class="form-group">
+              <label for="blocked_senders">
+                Blocked senders (optional, one email or domain per line)
+              </label>
+              <textarea
+                id="blocked_senders"
+                name="blocked_senders"
+                rows={3}
+                placeholder={"spam@example.com\nunwanted.com"}
+              >
+                {(feedConfig.blocked_senders || []).join("\n")}
+              </textarea>
+              <small>
+                Emails from these senders/domains are always rejected, even if
+                they match the allowlist.
+              </small>
+            </div>
+
             <input type="hidden" id="language" name="language" value="en" />
 
             <button type="submit" class="button">
@@ -320,12 +356,16 @@ feedsRouter.post("/:feedId/edit", async (c) => {
     const allowedSenders = parseAllowedSenders(
       formData.get("allowed_senders")?.toString() || "",
     );
+    const blockedSenders = parseAllowedSenders(
+      formData.get("blocked_senders")?.toString() || "",
+    );
 
     const parsedData = updateFeedSchema.parse({
       title,
       description,
       language,
       allowedSenders,
+      blockedSenders,
     });
 
     const feedConfigKey = `feed:${feedId}:config`;
@@ -345,6 +385,7 @@ feedsRouter.post("/:feedId/edit", async (c) => {
         description: parsedData.description,
         language: parsedData.language,
         allowed_senders: parsedData.allowedSenders,
+        blocked_senders: parsedData.blockedSenders,
         updated_at: Date.now(),
       }),
     );
@@ -361,6 +402,65 @@ feedsRouter.post("/:feedId/edit", async (c) => {
     logger.error("Error updating feed", { feedId, error: String(error) });
     return c.text("Error updating feed. Please try again.", 400);
   }
+});
+
+// ── Sender filter quick-add ───────────────────────────────────────────────────
+
+feedsRouter.post("/:feedId/sender-filter", async (c) => {
+  const env = c.env;
+  const feedId = c.req.param("feedId");
+  const feedConfigKey = `feed:${feedId}:config`;
+
+  const body = await c.req.json().catch(() => null);
+  const parsed = senderFilterSchema.safeParse(body);
+  if (!parsed.success) {
+    return c.json({ ok: false, error: "Invalid request" }, 400);
+  }
+
+  const { action, value } = parsed.data;
+  const normalized = value.trim().toLowerCase();
+
+  const feedConfig = (await env.EMAIL_STORAGE.get(feedConfigKey, {
+    type: "json",
+  })) as FeedConfig | null;
+  if (!feedConfig) return c.json({ ok: false, error: "Feed not found" }, 404);
+
+  const allowedSenders = (feedConfig.allowed_senders || []).map((s) =>
+    s.trim().toLowerCase(),
+  );
+  const blockedSenders = (feedConfig.blocked_senders || []).map((s) =>
+    s.trim().toLowerCase(),
+  );
+
+  const isAllowAction = action === "allow_sender" || action === "allow_domain";
+  const targetList = isAllowAction ? allowedSenders : blockedSenders;
+  const oppositeList = isAllowAction ? blockedSenders : allowedSenders;
+  const oppositeLabel = isAllowAction ? "blocklist" : "allowlist";
+
+  if (oppositeList.includes(normalized)) {
+    return c.json(
+      {
+        ok: false,
+        error: `"${normalized}" is already in the ${oppositeLabel}`,
+      },
+      409,
+    );
+  }
+
+  if (!targetList.includes(normalized)) {
+    targetList.push(normalized);
+    await env.EMAIL_STORAGE.put(
+      feedConfigKey,
+      JSON.stringify({
+        ...feedConfig,
+        allowed_senders: allowedSenders,
+        blocked_senders: blockedSenders,
+        updated_at: Date.now(),
+      }),
+    );
+  }
+
+  return c.json({ ok: true });
 });
 
 feedsRouter.post("/:feedId/delete", async (c) => {

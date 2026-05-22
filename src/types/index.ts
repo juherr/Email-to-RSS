@@ -33,6 +33,7 @@ export interface FeedConfig {
   title: string;
   description?: string;
   allowed_senders?: string[];
+  blocked_senders?: string[];
   language: string;
   author?: string;
   created_at: number;
