@@ -35,10 +35,11 @@ jobs:
           echo "No bundled output found in dist/" >&2
           exit 1
 
-      - name: Upload to GitHub Release
+      - name: Create GitHub Release and upload bundle
         env:
           GH_TOKEN: ${{ github.token }}
           TAG_NAME: ${{ github.ref_name }}
           BUNDLE_PATH: ${{ steps.bundle.outputs.path }}
         run: |
+          gh release create "$TAG_NAME" --generate-notes --verify-tag || true
           gh release upload "$TAG_NAME" "$BUNDLE_PATH" --clobber
