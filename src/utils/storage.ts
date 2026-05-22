@@ -49,13 +49,16 @@ async function updateFeedMetadata(
   // Add new email to the beginning of the list
   metadata.emails.unshift(emailMetadata);
 
-  // Keep only the last 50 emails in the metadata
-  if (metadata.emails.length > 50) {
+  // Keep only the last 50 emails in the metadata; delete orphaned KV entries
+  const toDelete = metadata.emails.length > 50 ? metadata.emails.slice(50) : [];
+  if (toDelete.length > 0) {
     metadata.emails = metadata.emails.slice(0, 50);
   }
 
-  // Store updated metadata
-  await kv.put(feedMetadataKey, JSON.stringify(metadata));
+  await Promise.all([
+    kv.put(feedMetadataKey, JSON.stringify(metadata)),
+    ...toDelete.map((e) => kv.delete(e.key)),
+  ]);
 }
 
 /**
