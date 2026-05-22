@@ -1,5 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { generateRssFeed, generateAtomFeed } from "./feed-generator";
+import {
+  generateRssFeed,
+  generateAtomFeed,
+  extractBodyContent,
+} from "./feed-generator";
 import { FeedConfig, EmailData } from "../types";
 
 const mockFeedConfig: FeedConfig = {
@@ -35,6 +39,28 @@ const mockEmailWithAttachment: EmailData = {
 
 const BASE_URL = "https://test.getmynews.app";
 const FEED_ID = "abc123";
+
+describe("extractBodyContent", () => {
+  it("extracts content inside <body> tags", () => {
+    const html = "<html><head></head><body><p>Hello</p></body></html>";
+    expect(extractBodyContent(html)).toBe("<p>Hello</p>");
+  });
+
+  it("handles body tag with attributes", () => {
+    const html = '<html><body style="margin:0"><p>Hi</p></body></html>';
+    expect(extractBodyContent(html)).toBe("<p>Hi</p>");
+  });
+
+  it("returns html unchanged when no body tags present", () => {
+    const fragment = "<p>Already a fragment</p>";
+    expect(extractBodyContent(fragment)).toBe(fragment);
+  });
+
+  it("is case-insensitive for body tag matching", () => {
+    const html = "<HTML><BODY><p>content</p></BODY></HTML>";
+    expect(extractBodyContent(html)).toBe("<p>content</p>");
+  });
+});
 
 describe("generateRssFeed", () => {
   it("returns RSS 2.0 with channel element", () => {
@@ -109,6 +135,31 @@ describe("generateRssFeed", () => {
     const result = generateRssFeed(mockFeedConfig, [], BASE_URL, FEED_ID);
     expect(result).toContain("<channel>");
     expect(result).not.toContain("<item>");
+  });
+
+  it("feed link points to admin emails page", () => {
+    const result = generateRssFeed(
+      mockFeedConfig,
+      mockEmails,
+      BASE_URL,
+      FEED_ID,
+    );
+    expect(result).toContain(`${BASE_URL}/admin/feeds/${FEED_ID}/emails`);
+  });
+
+  it("strips html/head/body wrapper from item description", () => {
+    const emailWithFullHtml: EmailData = {
+      ...mockEmails[0],
+      content: "<html><head></head><body><p>Body only</p></body></html>",
+    };
+    const result = generateRssFeed(
+      mockFeedConfig,
+      [emailWithFullHtml],
+      BASE_URL,
+      FEED_ID,
+    );
+    expect(result).toContain("<p>Body only</p>");
+    expect(result).not.toContain("<html>");
   });
 });
 
@@ -189,6 +240,31 @@ describe("generateAtomFeed", () => {
     const result = generateAtomFeed(mockFeedConfig, [], BASE_URL, FEED_ID);
     expect(result).toContain("<feed");
     expect(result).not.toContain("<entry>");
+  });
+
+  it("feed link points to admin emails page", () => {
+    const result = generateAtomFeed(
+      mockFeedConfig,
+      mockEmails,
+      BASE_URL,
+      FEED_ID,
+    );
+    expect(result).toContain(`${BASE_URL}/admin/feeds/${FEED_ID}/emails`);
+  });
+
+  it("strips html/head/body wrapper from entry content", () => {
+    const emailWithFullHtml: EmailData = {
+      ...mockEmails[0],
+      content: "<html><head></head><body><p>Body only</p></body></html>",
+    };
+    const result = generateAtomFeed(
+      mockFeedConfig,
+      [emailWithFullHtml],
+      BASE_URL,
+      FEED_ID,
+    );
+    expect(result).toContain("<p>Body only</p>");
+    expect(result).not.toContain("<html>");
   });
 
   it("handles config without description", () => {
