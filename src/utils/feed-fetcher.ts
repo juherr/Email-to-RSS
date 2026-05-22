@@ -1,6 +1,5 @@
 import { Env, FeedConfig, FeedMetadata, EmailData } from "../types";
-
-const MAX_FEED_ITEMS = 20;
+import { MAX_FEED_ITEMS } from "../config/constants";
 
 export interface FeedData {
   feedConfig: FeedConfig;

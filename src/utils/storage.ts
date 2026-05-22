@@ -5,6 +5,7 @@ import {
   FeedList,
   EmailMetadata,
 } from "../types";
+import { MAX_METADATA_EMAILS } from "../config/constants";
 
 /**
  * Store email data in KV
@@ -49,10 +50,13 @@ async function updateFeedMetadata(
   // Add new email to the beginning of the list
   metadata.emails.unshift(emailMetadata);
 
-  // Keep only the last 50 emails in the metadata; delete orphaned KV entries
-  const toDelete = metadata.emails.length > 50 ? metadata.emails.slice(50) : [];
+  // Keep only the last MAX_METADATA_EMAILS in the metadata; delete orphaned KV entries
+  const toDelete =
+    metadata.emails.length > MAX_METADATA_EMAILS
+      ? metadata.emails.slice(MAX_METADATA_EMAILS)
+      : [];
   if (toDelete.length > 0) {
-    metadata.emails = metadata.emails.slice(0, 50);
+    metadata.emails = metadata.emails.slice(0, MAX_METADATA_EMAILS);
   }
 
   await Promise.all([
