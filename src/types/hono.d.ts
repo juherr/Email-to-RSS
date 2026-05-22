@@ -4,6 +4,5 @@ import { Env } from "./index";
 declare module "hono" {
   interface ContextVariableMap {
     env: Env;
-    csrfToken: string;
   }
 }

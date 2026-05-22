@@ -15,7 +15,7 @@ import {
 import { generateFeedId } from "../utils/id-generator";
 import { designSystem } from "../styles/index";
 import { interactiveScripts } from "../scripts/index";
-import { generateCsrfToken, verifyCsrfToken } from "../utils/csrf";
+import { csrf } from "hono/csrf";
 
 type AppEnv = { Bindings: Env };
 
@@ -136,46 +136,15 @@ async function authMiddleware(c: Context, next: () => Promise<void>) {
 // Apply auth middleware to all admin routes
 app.use("*", authMiddleware);
 
-// CSRF middleware: generates token for GET requests and validates on mutating requests
-app.use("*", async (c, next) => {
+// CSRF middleware: validates Origin header on mutating requests (POST/PUT/DELETE/PATCH)
+// Skip on /admin/login — password itself provides protection for the pre-auth route
+const csrfMiddleware = csrf({
+  origin: (origin, c) => origin === `https://${c.env.DOMAIN}`,
+});
+app.use("*", (c, next) => {
   const path = new URL(c.req.url).pathname;
-  // Login route is pre-auth, so CSRF doesn't apply there
-  if (path === "/admin/login") {
-    return next();
-  }
-
-  const token = await generateCsrfToken(c.env.ADMIN_PASSWORD);
-  c.set("csrfToken", token);
-
-  if (
-    c.req.method === "POST" ||
-    c.req.method === "PUT" ||
-    c.req.method === "DELETE"
-  ) {
-    // Accept token from X-CSRF-Token header (JS fetch calls)
-    const headerToken = c.req.header("X-CSRF-Token") ?? "";
-    if (headerToken) {
-      if (!(await verifyCsrfToken(c.env.ADMIN_PASSWORD, headerToken))) {
-        return c.text("Invalid CSRF token", 403);
-      }
-      return next();
-    }
-
-    // For HTML form submissions: clone the request body to read _csrf without consuming the stream
-    const contentType = c.req.header("Content-Type") ?? "";
-    if (
-      contentType.includes("application/x-www-form-urlencoded") ||
-      contentType.includes("multipart/form-data")
-    ) {
-      const form = await c.req.raw.clone().formData();
-      const formToken = form.get("_csrf")?.toString() ?? "";
-      if (!(await verifyCsrfToken(c.env.ADMIN_PASSWORD, formToken))) {
-        return c.text("Invalid CSRF token", 403);
-      }
-    }
-  }
-
-  return next();
+  if (path === "/admin/login") return next();
+  return csrfMiddleware(c, next);
 });
 
 // Schema for feed creation
@@ -201,7 +170,7 @@ const authSchema = z.object({
 
 // Base HTML layout with design system
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-const layout = (title: string, content: any, csrfToken = "") => {
+const layout = (title: string, content: any) => {
   return html`<!DOCTYPE html>
     <html>
       <head>
@@ -209,7 +178,6 @@ const layout = (title: string, content: any, csrfToken = "") => {
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <meta name="color-scheme" content="light dark" />
-        <meta name="csrf-token" content="${csrfToken}" />
         <style>
           ${raw(designSystem)}
         </style>
@@ -391,11 +359,6 @@ app.get("/", async (c) => {
           <div class="card">
             <h2>Create New Feed</h2>
             <form action="/admin/feeds/create" method="post">
-              <input
-                type="hidden"
-                name="_csrf"
-                value="${c.var.csrfToken ?? ""}"
-              />
               <div class="form-group">
                 <label for="title">Feed Title</label>
                 <input type="text" id="title" name="title" required />
@@ -1262,7 +1225,6 @@ app.get("/", async (c) => {
             method: 'POST',
             headers: {
               'Accept': 'application/json',
-              'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]')?.content || '',
             },
             credentials: 'same-origin',
           });
@@ -1519,7 +1481,6 @@ app.get("/", async (c) => {
 	                headers: {
 	                  'Content-Type': 'application/json',
 	                  'Accept': 'application/json',
-	                  ''X-CSRF-Token': document.querySelector('meta[name=\"csrf-token\"]')?.content || '',
 	                },
 	                credentials: 'same-origin',
 	                body: JSON.stringify({ feedIds: batch }),
@@ -1569,7 +1530,6 @@ app.get("/", async (c) => {
 		                      headers: {
 		                        'Content-Type': 'application/json',
 		                        'Accept': 'application/json',
-		                        ''X-CSRF-Token': document.querySelector('meta[name=\"csrf-token\"]')?.content || '',
 		                      },
 		                      credentials: 'same-origin',
 		                      body: JSON.stringify({ feedIds: [feedId] }),
@@ -1652,7 +1612,6 @@ app.get("/", async (c) => {
       `)};
         </script>
       `,
-      c.var.csrfToken ?? "",
     ),
   );
 });
@@ -1789,11 +1748,6 @@ app.get("/feeds/:feedId/edit", async (c) => {
 
           <div class="card">
             <form action="/admin/feeds/${feedId}/edit" method="post">
-              <input
-                type="hidden"
-                name="_csrf"
-                value="${c.var.csrfToken ?? ""}"
-              />
               <div class="form-group">
                 <label for="title">Feed Title</label>
                 <input
@@ -1838,7 +1792,6 @@ ${(feedConfig.allowed_senders || []).join("\n")}</textarea
           </div>
         </div>
       `,
-      c.var.csrfToken ?? "",
     ),
   );
 });
@@ -2833,7 +2786,6 @@ app.get("/feeds/:feedId/emails", async (c) => {
             method: 'POST',
             headers: {
               'Accept': 'application/json',
-              ''X-CSRF-Token': document.querySelector('meta[name=\"csrf-token\"]')?.content || '',
             },
             credentials: 'same-origin',
           });
@@ -3085,7 +3037,6 @@ app.get("/feeds/:feedId/emails", async (c) => {
 	                headers: {
 	                  'Content-Type': 'application/json',
 	                  'Accept': 'application/json',
-	                  'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]')?.content || '',
 	                },
 	                credentials: 'same-origin',
 	                body: JSON.stringify({ emailKeys: batch }),
@@ -3147,7 +3098,6 @@ app.get("/feeds/:feedId/emails", async (c) => {
       `)};
         </script>
       `,
-      c.var.csrfToken ?? "",
     ),
   );
 });
@@ -3508,7 +3458,6 @@ ${emailData.content.replace(/</g, "&lt;").replace(/>/g, "&gt;")}</pre
       `)};
         </script>
       `,
-      c.var.csrfToken ?? "",
     ),
   );
 });
