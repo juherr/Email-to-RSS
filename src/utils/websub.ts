@@ -6,6 +6,7 @@ import {
   WebSubSubscription,
 } from "../types";
 import { generateRssFeed, generateAtomFeed } from "./feed-generator";
+import { baseUrl, feedRssUrl, feedAtomUrl, feedUrl } from "./urls";
 
 const KV_PREFIX = "websub:subs:";
 
@@ -67,12 +68,10 @@ async function buildFeedXml(
   const feedMetadata = rawMetadata as FeedMetadata | null;
   if (!feedMetadata) return null;
 
-  const baseUrl = `https://${env.DOMAIN}`;
+  const base = baseUrl(env);
   const feedConfig = (rawConfig as FeedConfig | null) ?? {
     title: `Newsletter Feed ${feedId}`,
     description: "Converted email newsletter",
-    site_url: `${baseUrl}/rss/${feedId}`,
-    feed_url: `${baseUrl}/rss/${feedId}`,
     language: "en",
     created_at: Date.now(),
   };
@@ -91,12 +90,12 @@ async function buildFeedXml(
     return generateAtomFeed(
       feedConfig,
       emailsData,
-      baseUrl,
+      base,
       feedId,
-      `${baseUrl}/atom/${feedId}`,
+      feedAtomUrl(feedId, env),
     );
   }
-  return generateRssFeed(feedConfig, emailsData, baseUrl, feedId);
+  return generateRssFeed(feedConfig, emailsData, base, feedId);
 }
 
 export async function notifySubscribers(
@@ -124,7 +123,7 @@ export async function notifySubscribers(
 
   if (!rssFeed && !atomFeed) return;
 
-  const baseUrl = `https://${env.DOMAIN}`;
+  const base = baseUrl(env);
 
   const deliver = async (
     sub: WebSubSubscription,
@@ -132,7 +131,7 @@ export async function notifySubscribers(
     contentType: string,
     selfPath: string,
   ) => {
-    const linkHeader = `<${baseUrl}/hub>; rel="hub", <${baseUrl}${selfPath}>; rel="self"`;
+    const linkHeader = `<${base}/hub>; rel="hub", <${base}${selfPath}>; rel="self"`;
     const headers: Record<string, string> = {
       "Content-Type": contentType,
       Link: linkHeader,
@@ -173,6 +172,26 @@ export async function notifySubscribers(
   }
 }
 
+async function verifyCallback(
+  callbackUrl: string,
+  params: Record<string, string>,
+): Promise<boolean> {
+  const challenge = crypto.randomUUID().replace(/-/g, "");
+  const url = new URL(callbackUrl);
+  for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
+  url.searchParams.set("hub.challenge", challenge);
+
+  let res: Response;
+  try {
+    res = await fetch(url.toString());
+  } catch {
+    return false;
+  }
+
+  if (!res.ok) return false;
+  return (await res.text()).trim() === challenge;
+}
+
 export async function verifyAndStoreSubscription(
   feedId: string,
   callbackUrl: string,
@@ -181,24 +200,12 @@ export async function verifyAndStoreSubscription(
   format: "rss" | "atom",
   env: Env,
 ): Promise<boolean> {
-  const challenge = crypto.randomUUID().replace(/-/g, "");
-  const topicUrl = `https://${env.DOMAIN}/${format}/${feedId}`;
-  const verifyUrl = new URL(callbackUrl);
-  verifyUrl.searchParams.set("hub.mode", "subscribe");
-  verifyUrl.searchParams.set("hub.topic", topicUrl);
-  verifyUrl.searchParams.set("hub.challenge", challenge);
-  verifyUrl.searchParams.set("hub.lease_seconds", String(leaseSeconds));
-
-  let res: Response;
-  try {
-    res = await fetch(verifyUrl.toString());
-  } catch {
-    return false;
-  }
-
-  if (!res.ok) return false;
-  const body = await res.text();
-  if (body.trim() !== challenge) return false;
+  const verified = await verifyCallback(callbackUrl, {
+    "hub.mode": "subscribe",
+    "hub.topic": feedUrl(format, feedId, env),
+    "hub.lease_seconds": String(leaseSeconds),
+  });
+  if (!verified) return false;
 
   const subs = await getSubscriptions(feedId, env);
   const idx = subs.findIndex((s) => s.callbackUrl === callbackUrl);
@@ -222,23 +229,11 @@ export async function verifyAndDeleteSubscription(
   callbackUrl: string,
   env: Env,
 ): Promise<boolean> {
-  const challenge = crypto.randomUUID().replace(/-/g, "");
-  const topicUrl = `https://${env.DOMAIN}/rss/${feedId}`;
-  const verifyUrl = new URL(callbackUrl);
-  verifyUrl.searchParams.set("hub.mode", "unsubscribe");
-  verifyUrl.searchParams.set("hub.topic", topicUrl);
-  verifyUrl.searchParams.set("hub.challenge", challenge);
-
-  let res: Response;
-  try {
-    res = await fetch(verifyUrl.toString());
-  } catch {
-    return false;
-  }
-
-  if (!res.ok) return false;
-  const body = await res.text();
-  if (body.trim() !== challenge) return false;
+  const verified = await verifyCallback(callbackUrl, {
+    "hub.mode": "unsubscribe",
+    "hub.topic": feedRssUrl(feedId, env),
+  });
+  if (!verified) return false;
 
   const subs = await getSubscriptions(feedId, env);
   await saveSubscriptions(

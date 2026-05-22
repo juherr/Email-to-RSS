@@ -9,8 +9,6 @@ import { FeedConfig, EmailData } from "../types";
 const mockFeedConfig: FeedConfig = {
   title: "Test Newsletter",
   description: "A test feed",
-  site_url: "https://test.getmynews.app/rss/abc123",
-  feed_url: "https://test.getmynews.app/rss/abc123",
   language: "en",
   created_at: 1700000000000,
 };

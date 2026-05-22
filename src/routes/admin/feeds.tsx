@@ -3,6 +3,7 @@ import { z } from "zod";
 import { Env, FeedConfig, FeedMetadata, EmailData } from "../../types";
 import { generateFeedId } from "../../utils/id-generator";
 import { waitUntilSafe } from "../../utils/worker";
+import { feedRssUrl, feedEmailAddress } from "../../utils/urls";
 import { logger } from "../../lib/logger";
 import { Layout } from "./ui";
 import {
@@ -192,8 +193,6 @@ feedsRouter.post("/create", async (c) => {
       title: parsedData.title,
       description: parsedData.description,
       language: parsedData.language,
-      site_url: `https://${env.DOMAIN}/rss/${feedId}`,
-      feed_url: `https://${env.DOMAIN}/rss/${feedId}`,
       allowed_senders: parsedData.allowedSenders,
       created_at: Date.now(),
       updated_at: Date.now(),
@@ -216,8 +215,8 @@ feedsRouter.post("/create", async (c) => {
     if (isJson) {
       return c.json({
         feedId,
-        email: `${feedId}@${env.DOMAIN}`,
-        feedUrl: feedConfig.feed_url,
+        email: feedEmailAddress(feedId, env),
+        feedUrl: feedRssUrl(feedId, env),
       });
     }
 

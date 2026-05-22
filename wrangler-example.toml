@@ -26,7 +26,11 @@ invocation_logs = true
 
 # Global Environment variables
 [vars]
-DOMAIN = "REPLACE_WITH_YOUR_DOMAIN" # Your custom domain for emails
+DOMAIN = "REPLACE_WITH_YOUR_DOMAIN" # Web domain (used for feed URLs and admin UI)
+
+# Optional: email domain when it differs from the web domain
+# Example: DOMAIN = "demo.example.com" but emails are @example.com
+# EMAIL_DOMAIN = "REPLACE_WITH_YOUR_EMAIL_DOMAIN"
 
 # Optional: size-based feed trimming threshold in bytes (default: 524288 = 512 KB)
 # FEED_MAX_SIZE_BYTES = "524288"
@@ -83,6 +87,7 @@ routes = [
 
 [env.demo.vars]
 DOMAIN = "demo.kill-the.news"
+EMAIL_DOMAIN = "kill-the.news" # Optional: email domain when it differs from the web domain
 
 # Nightly reset: wipe all KV data at 03:00 UTC so the demo stays clean
 [env.demo.triggers]

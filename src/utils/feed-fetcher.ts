@@ -9,7 +9,6 @@ export interface FeedData {
 export async function fetchFeedData(
   feedId: string,
   env: Env,
-  feedPath: "rss" | "atom",
 ): Promise<FeedData | null> {
   const storage = env.EMAIL_STORAGE;
 
@@ -26,8 +25,6 @@ export async function fetchFeedData(
   )) as FeedConfig | null) ?? {
     title: `Newsletter Feed ${feedId}`,
     description: "Converted email newsletter",
-    site_url: `https://${env.DOMAIN}/${feedPath}/${feedId}`,
-    feed_url: `https://${env.DOMAIN}/${feedPath}/${feedId}`,
     language: "en",
     created_at: Date.now(),
   };

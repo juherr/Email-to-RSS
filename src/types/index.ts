@@ -3,6 +3,7 @@ export interface Env {
   EMAIL_STORAGE: KVNamespace;
   ADMIN_PASSWORD: string;
   DOMAIN: string;
+  EMAIL_DOMAIN?: string;
   ATTACHMENT_BUCKET?: R2Bucket;
   FEED_MAX_SIZE_BYTES?: string;
   PROXY_TRUSTED_IPS?: string;
@@ -33,8 +34,6 @@ export interface FeedConfig {
   description?: string;
   allowed_senders?: string[];
   language: string;
-  site_url: string;
-  feed_url: string;
   author?: string;
   created_at: number;
   updated_at?: number;

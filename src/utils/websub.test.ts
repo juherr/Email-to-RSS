@@ -101,8 +101,6 @@ describe("notifySubscribers", () => {
       JSON.stringify({
         title: "Test Feed",
         language: "en",
-        site_url: "https://example.com",
-        feed_url: "https://example.com/rss/feed1",
         created_at: Date.now(),
       }),
     );
@@ -141,8 +139,6 @@ describe("notifySubscribers", () => {
       JSON.stringify({
         title: "Test Feed",
         language: "en",
-        site_url: "https://example.com",
-        feed_url: "https://example.com/rss/feed1",
         created_at: Date.now(),
       }),
     );
@@ -181,8 +177,6 @@ describe("notifySubscribers", () => {
       JSON.stringify({
         title: "Test Feed",
         language: "en",
-        site_url: "https://example.com",
-        feed_url: "https://example.com/rss/feed1",
         created_at: Date.now(),
       }),
     );
@@ -222,8 +216,6 @@ describe("notifySubscribers", () => {
       JSON.stringify({
         title: "Test Feed",
         language: "en",
-        site_url: "https://example.com",
-        feed_url: "https://example.com/rss/feed1",
         created_at: Date.now(),
       }),
     );
@@ -269,8 +261,6 @@ describe("notifySubscribers", () => {
       JSON.stringify({
         title: "Test Feed",
         language: "en",
-        site_url: "https://example.com",
-        feed_url: "https://example.com/rss/feed1",
         created_at: Date.now(),
       }),
     );

@@ -2,6 +2,7 @@ import { Context } from "hono";
 import { Env } from "../types";
 import { generateAtomFeed } from "../utils/feed-generator";
 import { fetchFeedData } from "../utils/feed-fetcher";
+import { baseUrl, feedAtomUrl } from "../utils/urls";
 
 export async function handle(c: Context<{ Bindings: Env }>): Promise<Response> {
   try {
@@ -10,23 +11,23 @@ export async function handle(c: Context<{ Bindings: Env }>): Promise<Response> {
       return new Response("Feed ID is required", { status: 400 });
     }
 
-    const feedData = await fetchFeedData(feedId, c.env, "atom");
+    const feedData = await fetchFeedData(feedId, c.env);
     if (!feedData) {
       return new Response("Feed not found", { status: 404 });
     }
 
-    const baseUrl = `https://${c.env.DOMAIN}`;
+    const base = baseUrl(c.env);
     const selfUrl = new URL(c.req.url).origin + `/atom/${feedId}`;
     const atomXml = generateAtomFeed(
       feedData.feedConfig,
       feedData.emails,
-      baseUrl,
+      base,
       feedId,
       selfUrl,
     );
     const linkHeader = [
-      `<${baseUrl}/hub>; rel="hub"`,
-      `<${baseUrl}/atom/${feedId}>; rel="self"`,
+      `<${base}/hub>; rel="hub"`,
+      `<${feedAtomUrl(feedId, c.env)}>; rel="self"`,
     ].join(", ");
 
     return new Response(atomXml, {

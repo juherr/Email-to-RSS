@@ -8,6 +8,7 @@ import { ADMIN_COOKIE_MAX_AGE } from "../config/constants";
 import { logger } from "../lib/logger";
 import { Layout, clampText } from "./admin/ui";
 import { listAllFeeds, updateFeedInList } from "./admin/helpers";
+import { feedRssUrl, feedAtomUrl, feedEmailAddress } from "../utils/urls";
 import { feedsRouter } from "./admin/feeds";
 import { emailsRouter } from "./admin/emails";
 import { dashboardScript } from "../scripts/generated/dashboard";
@@ -601,9 +602,9 @@ app.get("/", async (c) => {
                   </thead>
                   <tbody id="feed-table-body">
                     {feedsWithConfig.map((feed) => {
-                      const emailAddress = `${feed.id}@${env.DOMAIN}`;
-                      const rssUrl = `https://${env.DOMAIN}/rss/${feed.id}`;
-                      const atomUrl = `https://${env.DOMAIN}/atom/${feed.id}`;
+                      const emailAddress = feedEmailAddress(feed.id, env);
+                      const rssUrl = feedRssUrl(feed.id, env);
+                      const atomUrl = feedAtomUrl(feed.id, env);
                       const titleDisplay = clampText(feed.title, 160);
                       const titleHover = clampText(feed.title, 1000);
                       const sortTitle = titleHover.toLowerCase();
@@ -712,9 +713,9 @@ app.get("/", async (c) => {
 
             <ul class="feed-list">
               {feedsWithConfig.map((feed) => {
-                const emailAddress = `${feed.id}@${env.DOMAIN}`;
-                const rssUrl = `https://${env.DOMAIN}/rss/${feed.id}`;
-                const atomUrl = `https://${env.DOMAIN}/atom/${feed.id}`;
+                const emailAddress = feedEmailAddress(feed.id, env);
+                const rssUrl = feedRssUrl(feed.id, env);
+                const atomUrl = feedAtomUrl(feed.id, env);
                 const titleDisplay = clampText(feed.title, 140);
                 const titleHover = clampText(feed.title, 1000);
                 const descDisplay = clampText(feed.description || "", 240);

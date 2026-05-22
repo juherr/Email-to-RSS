@@ -6,6 +6,7 @@ import {
 } from "../utils/websub";
 import { waitUntilSafe } from "../utils/worker";
 import { DEFAULT_LEASE_SECONDS, MAX_LEASE_SECONDS } from "../config/constants";
+import { feedTopicPattern } from "../utils/urls";
 
 type AppEnv = { Bindings: Env };
 
@@ -60,9 +61,7 @@ hubRouter.post("/", async (c) => {
   }
 
   // Validate that topic matches a known RSS or Atom feed on this hub
-  const topicPattern = new RegExp(
-    `^https://${env.DOMAIN.replaceAll(".", "\\.")}/(rss|atom)/([^/]+)$`,
-  );
+  const topicPattern = feedTopicPattern(env);
   const match = topic.match(topicPattern);
   if (!match) {
     return c.text(

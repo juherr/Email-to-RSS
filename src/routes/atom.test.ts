@@ -81,8 +81,6 @@ describe("Atom Feed Route", () => {
         JSON.stringify({
           title: "Atom Test Feed",
           description: "Integration test",
-          site_url: "https://test.getmynews.app/rss/test-feed-atom",
-          feed_url: "https://test.getmynews.app/rss/test-feed-atom",
           language: "en",
           created_at: 1700000000000,
         }),

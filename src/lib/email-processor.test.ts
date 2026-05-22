@@ -220,8 +220,6 @@ describe("processEmail", () => {
       JSON.stringify({
         title: "Test",
         language: "en",
-        site_url: "https://example.com",
-        feed_url: `https://example.com/rss/${VALID_FEED_ID}`,
         created_at: Date.now(),
       }),
     );

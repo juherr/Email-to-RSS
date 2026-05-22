@@ -9,6 +9,7 @@ import {
 import { logger } from "../../lib/logger";
 import { Layout, clampText } from "./ui";
 import { deleteKeysWithConcurrency } from "./helpers";
+import { feedRssUrl, feedAtomUrl, feedEmailAddress } from "../../utils/urls";
 import { emailsPageScript } from "../../scripts/generated/emails-page";
 
 type AppEnv = { Bindings: Env };
@@ -91,9 +92,9 @@ emailsRouter.get("/feeds/:feedId/emails", async (c) => {
     return c.text("Feed not found", 404);
   }
 
-  const emailAddress = `${feedId}@${env.DOMAIN}`;
-  const rssUrl = `https://${env.DOMAIN}/rss/${feedId}`;
-  const atomUrl = `https://${env.DOMAIN}/atom/${feedId}`;
+  const emailAddress = feedEmailAddress(feedId, env);
+  const rssUrl = feedRssUrl(feedId, env);
+  const atomUrl = feedAtomUrl(feedId, env);
 
   return c.html(
     <Layout title={`${feedConfig.title} - Emails`}>
@@ -426,7 +427,7 @@ emailsRouter.get("/emails/:emailKey", async (c) => {
               <CopyField label="From:" value={emailData.from} />
               <CopyField
                 label="To:"
-                value={`${feedId}@${env.DOMAIN}`}
+                value={feedEmailAddress(feedId, env)}
               />
             </div>
           </div>
