@@ -138,6 +138,8 @@ export async function processEmail(
   // same feed can read stale metadata and produce orphaned KV entries or
   // duplicate trim deletions. This is an accepted limitation given Cloudflare
   // KV's eventual-consistency model.
+  // TODO: Migrate feed metadata writes to Cloudflare Durable Objects to serialise
+  // concurrent writes and eliminate this race condition.
   const feedMetadata = ((rawMetadata as FeedMetadata | null) || {
     emails: [],
   }) as FeedMetadata;
