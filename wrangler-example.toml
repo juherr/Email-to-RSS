@@ -64,3 +64,21 @@ routes = [
 
 [env.production.vars]
 DOMAIN = "REPLACE_WITH_YOUR_DOMAIN"
+
+# Demo environment (auto-deployed from main via GitHub Actions)
+# Accessible at https://demo.kill-the.news
+# Emails received at *@kill-the.news are routed here via Cloudflare Email Routing
+[env.demo]
+name = "kill-the-news-demo"
+workers_dev = false
+
+kv_namespaces = [
+  { binding = "EMAIL_STORAGE", id = "REPLACE_WITH_DEMO_KV_NAMESPACE_ID" }
+]
+
+routes = [
+  { pattern = "demo.kill-the.news", custom_domain = true }
+]
+
+[env.demo.vars]
+DOMAIN = "kill-the.news"
