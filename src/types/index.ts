@@ -71,6 +71,7 @@ export interface WebSubSubscription {
   callbackUrl: string;
   secret?: string;
   expiresAt: number; // Unix timestamp ms
+  format?: "rss" | "atom";
 }
 
 // Declare KVNamespace for TypeScript
