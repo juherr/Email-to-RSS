@@ -1,8 +1,8 @@
 :root {
-  /* Typography - Prefer system UI fonts (Apple HIG-ish) */
+  /* Typography — Inter matches the landing page style */
   --font-family:
-    -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display",
-    "Helvetica Neue", Arial, sans-serif;
+    "Inter", -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial,
+    sans-serif;
   --font-family-mono:
     ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
     "Courier New", monospace;
@@ -18,40 +18,31 @@
   --font-weight-semibold: 600;
   --font-weight-bold: 700;
 
-  /* Colors - Dark Mode (Default) */
-  --color-primary: #0a84ff;
-  --color-primary-dark: #409cff;
-  --color-secondary: #5e5ce6;
+  /* Colors — Dark Mode (Default) — aligned with kill-the-news landing page */
+  --color-primary: #f6821f;
+  --color-primary-dark: #ffa050;
+  --color-secondary: #f0b429;
   --color-success: #30d158;
   --color-warning: #ff9f0a;
   --color-danger: #ff453a;
   --color-danger-dark: #ff6961;
-  --color-background: rgba(
-    28,
-    28,
-    30,
-    0.95
-  ); /* Semi-transparent for glass effect */
-  --color-card: rgba(44, 44, 46, 0.8); /* Semi-transparent for glass effect */
-  --color-border: rgba(255, 255, 255, 0.08);
-  --color-text-primary: #ffffff;
-  --color-text-secondary: #ebebf5;
-  --color-text-tertiary: #8e8e93;
+  --color-background: #0a0a0a;
+  --color-card: #111111;
+  --color-border: rgba(255, 255, 255, 0.1);
+  --color-text-primary: #f0f0f0;
+  --color-text-secondary: #888888;
+  --color-text-tertiary: #555555;
   --color-text-on-primary: #ffffff;
-  --color-logout: rgba(255, 159, 10, 0.8); /* Orange-tinted for logout */
+  --color-logout: rgba(246, 130, 31, 0.85);
 
   /* Gradients */
-  --gradient-title: linear-gradient(
-    135deg,
-    var(--color-primary),
-    var(--color-secondary)
-  );
+  --gradient-title: linear-gradient(135deg, #f6821f, #f0b429);
 
-  /* Shadows for dark mode */
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.2);
-  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.2);
-  --shadow-lg: 0 8px 16px rgba(0, 0, 0, 0.2);
-  --shadow-xl: 0 12px 24px rgba(0, 0, 0, 0.2);
+  /* Shadows */
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.4);
+  --shadow-xl: 0 16px 48px rgba(0, 0, 0, 0.5);
 
   /* Spacing */
   --spacing-xs: 4px;
@@ -62,64 +53,46 @@
   --spacing-xxl: 48px;
 
   /* Radius */
-  --radius-sm: 8px;
-  --radius-md: 12px;
-  --radius-lg: 16px;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 12px;
   --radius-pill: 9999px;
 
-  /* Animation - Subtle */
+  /* Animation */
   --transition-fast: 0.15s cubic-bezier(0.16, 1, 0.3, 1);
   --transition-normal: 0.2s cubic-bezier(0.16, 1, 0.3, 1);
   --transition-slow: 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 
-  /* Blur for glass effect */
+  /* Blur — only for modals and toasts */
   --blur-sm: 8px;
   --blur-md: 12px;
   --blur-lg: 20px;
 }
 
-/* Light Mode Support - Based on device preference */
+/* Light Mode */
 @media (prefers-color-scheme: light) {
   :root {
-    --color-primary: #0070f3;
-    --color-primary-dark: #0051a8;
-    --color-secondary: #5e5ce6;
+    --color-primary: #e07010;
+    --color-primary-dark: #c05800;
+    --color-secondary: #d49800;
     --color-success: #34c759;
     --color-warning: #ff9500;
     --color-danger: #ff3b30;
     --color-danger-dark: #d70015;
-    --color-background: rgba(
-      245,
-      245,
-      247,
-      0.9
-    ); /* Semi-transparent for glass effect */
-    --color-card: rgba(
-      255,
-      255,
-      255,
-      0.8
-    ); /* Semi-transparent for glass effect */
-    --color-border: rgba(0, 0, 0, 0.06);
-    --color-text-primary: #000000;
-    --color-text-secondary: #666666;
+    --color-background: #f5f5f7;
+    --color-card: #ffffff;
+    --color-border: rgba(0, 0, 0, 0.1);
+    --color-text-primary: #111111;
+    --color-text-secondary: #555555;
     --color-text-tertiary: #999999;
     --color-text-on-primary: #ffffff;
-    --color-logout: rgba(255, 149, 0, 0.8); /* Orange-tinted for logout */
+    --color-logout: rgba(224, 112, 16, 0.9);
 
-    /* Reset shadows for light mode */
-    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.03);
-    --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.05);
-    --shadow-lg: 0 8px 16px rgba(0, 0, 0, 0.06);
-    --shadow-xl: 0 12px 24px rgba(0, 0, 0, 0.08);
+    --gradient-title: linear-gradient(135deg, #e07010, #d49800);
 
-    /* Update gradient for light mode */
-    --gradient-title: linear-gradient(
-      135deg,
-      var(--color-primary),
-      var(--color-secondary)
-    );
+    --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.08);
+    --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.1);
+    --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.1);
+    --shadow-xl: 0 16px 48px rgba(0, 0, 0, 0.12);
   }
 }
-
-/* No external font imports. */

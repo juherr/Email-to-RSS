@@ -14,43 +14,37 @@
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
 
-  /* Liquid-glass-ish background (subtle, non-distracting) */
-  background-image:
-    radial-gradient(
-      1200px circle at 20% 10%,
-      rgba(10, 132, 255, 0.18),
-      transparent 55%
-    ),
-    radial-gradient(
-      900px circle at 80% 20%,
-      rgba(94, 92, 230, 0.14),
-      transparent 60%
-    ),
-    radial-gradient(
-      700px circle at 50% 100%,
-      rgba(48, 209, 88, 0.1),
-      transparent 60%
-    ),
-    linear-gradient(
-      135deg,
-      rgba(255, 255, 255, 0.03) 0%,
-      rgba(0, 0, 0, 0.03) 100%
-    );
+  /* Subtle orange glow matching landing page hero */
+  background-image: radial-gradient(
+    900px circle at 50% 0%,
+    rgba(246, 130, 31, 0.08),
+    transparent 60%
+  );
   background-attachment: fixed;
 }
 
-/* Main Container */
+@media (prefers-color-scheme: light) {
+  .page {
+    background-image: radial-gradient(
+      900px circle at 50% 0%,
+      rgba(246, 130, 31, 0.06),
+      transparent 60%
+    );
+  }
+}
+
+/* Main Container — unified width for list and table views */
 .container {
   width: 100%;
-  max-width: 980px;
+  max-width: 1200px;
   margin: 0 auto;
   padding: var(--spacing-xl);
   box-sizing: border-box;
 }
 
-/* Wider layout for data-dense pages (tables) */
+/* Keep for compatibility but unused on dashboard */
 .container-wide {
-  max-width: 1440px;
+  max-width: 1400px;
 }
 
 /* Header Styles */
@@ -95,8 +89,6 @@
   box-shadow: var(--shadow-xl);
   border: 1px solid var(--color-border);
   transition: all var(--transition-normal);
-  backdrop-filter: blur(var(--blur-md));
-  -webkit-backdrop-filter: blur(var(--blur-md));
 }
 
 .auth-logo {
@@ -118,8 +110,6 @@
   margin-bottom: var(--spacing-lg);
   text-align: center;
   font-weight: var(--font-weight-medium);
-  backdrop-filter: blur(var(--blur-sm));
-  -webkit-backdrop-filter: blur(var(--blur-sm));
 }
 
 .auth-form {
@@ -164,7 +154,7 @@
   font-weight: var(--font-weight-bold);
   margin-bottom: var(--spacing-xs);
   line-height: 1.2;
-  color: var(--color-text-primary); /* Fallback color */
+  color: var(--color-text-primary);
   background: var(--gradient-title);
   -webkit-background-clip: text;
   background-clip: text;
