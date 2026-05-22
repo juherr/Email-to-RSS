@@ -376,6 +376,210 @@
     footer a:hover { color: var(--text); }
     footer .sep { margin: 0 0.5rem; }
 
+    /* ── Demo banner ── */
+    .demo-banner {
+      background: linear-gradient(135deg, rgba(246,130,31,0.08) 0%, rgba(246,130,31,0.03) 100%);
+      border-top: 1px solid rgba(246,130,31,0.2);
+      border-bottom: 1px solid rgba(246,130,31,0.2);
+      padding: 3.5rem 2rem;
+    }
+
+    .demo-banner .inner {
+      max-width: 1100px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 2.5rem;
+      align-items: center;
+    }
+
+    .demo-banner h2 {
+      font-size: clamp(1.3rem, 2.5vw, 1.75rem);
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      margin-bottom: 0.6rem;
+    }
+
+    .demo-banner h2 span { color: var(--accent); }
+
+    .demo-banner p {
+      font-size: 0.95rem;
+      color: var(--muted);
+      max-width: 540px;
+      line-height: 1.65;
+    }
+
+    .demo-creds {
+      display: inline-flex;
+      align-items: center;
+      gap: 1rem;
+      margin-top: 1rem;
+      padding: 0.6rem 1rem;
+      background: rgba(0,0,0,0.3);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.82rem;
+    }
+
+    .demo-creds .cred-item { color: var(--muted); }
+    .demo-creds .cred-item strong { color: var(--text); font-weight: 500; }
+    .demo-creds .cred-sep { color: #333; }
+
+    .demo-actions {
+      display: flex;
+      flex-direction: column;
+      gap: 0.65rem;
+      align-items: flex-end;
+      flex-shrink: 0;
+    }
+
+    .demo-note {
+      font-size: 0.75rem;
+      color: #555;
+      text-align: center;
+    }
+
+    @media (max-width: 700px) {
+      .demo-banner .inner { grid-template-columns: 1fr; }
+      .demo-actions { align-items: flex-start; flex-direction: row; flex-wrap: wrap; }
+      .demo-note { text-align: left; }
+    }
+
+    /* ── Nav links ── */
+    nav-links {
+      display: flex;
+      align-items: center;
+      gap: 0.25rem;
+    }
+    .nav-link {
+      padding: 0.35rem 0.75rem;
+      border-radius: 6px;
+      font-size: 0.875rem;
+      color: var(--muted);
+      transition: color 0.15s, background 0.15s;
+    }
+    .nav-link:hover { color: var(--text); background: var(--surface); }
+    @media (max-width: 600px) { nav-links { display: none; } }
+
+    /* ── Install section ── */
+    .install-steps {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      counter-reset: install-step;
+    }
+
+    .install-step {
+      display: grid;
+      grid-template-columns: 48px 1fr;
+      gap: 1.25rem;
+      align-items: start;
+    }
+
+    .install-step-num {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: var(--accent-dim);
+      border: 1px solid rgba(246,130,31,0.35);
+      color: var(--accent);
+      font-weight: 700;
+      font-size: 0.9rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+
+    .install-step-body h3 {
+      font-size: 1rem;
+      font-weight: 600;
+      margin-bottom: 0.5rem;
+    }
+
+    .install-step-body p {
+      font-size: 0.875rem;
+      color: var(--muted);
+      margin-bottom: 0.75rem;
+      line-height: 1.65;
+    }
+
+    .install-step-body p:last-child { margin-bottom: 0; }
+
+    .install-step-body .code-block { margin-top: 0.75rem; }
+
+    .install-step-body ul {
+      margin: 0.5rem 0 0.75rem 1.1rem;
+      font-size: 0.875rem;
+      color: var(--muted);
+      line-height: 1.8;
+    }
+
+    .install-step-connector {
+      width: 1px;
+      background: var(--border);
+      height: 1.5rem;
+      margin-left: 19px;
+    }
+
+    .install-split {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+      margin-top: 0.75rem;
+    }
+    @media (max-width: 700px) { .install-split { grid-template-columns: 1fr; } }
+
+    .install-card {
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.25rem 1.5rem;
+      background: var(--surface);
+    }
+    .install-card.highlight { border-color: rgba(246,130,31,0.4); }
+
+    .install-card .tag {
+      display: inline-block;
+      padding: 0.2rem 0.55rem;
+      border-radius: 4px;
+      font-size: 0.7rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 0.6rem;
+    }
+    .tag-opt { background: rgba(255,255,255,0.06); color: var(--muted); }
+    .install-card h4 { font-size: 0.9rem; font-weight: 600; margin-bottom: 0.35rem; }
+    .install-card p { font-size: 0.825rem; color: var(--muted); line-height: 1.6; }
+
+    .waf-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.85rem;
+      margin-top: 0.75rem;
+    }
+    .waf-table th {
+      text-align: left;
+      padding: 0.5rem 0.75rem;
+      border-bottom: 1px solid var(--border);
+      color: var(--muted);
+      font-weight: 500;
+      font-size: 0.8rem;
+    }
+    .waf-table td {
+      padding: 0.5rem 0.75rem;
+      border-bottom: 1px solid rgba(255,255,255,0.04);
+      vertical-align: top;
+    }
+    .waf-table td code {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.8em;
+      color: var(--accent);
+    }
+    .waf-table tr:last-child td { border-bottom: none; }
+
     @media (max-width: 600px) {
       .step:not(:last-child)::after { display: none; }
       .step { padding-right: 0; }
@@ -393,6 +597,11 @@
     </svg>
     kill-the-news
   </div>
+  <nav-links>
+    <a href="#features" class="nav-link">Features</a>
+    <a href="#how-it-works" class="nav-link">How it works</a>
+    <a href="#install" class="nav-link">Install</a>
+  </nav-links>
   <a href="https://github.com/juherr/kill-the-news" class="btn btn-outline" target="_blank" rel="noopener">
     <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.3 3.44 9.8 8.2 11.38.6.11.82-.26.82-.58v-2.03c-3.34.73-4.04-1.61-4.04-1.61-.54-1.38-1.33-1.75-1.33-1.75-1.09-.74.08-.73.08-.73 1.2.09 1.84 1.24 1.84 1.24 1.07 1.83 2.8 1.3 3.49 1 .11-.78.42-1.3.76-1.6-2.67-.3-5.47-1.33-5.47-5.93 0-1.31.47-2.38 1.24-3.22-.12-.3-.54-1.52.12-3.17 0 0 1.01-.32 3.3 1.23a11.5 11.5 0 0 1 3-.4c1.02.005 2.04.14 3 .4 2.28-1.55 3.29-1.23 3.29-1.23.66 1.65.24 2.87.12 3.17.77.84 1.24 1.91 1.24 3.22 0 4.61-2.81 5.63-5.48 5.92.43.37.81 1.1.81 2.22v3.29c0 .32.22.7.83.58C20.57 21.8 24 17.3 24 12c0-6.63-5.37-12-12-12z"/></svg>
     GitHub
@@ -409,11 +618,40 @@
   <h1>Turn email newsletters into <span>private RSS feeds</span></h1>
   <p>Self-hosted on Cloudflare Workers. Your data stays in your own account, served from your own domain.</p>
   <div class="hero-ctas">
-    <a href="https://github.com/juherr/kill-the-news" class="btn btn-primary" target="_blank" rel="noopener">
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.3 3.44 9.8 8.2 11.38.6.11.82-.26.82-.58v-2.03c-3.34.73-4.04-1.61-4.04-1.61-.54-1.38-1.33-1.75-1.33-1.75-1.09-.74.08-.73.08-.73 1.2.09 1.84 1.24 1.84 1.24 1.07 1.83 2.8 1.3 3.49 1 .11-.78.42-1.3.76-1.6-2.67-.3-5.47-1.33-5.47-5.93 0-1.31.47-2.38 1.24-3.22-.12-.3-.54-1.52.12-3.17 0 0 1.01-.32 3.3 1.23a11.5 11.5 0 0 1 3-.4c1.02.005 2.04.14 3 .4 2.28-1.55 3.29-1.23 3.29-1.23.66 1.65.24 2.87.12 3.17.77.84 1.24 1.91 1.24 3.22 0 4.61-2.81 5.63-5.48 5.92.43.37.81 1.1.81 2.22v3.29c0 .32.22.7.83.58C20.57 21.8 24 17.3 24 12c0-6.63-5.37-12-12-12z"/></svg>
-      View on GitHub
+    <a href="https://demo.kill-the.news/admin" class="btn btn-primary" target="_blank" rel="noopener">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+      Try the demo
     </a>
-    <a href="#quick-start" class="btn btn-outline">Quick Start ↓</a>
+    <a href="#install" class="btn btn-outline">Self-host ↓</a>
+    <a href="https://github.com/juherr/kill-the-news" class="btn btn-outline" target="_blank" rel="noopener">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.3 3.44 9.8 8.2 11.38.6.11.82-.26.82-.58v-2.03c-3.34.73-4.04-1.61-4.04-1.61-.54-1.38-1.33-1.75-1.33-1.75-1.09-.74.08-.73.08-.73 1.2.09 1.84 1.24 1.84 1.24 1.07 1.83 2.8 1.3 3.49 1 .11-.78.42-1.3.76-1.6-2.67-.3-5.47-1.33-5.47-5.93 0-1.31.47-2.38 1.24-3.22-.12-.3-.54-1.52.12-3.17 0 0 1.01-.32 3.3 1.23a11.5 11.5 0 0 1 3-.4c1.02.005 2.04.14 3 .4 2.28-1.55 3.29-1.23 3.29-1.23.66 1.65.24 2.87.12 3.17.77.84 1.24 1.91 1.24 3.22 0 4.61-2.81 5.63-5.48 5.92.43.37.81 1.1.81 2.22v3.29c0 .32.22.7.83.58C20.57 21.8 24 17.3 24 12c0-6.63-5.37-12-12-12z"/></svg>
+      GitHub
+    </a>
+  </div>
+</div>
+
+<!-- Demo banner -->
+<div class="demo-banner">
+  <div class="inner">
+    <div>
+      <h2>Try it <span>live</span> — no setup required</h2>
+      <p>
+        A hosted instance runs at <strong style="color:var(--text)">demo.kill-the.news</strong>, pre-loaded with sample feeds.
+        Create a feed, grab the RSS URL, and add it to your reader — all without deploying anything.
+      </p>
+      <div class="demo-creds">
+        <span class="cred-item">URL <strong>demo.kill-the.news/admin</strong></span>
+        <span class="cred-sep">·</span>
+        <span class="cred-item">Password <strong>password</strong></span>
+      </div>
+    </div>
+    <div class="demo-actions">
+      <a href="https://demo.kill-the.news/admin" class="btn btn-primary" target="_blank" rel="noopener" style="font-size:0.95rem;padding:0.6rem 1.35rem;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+        Open demo
+      </a>
+      <span class="demo-note">Resets periodically · for testing only</span>
+    </div>
   </div>
 </div>
 
@@ -547,6 +785,216 @@
     </div>
   </div>
 </section>
+
+<!-- Installation -->
+<div style="background:var(--surface);padding:5rem 0 0;border-top:1px solid var(--border);">
+<section id="install" style="padding-top:0;padding-bottom:0;">
+  <div class="section-header">
+    <div class="section-label">Installation</div>
+    <h2 class="section-title">Deploy to Cloudflare</h2>
+    <p class="section-sub">Everything you need to self-host kill-the-news on your own Cloudflare account, step by step.</p>
+  </div>
+
+  <div class="install-steps">
+
+    <!-- Step 1 -->
+    <div class="install-step">
+      <div class="install-step-num">1</div>
+      <div class="install-step-body">
+        <h3>Prerequisites</h3>
+        <p>You need a free <a href="https://dash.cloudflare.com/sign-up" target="_blank" rel="noopener" style="color:var(--accent);border-bottom:1px solid rgba(246,130,31,0.3)">Cloudflare account</a> with a domain managed by Cloudflare DNS, and Node.js ≥ 18.</p>
+        <ul>
+          <li>Cloudflare account (free tier is enough)</li>
+          <li>A domain with DNS managed by Cloudflare</li>
+          <li>Node.js ≥ 18 &amp; npm</li>
+          <li>Git</li>
+        </ul>
+      </div>
+    </div>
+    <div class="install-step-connector"></div>
+
+    <!-- Step 2 -->
+    <div class="install-step">
+      <div class="install-step-num">2</div>
+      <div class="install-step-body">
+        <h3>Clone &amp; authenticate</h3>
+        <p>Clone the repo and log in to Cloudflare via Wrangler. This opens a browser window to authorize the CLI.</p>
+        <div class="code-block">
+          <div class="code-block-header"><span class="dot-r"></span><span class="dot-y"></span><span class="dot-g"></span> Terminal</div>
+          <pre><span class="prompt">$ </span><span class="cmd">git clone https://github.com/juherr/kill-the-news.git</span>
+<span class="prompt">$ </span><span class="cmd">cd kill-the-news</span>
+<span class="prompt">$ </span><span class="cmd">npm install</span>
+<span class="prompt">$ </span><span class="cmd">npx wrangler login</span></pre>
+        </div>
+      </div>
+    </div>
+    <div class="install-step-connector"></div>
+
+    <!-- Step 3 -->
+    <div class="install-step">
+      <div class="install-step-num">3</div>
+      <div class="install-step-body">
+        <h3>Run the setup script</h3>
+        <p>The interactive setup script creates the KV namespace, sets the admin password secret, and writes <code style="font-family:monospace;font-size:0.85em;color:var(--accent)">wrangler.toml</code> for you.</p>
+        <div class="code-block">
+          <div class="code-block-header"><span class="dot-r"></span><span class="dot-y"></span><span class="dot-g"></span> Terminal</div>
+          <pre><span class="prompt">$ </span><span class="cmd">bash setup.sh</span>
+<span class="comment">
+# The script will ask for:
+#   - Your domain (e.g. newsletters.example.com)
+#   - An admin password (stored as a Wrangler secret)
+#   - Whether to enable R2 for attachments (optional)</span></pre>
+        </div>
+        <p style="margin-top:0.75rem;">This generates <code style="font-family:monospace;font-size:0.85em;color:var(--accent)">wrangler.toml</code> from the example template. Do not commit it — it is gitignored.</p>
+      </div>
+    </div>
+    <div class="install-step-connector"></div>
+
+    <!-- Step 4 -->
+    <div class="install-step">
+      <div class="install-step-num">4</div>
+      <div class="install-step-body">
+        <h3>Deploy the Worker</h3>
+        <div class="code-block">
+          <div class="code-block-header"><span class="dot-r"></span><span class="dot-y"></span><span class="dot-g"></span> Terminal</div>
+          <pre><span class="prompt">$ </span><span class="cmd">npm run deploy</span>
+<span class="comment">
+# Wrangler compiles the Worker, uploads it to Cloudflare,
+# and prints the Worker URL. Your admin UI will be live at:
+#   https://&lt;your-domain&gt;/admin</span></pre>
+        </div>
+      </div>
+    </div>
+    <div class="install-step-connector"></div>
+
+    <!-- Step 5 -->
+    <div class="install-step">
+      <div class="install-step-num">5</div>
+      <div class="install-step-body">
+        <h3>Configure email ingestion</h3>
+        <p>Choose how incoming emails reach your Worker:</p>
+        <div class="install-split">
+          <div class="install-card highlight">
+            <div class="tag tag-recommended">Recommended</div>
+            <h4>Cloudflare Email Routing</h4>
+            <p>In the Cloudflare dashboard, go to <strong>Email → Email Routing</strong> and enable it on your domain. Add a catch-all rule with action <em>Send to Worker</em> pointing to your deployed Worker. No third-party service required.</p>
+          </div>
+          <div class="install-card">
+            <div class="tag tag-alt">Alternative</div>
+            <h4>ForwardEmail Webhook</h4>
+            <p>Point ForwardEmail MX records at your domain. ForwardEmail parses incoming mail and POSTs a JSON payload to <code style="font-family:monospace;font-size:0.8em">/api/inbound</code>. Useful if you already use ForwardEmail.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="install-step-connector"></div>
+
+    <!-- Step 6 — Optional R2 -->
+    <div class="install-step">
+      <div class="install-step-num">6</div>
+      <div class="install-step-body">
+        <h3>Optional: enable attachment storage</h3>
+        <p>To store email attachments and expose them as RSS enclosures, create an R2 bucket and bind it in <code style="font-family:monospace;font-size:0.85em;color:var(--accent)">wrangler.toml</code>:</p>
+        <div class="code-block">
+          <div class="code-block-header"><span class="dot-r"></span><span class="dot-y"></span><span class="dot-g"></span> wrangler.toml</div>
+          <pre><span class="comment">[[r2_buckets]]</span>
+<span class="cmd">binding = "ATTACHMENT_BUCKET"
+bucket_name = "kill-the-news-attachments"</span></pre>
+        </div>
+        <p style="margin-top:0.75rem;">Attachments will be served at <code style="font-family:monospace;font-size:0.85em;color:var(--accent)">/files/:id/:filename</code> and linked as <code style="font-family:monospace;font-size:0.85em;color:var(--accent)">&lt;enclosure&gt;</code> elements in the RSS feed.</p>
+      </div>
+    </div>
+    <div class="install-step-connector"></div>
+
+    <!-- Step 7 — WAF -->
+    <div class="install-step">
+      <div class="install-step-num">7</div>
+      <div class="install-step-body">
+        <h3>Harden with WAF rate limiting</h3>
+        <p>Protect your endpoints against abuse using Cloudflare WAF custom rate-limiting rules — no code changes required, pure infrastructure.</p>
+
+        <div class="install-split" style="margin-top:0.75rem;margin-bottom:1rem;">
+          <div class="install-card">
+            <div class="tag tag-recommended" style="background:var(--accent-dim);color:var(--accent);">Dashboard</div>
+            <h4>Via Cloudflare Dashboard</h4>
+            <p>Go to <strong>Security → WAF → Rate limiting rules</strong> and create one rule per endpoint below.</p>
+          </div>
+          <div class="install-card">
+            <div class="tag tag-opt">Terraform</div>
+            <h4>Via Terraform</h4>
+            <p>Use <code style="font-family:monospace;font-size:0.8em">cloudflare_ruleset</code> with <code style="font-family:monospace;font-size:0.8em">phase = "http_ratelimit"</code> — see the snippet below.</p>
+          </div>
+        </div>
+
+        <p><strong style="color:var(--text)">Recommended limits:</strong></p>
+        <div class="code-block" style="margin-top:0.5rem;">
+          <div class="code-block-header"><span class="dot-r"></span><span class="dot-y"></span><span class="dot-g"></span> WAF rules</div>
+          <table class="waf-table">
+            <thead>
+              <tr><th>Endpoint</th><th>Condition</th><th>Limit</th><th>Action</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>/api/inbound</code></td>
+                <td>URI path = <code>/api/inbound</code>, method = <code>POST</code></td>
+                <td>60 req / min / IP</td>
+                <td>Block (1 min)</td>
+              </tr>
+              <tr>
+                <td><code>/admin*</code></td>
+                <td>URI path starts with <code>/admin</code></td>
+                <td>20 req / min / IP</td>
+                <td>Managed Challenge (5 min)</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <p style="margin-top:0.75rem;">Terraform equivalent:</p>
+        <div class="code-block" style="margin-top:0.5rem;">
+          <div class="code-block-header"><span class="dot-r"></span><span class="dot-y"></span><span class="dot-g"></span> main.tf</div>
+          <pre><span class="cmd">resource "cloudflare_ruleset" "rate_limiting" {</span>
+<span class="cmd">  zone_id = var.cloudflare_zone_id</span>
+<span class="cmd">  name    = "kill-the-news rate limiting"</span>
+<span class="cmd">  kind    = "zone"</span>
+<span class="cmd">  phase   = "http_ratelimit"</span>
+<span class="cmd">
+  rules {</span>
+<span class="cmd">    description = "Rate limit /api/inbound"</span>
+<span class="cmd">    expression  = "(http.request.uri.path eq \"/api/inbound\" and http.request.method eq \"POST\")"</span>
+<span class="cmd">    action      = "block"</span>
+<span class="cmd">    ratelimit {</span>
+<span class="cmd">      characteristics     = ["ip.src"]</span>
+<span class="cmd">      period              = 60</span>
+<span class="cmd">      requests_per_period = 60</span>
+<span class="cmd">      mitigation_timeout  = 60</span>
+<span class="cmd">    }</span>
+<span class="cmd">  }
+</span>
+<span class="cmd">  rules {</span>
+<span class="cmd">    description = "Rate limit /admin"</span>
+<span class="cmd">    expression  = "starts_with(http.request.uri.path, \"/admin\")"</span>
+<span class="cmd">    action      = "managed_challenge"</span>
+<span class="cmd">    ratelimit {</span>
+<span class="cmd">      characteristics     = ["ip.src"]</span>
+<span class="cmd">      period              = 60</span>
+<span class="cmd">      requests_per_period = 20</span>
+<span class="cmd">      mitigation_timeout  = 300</span>
+<span class="cmd">    }</span>
+<span class="cmd">  }
+}</span></pre>
+        </div>
+
+        <p style="margin-top:0.75rem;font-size:0.8rem;color:#555;">
+          These rules run at the Cloudflare edge before the Worker is invoked — zero latency impact on normal traffic.
+          If ForwardEmail's delivery IPs ever trigger the <code style="font-family:monospace;color:var(--muted)">/api/inbound</code> limit, add them as an IP Access Rule with action <em>Allow</em> under Security → WAF → Tools.
+        </p>
+      </div>
+    </div>
+
+  </div>
+</section>
+</div>
 
 <!-- Tech Stack -->
 <section id="tech-stack" style="padding-top:0;">

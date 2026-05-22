@@ -175,4 +175,17 @@ export default {
   ) {
     await handleCloudflareEmail(message, env, ctx);
   },
+  async scheduled(_event: ScheduledEvent, env: Env, _ctx: ExecutionContext) {
+    let cursor: string | undefined;
+    let deleted = 0;
+    do {
+      const result = await env.EMAIL_STORAGE.list({ cursor });
+      await Promise.all(
+        result.keys.map(({ name }) => env.EMAIL_STORAGE.delete(name)),
+      );
+      deleted += result.keys.length;
+      cursor = result.list_complete ? undefined : result.cursor;
+    } while (cursor);
+    logger.info("Demo KV reset complete", { deleted });
+  },
 };

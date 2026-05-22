@@ -83,3 +83,7 @@ routes = [
 
 [env.demo.vars]
 DOMAIN = "demo.kill-the.news"
+
+# Nightly reset: wipe all KV data at 03:00 UTC so the demo stays clean
+[env.demo.triggers]
+crons = ["0 3 * * *"]

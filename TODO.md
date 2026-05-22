@@ -24,6 +24,6 @@ Feature gaps identified by comparing with [kill-the-newsletter](https://github.c
 
 - [x] **WebSub (PubSubHubbub) push notifications** — notify subscribers in real time when a new email arrives, instead of requiring them to poll the feed. Requires either integrating a public WebSub hub or implementing the hub protocol directly.
 
-- [ ] **Rate limiting via Cloudflare WAF rules** — protect `/api/inbound` and `/admin` against abuse. Configure WAF custom rules in the Cloudflare dashboard (or via Terraform): rate-limit `/api/inbound` to ~60 req/min per IP, and `/admin` to ~20 req/min per IP. No code changes required; this is pure infrastructure configuration.
+- [x] **Rate limiting via Cloudflare WAF rules** — protect `/api/inbound` and `/admin` against abuse. Configure WAF custom rules in the Cloudflare dashboard (or via Terraform): rate-limit `/api/inbound` to ~60 req/min per IP, and `/admin` to ~20 req/min per IP. No code changes required; this is pure infrastructure configuration.
 
 - [ ] **Migrate feed metadata to Durable Objects for atomic writes** — the current KV-based metadata store has a read-modify-write race condition: two concurrent emails to the same feed can silently overwrite each other's changes. Cloudflare Durable Objects serialise access per feed and eliminate the race entirely. Requires replacing `feed:<feedId>:metadata` KV writes in `src/lib/email-processor.ts` with a Durable Object that exposes an `appendEmail()` RPC, updating `wrangler.toml` with a DO binding, and migrating existing metadata at deploy time.
