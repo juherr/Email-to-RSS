@@ -2,8 +2,7 @@ import { Context } from "hono";
 import { html, raw } from "hono/html";
 import { Env, FeedMetadata, EmailData } from "../types";
 
-export async function handle(c: Context): Promise<Response> {
-  const env = c.env as unknown as Env;
+export async function handle(c: Context<{ Bindings: Env }>): Promise<Response> {
   const feedId = c.req.param("feedId");
   const receivedAt = parseInt(c.req.param("entryId"), 10);
 
@@ -11,7 +10,7 @@ export async function handle(c: Context): Promise<Response> {
     return new Response("Not Found", { status: 404 });
   }
 
-  const emailStorage = env.EMAIL_STORAGE;
+  const emailStorage = c.env.EMAIL_STORAGE;
 
   const feedMetadata = (await emailStorage.get(
     `feed:${feedId}:metadata`,

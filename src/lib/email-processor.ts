@@ -25,13 +25,17 @@ export interface ProcessEmailInput {
   attachments?: RawAttachment[];
 }
 
+type ValidationSuccess = { ok: true; feedId: string; feedConfig: FeedConfig };
+type ValidationFailure = { ok: false; response: Response };
+type ValidationResult = ValidationSuccess | ValidationFailure;
+
 function normalizeEmail(value: string): string {
   return value.trim().toLowerCase();
 }
 
 function senderMatchesAllowlist(
   sender: string,
-  allowedSender: string, // already normalized by caller
+  allowedSender: string,
 ): boolean {
   if (!allowedSender) return false;
 
@@ -71,15 +75,17 @@ async function uploadAttachments(
   );
 }
 
-export async function processEmail(
+export async function validateEmail(
   input: ProcessEmailInput,
   env: Env,
-  ctx?: ExecutionContext,
-): Promise<Response> {
+): Promise<ValidationResult> {
   const feedId = EmailParser.extractFeedId(input.toAddress);
   if (!feedId) {
     console.error(`Invalid email address format: ${input.toAddress}`);
-    return new Response("Invalid email address format", { status: 400 });
+    return {
+      ok: false,
+      response: new Response("Invalid email address format", { status: 400 }),
+    };
   }
 
   const feedConfig = (await env.EMAIL_STORAGE.get(
@@ -88,7 +94,10 @@ export async function processEmail(
   )) as FeedConfig | null;
   if (!feedConfig) {
     console.error(`Feed with ID ${feedId} does not exist or has been deleted`);
-    return new Response("Feed does not exist", { status: 404 });
+    return {
+      ok: false,
+      response: new Response("Feed does not exist", { status: 404 }),
+    };
   }
 
   const allowedSenders = (feedConfig.allowed_senders || [])
@@ -103,15 +112,26 @@ export async function processEmail(
     if (!senderAllowed) {
       console.warn(
         `Rejected email for feed ${feedId}; sender not in allowlist`,
-        {
-          senders: input.senders,
-          allowedSenders,
-        },
+        { senders: input.senders, allowedSenders },
       );
-      return new Response("Sender not allowed for this feed", { status: 403 });
+      return {
+        ok: false,
+        response: new Response("Sender not allowed for this feed", {
+          status: 403,
+        }),
+      };
     }
   }
 
+  return { ok: true, feedId, feedConfig };
+}
+
+export async function storeEmail(
+  feedId: string,
+  input: ProcessEmailInput,
+  env: Env,
+  ctx?: ExecutionContext,
+): Promise<void> {
   const storedAttachments: AttachmentData[] =
     env.ATTACHMENT_BUCKET && input.attachments?.length
       ? await uploadAttachments(input.attachments, env.ATTACHMENT_BUCKET)
@@ -189,5 +209,16 @@ export async function processEmail(
   if (ctx) {
     ctx.waitUntil(notifySubscribers(feedId, env));
   }
+}
+
+export async function processEmail(
+  input: ProcessEmailInput,
+  env: Env,
+  ctx?: ExecutionContext,
+): Promise<Response> {
+  const validation = await validateEmail(input, env);
+  if (!validation.ok) return validation.response;
+
+  await storeEmail(validation.feedId, input, env, ctx);
   return new Response("Email processed successfully", { status: 200 });
 }

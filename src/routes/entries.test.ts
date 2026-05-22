@@ -1,0 +1,108 @@
+import { describe, it, expect, beforeEach } from "vitest";
+import { Hono } from "hono";
+import { handle } from "./entries";
+import { createMockEnv } from "../test/setup";
+
+const FEED_ID = "test-feed";
+const RECEIVED_AT = 1700000001000;
+const EMAIL_KEY = `feed:${FEED_ID}:${RECEIVED_AT}`;
+
+function makeApp() {
+  const app = new Hono();
+  app.get("/:feedId/:entryId", handle);
+  return app;
+}
+
+async function seedFeed(env: ReturnType<typeof createMockEnv>) {
+  await env.EMAIL_STORAGE.put(
+    EMAIL_KEY,
+    JSON.stringify({
+      subject: "Test Subject",
+      from: "sender@example.com",
+      content: "<p>Email body</p>",
+      receivedAt: RECEIVED_AT,
+      headers: {},
+    }),
+  );
+  await env.EMAIL_STORAGE.put(
+    `feed:${FEED_ID}:metadata`,
+    JSON.stringify({
+      emails: [
+        { key: EMAIL_KEY, subject: "Test Subject", receivedAt: RECEIVED_AT },
+      ],
+    }),
+  );
+}
+
+describe("GET /entries/:feedId/:entryId", () => {
+  let env: ReturnType<typeof createMockEnv>;
+
+  beforeEach(() => {
+    env = createMockEnv();
+  });
+
+  it("returns 404 when feed does not exist", async () => {
+    const app = makeApp();
+    const res = await app.request(`/${FEED_ID}/999`, {}, env as any);
+    expect(res.status).toBe(404);
+    expect(await res.text()).toContain("Feed not found");
+  });
+
+  it("returns 404 when entry does not exist in metadata", async () => {
+    const app = makeApp();
+    await env.EMAIL_STORAGE.put(
+      `feed:${FEED_ID}:metadata`,
+      JSON.stringify({ emails: [] }),
+    );
+    const res = await app.request(`/${FEED_ID}/999`, {}, env as any);
+    expect(res.status).toBe(404);
+    expect(await res.text()).toContain("Entry not found");
+  });
+
+  it("returns 404 when entryId is not a number", async () => {
+    const app = makeApp();
+    const res = await app.request(`/${FEED_ID}/not-a-number`, {}, env as any);
+    expect(res.status).toBe(404);
+  });
+
+  it("returns 200 with HTML for valid entry", async () => {
+    await seedFeed(env);
+    const app = makeApp();
+    const res = await app.request(`/${FEED_ID}/${RECEIVED_AT}`, {}, env as any);
+    expect(res.status).toBe(200);
+    expect(res.headers.get("Content-Type")).toContain("text/html");
+  });
+
+  it("includes email subject in HTML title", async () => {
+    await seedFeed(env);
+    const app = makeApp();
+    const res = await app.request(`/${FEED_ID}/${RECEIVED_AT}`, {}, env as any);
+    const body = await res.text();
+    expect(body).toContain("Test Subject");
+  });
+
+  it("includes email content in HTML body", async () => {
+    await seedFeed(env);
+    const app = makeApp();
+    const res = await app.request(`/${FEED_ID}/${RECEIVED_AT}`, {}, env as any);
+    const body = await res.text();
+    expect(body).toContain("<p>Email body</p>");
+  });
+
+  it("includes sender in HTML", async () => {
+    await seedFeed(env);
+    const app = makeApp();
+    const res = await app.request(`/${FEED_ID}/${RECEIVED_AT}`, {}, env as any);
+    const body = await res.text();
+    expect(body).toContain("sender@example.com");
+  });
+
+  it("sets Content-Security-Policy header", async () => {
+    await seedFeed(env);
+    const app = makeApp();
+    const res = await app.request(`/${FEED_ID}/${RECEIVED_AT}`, {}, env as any);
+    expect(res.headers.get("Content-Security-Policy")).toContain(
+      "default-src 'none'",
+    );
+  });
+});

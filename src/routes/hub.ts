@@ -1,11 +1,13 @@
 import { Hono, type Context } from "hono";
 import { Env } from "../types";
+
+type AppEnv = { Bindings: Env };
 import {
   verifyAndStoreSubscription,
   verifyAndDeleteSubscription,
 } from "../utils/websub";
 
-function waitUntilSafe(c: Context, promise: Promise<unknown>) {
+function waitUntilSafe(c: Context<AppEnv>, promise: Promise<unknown>) {
   // Hono throws when ExecutionContext isn't present (e.g. Node unit tests).
   try {
     c.executionCtx.waitUntil(promise);
@@ -17,10 +19,10 @@ function waitUntilSafe(c: Context, promise: Promise<unknown>) {
 const DEFAULT_LEASE_SECONDS = 86400;
 const MAX_LEASE_SECONDS = 30 * 24 * 3600; // 30 days
 
-export const hubRouter = new Hono();
+export const hubRouter = new Hono<AppEnv>();
 
 hubRouter.post("/", async (c) => {
-  const env = c.env as unknown as Env;
+  const env = c.env;
   let form: FormData;
   try {
     form = await c.req.formData();

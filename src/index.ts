@@ -10,6 +10,8 @@ import { hubRouter } from "./routes/hub";
 import { handleCloudflareEmail } from "./lib/cloudflare-email";
 import { Env } from "./types";
 
+type AppEnv = { Bindings: Env };
+
 const ALLOWED_ORIGINS = ["https://getmynews.app", "https://www.getmynews.app"];
 
 // Fallback ForwardEmail.net IP addresses in case API fetch fails
@@ -20,7 +22,7 @@ const FALLBACK_FORWARD_EMAIL_IPS = [
 ];
 
 // Create the main Hono app
-const app = new Hono();
+const app = new Hono<AppEnv>();
 
 // Cache for ForwardEmail.net IPs with expiration
 let forwardEmailIpsCache: {
@@ -95,12 +97,12 @@ app.use(
 );
 
 // Group routes by functionality
-const api = new Hono();
-const rss = new Hono();
-const atom = new Hono();
-const entries = new Hono();
-const files = new Hono();
-const admin = new Hono();
+const api = new Hono<AppEnv>();
+const rss = new Hono<AppEnv>();
+const atom = new Hono<AppEnv>();
+const entries = new Hono<AppEnv>();
+const files = new Hono<AppEnv>();
+const admin = new Hono<AppEnv>();
 
 // Webhook security middleware for /inbound - verify ForwardEmail.net IP
 api.use("/inbound", async (c, next) => {

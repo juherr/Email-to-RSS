@@ -3,17 +3,20 @@ import { Hono } from "hono";
 import app from "./admin";
 import { createMockEnv } from "../test/setup";
 import { Env } from "../types";
+import { generateCsrfToken } from "../utils/csrf";
 
 describe("Admin Routes", () => {
   let testApp: Hono;
   let mockEnv: Env;
+  let csrfToken: string;
   let request: (path: string, init?: RequestInit) => Promise<Response>;
   let loginAndGetCookie: () => Promise<string>;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     mockEnv = createMockEnv() as unknown as Env;
     testApp = new Hono();
     testApp.route("/admin", app);
+    csrfToken = await generateCsrfToken("test-password");
     request = (path, init = {}) =>
       Promise.resolve(testApp.request(path, init, mockEnv));
     loginAndGetCookie = async () => {
@@ -94,6 +97,7 @@ describe("Admin Routes", () => {
       const res = await request("/admin", {
         headers: {
           Cookie: authCookie,
+          "X-CSRF-Token": csrfToken,
         },
       });
       expect(res.status).toBe(200);
@@ -139,6 +143,7 @@ describe("Admin Routes", () => {
           method: "POST",
           headers: {
             Cookie: authCookie,
+            "X-CSRF-Token": csrfToken,
           },
           body: formData,
         });
@@ -175,6 +180,7 @@ describe("Admin Routes", () => {
           method: "POST",
           headers: {
             Cookie: authCookie,
+            "X-CSRF-Token": csrfToken,
           },
           body: formData,
         });
@@ -195,6 +201,7 @@ describe("Admin Routes", () => {
           headers: {
             Cookie: authCookie,
             "Content-Type": "application/json",
+            "X-CSRF-Token": csrfToken,
           },
           body: JSON.stringify({ title: "", description: "desc" }),
         });
@@ -241,6 +248,7 @@ describe("Admin Routes", () => {
           method: "POST",
           headers: {
             Cookie: authCookie,
+            "X-CSRF-Token": csrfToken,
           },
           body: formData,
         });
@@ -259,6 +267,7 @@ describe("Admin Routes", () => {
           method: "POST",
           headers: {
             Cookie: authCookie,
+            "X-CSRF-Token": csrfToken,
           },
         });
 
@@ -291,6 +300,7 @@ describe("Admin Routes", () => {
           method: "POST",
           headers: {
             Cookie: authCookie,
+            "X-CSRF-Token": csrfToken,
           },
           body: formData,
         });
@@ -310,6 +320,7 @@ describe("Admin Routes", () => {
             headers: {
               Cookie: authCookie,
               Accept: "application/json",
+              "X-CSRF-Token": csrfToken,
             },
           },
         );
@@ -329,7 +340,7 @@ describe("Admin Routes", () => {
           formData.append("description", "Test");
           const createRes = await request("/admin/feeds/create", {
             method: "POST",
-            headers: { Cookie: authCookie },
+            headers: { Cookie: authCookie, "X-CSRF-Token": csrfToken },
             body: formData,
           });
           expect(createRes.status).toBe(302);
@@ -350,7 +361,7 @@ describe("Admin Routes", () => {
 
         const bulkDeleteRes = await request("/admin/feeds/bulk-delete", {
           method: "POST",
-          headers: { Cookie: authCookie },
+          headers: { Cookie: authCookie, "X-CSRF-Token": csrfToken },
           body: bulkForm,
         });
 
@@ -479,6 +490,7 @@ describe("Admin Routes", () => {
           method: "POST",
           headers: {
             Cookie: authCookie,
+            "X-CSRF-Token": csrfToken,
           },
           body: formData,
         });
@@ -528,6 +540,7 @@ describe("Admin Routes", () => {
             headers: {
               Cookie: authCookie,
               Accept: "application/json",
+              "X-CSRF-Token": csrfToken,
             },
           },
         );

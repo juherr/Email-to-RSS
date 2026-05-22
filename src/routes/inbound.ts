@@ -2,9 +2,8 @@ import { Context } from "hono";
 import { Env } from "../types";
 import { ForwardEmailPayload, handleForwardEmail } from "../lib/forwardemail";
 
-export async function handle(c: Context): Promise<Response> {
+export async function handle(c: Context<{ Bindings: Env }>): Promise<Response> {
   try {
-    const env = c.env as unknown as Env;
     const payload: ForwardEmailPayload = await c.req.json();
 
     console.log("Received email:", {
@@ -20,7 +19,7 @@ export async function handle(c: Context): Promise<Response> {
     } catch {
       // No ExecutionContext in this environment (e.g. tests); WebSub notifications will be skipped
     }
-    return handleForwardEmail(payload, env, ctx);
+    return handleForwardEmail(payload, c.env, ctx);
   } catch (error) {
     console.error("Error processing email:", error);
     return new Response("Error processing email", { status: 500 });

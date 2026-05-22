@@ -15,6 +15,9 @@ import {
 import { generateFeedId } from "../utils/id-generator";
 import { designSystem } from "../styles/index";
 import { interactiveScripts } from "../scripts/index";
+import { generateCsrfToken, verifyCsrfToken } from "../utils/csrf";
+
+type AppEnv = { Bindings: Env };
 
 /**
  * Admin routes handler for Email-to-RSS
@@ -25,7 +28,7 @@ import { interactiveScripts } from "../scripts/index";
  * - Uses HttpOnly cookies to prevent XSS attacks
  * - Implements SameSite=Strict to prevent CSRF attacks
  */
-const app = new Hono();
+const app = new Hono<AppEnv>();
 
 // Export for testing
 export default app;
@@ -33,7 +36,7 @@ export default app;
 const ADMIN_COOKIE_NAME = "admin_auth";
 const ADMIN_COOKIE_MAX_AGE = 60 * 60 * 24 * 7; // 1 week
 
-function waitUntilSafe(c: Context, promise: Promise<unknown>) {
+function waitUntilSafe(c: Context<AppEnv>, promise: Promise<unknown>) {
   // Hono throws when ExecutionContext isn't present (ex: Node unit tests).
   try {
     c.executionCtx.waitUntil(promise);
@@ -90,7 +93,7 @@ function timingSafeEqual(a: string, b: string): boolean {
 
 // Authentication middleware for admin routes
 async function authMiddleware(c: Context, next: () => Promise<void>) {
-  const env = c.env as unknown as Env;
+  const env = c.env;
   const path = new URL(c.req.url).pathname;
 
   // Skip auth check for login page - note that path includes /admin prefix
@@ -101,7 +104,7 @@ async function authMiddleware(c: Context, next: () => Promise<void>) {
   // Proxy auth: only active when both env vars are present
   if (env.PROXY_AUTH_SECRET && env.PROXY_TRUSTED_IPS) {
     const trustedIps = env.PROXY_TRUSTED_IPS.split(",")
-      .map((s) => s.trim())
+      .map((s: string) => s.trim())
       .filter(Boolean);
     const clientIp = c.req.header("CF-Connecting-IP") ?? "";
     const providedSecret = c.req.header("X-Auth-Proxy-Secret") ?? "";
@@ -133,6 +136,48 @@ async function authMiddleware(c: Context, next: () => Promise<void>) {
 // Apply auth middleware to all admin routes
 app.use("*", authMiddleware);
 
+// CSRF middleware: generates token for GET requests and validates on mutating requests
+app.use("*", async (c, next) => {
+  const path = new URL(c.req.url).pathname;
+  // Login route is pre-auth, so CSRF doesn't apply there
+  if (path === "/admin/login") {
+    return next();
+  }
+
+  const token = await generateCsrfToken(c.env.ADMIN_PASSWORD);
+  c.set("csrfToken", token);
+
+  if (
+    c.req.method === "POST" ||
+    c.req.method === "PUT" ||
+    c.req.method === "DELETE"
+  ) {
+    // Accept token from X-CSRF-Token header (JS fetch calls)
+    const headerToken = c.req.header("X-CSRF-Token") ?? "";
+    if (headerToken) {
+      if (!(await verifyCsrfToken(c.env.ADMIN_PASSWORD, headerToken))) {
+        return c.text("Invalid CSRF token", 403);
+      }
+      return next();
+    }
+
+    // For HTML form submissions: clone the request body to read _csrf without consuming the stream
+    const contentType = c.req.header("Content-Type") ?? "";
+    if (
+      contentType.includes("application/x-www-form-urlencoded") ||
+      contentType.includes("multipart/form-data")
+    ) {
+      const form = await c.req.raw.clone().formData();
+      const formToken = form.get("_csrf")?.toString() ?? "";
+      if (!(await verifyCsrfToken(c.env.ADMIN_PASSWORD, formToken))) {
+        return c.text("Invalid CSRF token", 403);
+      }
+    }
+  }
+
+  return next();
+});
+
 // Schema for feed creation
 const createFeedSchema = z.object({
   title: z.string().min(1, "Title is required"),
@@ -156,7 +201,7 @@ const authSchema = z.object({
 
 // Base HTML layout with design system
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-const layout = (title: string, content: any) => {
+const layout = (title: string, content: any, csrfToken = "") => {
   return html`<!DOCTYPE html>
     <html>
       <head>
@@ -164,6 +209,7 @@ const layout = (title: string, content: any) => {
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <meta name="color-scheme" content="light dark" />
+        <meta name="csrf-token" content="${csrfToken}" />
         <style>
           ${raw(designSystem)}
         </style>
@@ -243,7 +289,7 @@ app.get("/login", (c) => {
 
 // Handle login
 app.post("/login", async (c) => {
-  const env = c.env as unknown as Env;
+  const env = c.env;
 
   try {
     const formData = await c.req.formData();
@@ -281,7 +327,7 @@ app.get("/logout", (c) => {
 // Admin dashboard route
 app.get("/", async (c) => {
   // Type assertion for environment variables
-  const env = c.env as unknown as Env;
+  const env = c.env;
   const emailStorage = env.EMAIL_STORAGE;
   const url = new URL(c.req.url);
   const view = url.searchParams.get("view") === "table" ? "table" : "list";
@@ -345,6 +391,11 @@ app.get("/", async (c) => {
           <div class="card">
             <h2>Create New Feed</h2>
             <form action="/admin/feeds/create" method="post">
+              <input
+                type="hidden"
+                name="_csrf"
+                value="${c.var.csrfToken ?? ""}"
+              />
               <div class="form-group">
                 <label for="title">Feed Title</label>
                 <input type="text" id="title" name="title" required />
@@ -1211,6 +1262,7 @@ app.get("/", async (c) => {
             method: 'POST',
             headers: {
               'Accept': 'application/json',
+              'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]')?.content || '',
             },
             credentials: 'same-origin',
           });
@@ -1467,6 +1519,7 @@ app.get("/", async (c) => {
 	                headers: {
 	                  'Content-Type': 'application/json',
 	                  'Accept': 'application/json',
+	                  ''X-CSRF-Token': document.querySelector('meta[name=\"csrf-token\"]')?.content || '',
 	                },
 	                credentials: 'same-origin',
 	                body: JSON.stringify({ feedIds: batch }),
@@ -1516,6 +1569,7 @@ app.get("/", async (c) => {
 		                      headers: {
 		                        'Content-Type': 'application/json',
 		                        'Accept': 'application/json',
+		                        ''X-CSRF-Token': document.querySelector('meta[name=\"csrf-token\"]')?.content || '',
 		                      },
 		                      credentials: 'same-origin',
 		                      body: JSON.stringify({ feedIds: [feedId] }),
@@ -1598,6 +1652,7 @@ app.get("/", async (c) => {
       `)};
         </script>
       `,
+      c.var.csrfToken ?? "",
     ),
   );
 });
@@ -1605,7 +1660,7 @@ app.get("/", async (c) => {
 // Create a new feed
 app.post("/feeds/create", async (c) => {
   // Type assertion for environment variables
-  const env = c.env as unknown as Env;
+  const env = c.env;
   const emailStorage = env.EMAIL_STORAGE;
   const isJson =
     c.req.header("Content-Type")?.includes("application/json") ?? false;
@@ -1702,7 +1757,7 @@ app.post("/feeds/create", async (c) => {
 // Edit feed page
 app.get("/feeds/:feedId/edit", async (c) => {
   // Type assertion for environment variables
-  const env = c.env as unknown as Env;
+  const env = c.env;
   const emailStorage = env.EMAIL_STORAGE;
   const feedId = c.req.param("feedId");
 
@@ -1734,6 +1789,11 @@ app.get("/feeds/:feedId/edit", async (c) => {
 
           <div class="card">
             <form action="/admin/feeds/${feedId}/edit" method="post">
+              <input
+                type="hidden"
+                name="_csrf"
+                value="${c.var.csrfToken ?? ""}"
+              />
               <div class="form-group">
                 <label for="title">Feed Title</label>
                 <input
@@ -1778,6 +1838,7 @@ ${(feedConfig.allowed_senders || []).join("\n")}</textarea
           </div>
         </div>
       `,
+      c.var.csrfToken ?? "",
     ),
   );
 });
@@ -1785,7 +1846,7 @@ ${(feedConfig.allowed_senders || []).join("\n")}</textarea
 // Update feed
 app.post("/feeds/:feedId/edit", async (c) => {
   // Type assertion for environment variables
-  const env = c.env as unknown as Env;
+  const env = c.env;
   const emailStorage = env.EMAIL_STORAGE;
   const feedId = c.req.param("feedId");
 
@@ -1978,7 +2039,7 @@ async function purgeFeedKeysStep(
 
 // Delete feed
 app.post("/feeds/:feedId/delete", async (c) => {
-  const env = c.env as unknown as Env;
+  const env = c.env;
   const emailStorage = env.EMAIL_STORAGE;
   const feedId = c.req.param("feedId");
   const view = c.req.query("view") === "table" ? "table" : "list";
@@ -2014,7 +2075,7 @@ app.post("/feeds/:feedId/delete", async (c) => {
 
 // Purge all keys for a feed in small steps (used by the admin UI after deleting feeds).
 app.post("/feeds/:feedId/purge", async (c) => {
-  const env = c.env as unknown as Env;
+  const env = c.env;
   const emailStorage = env.EMAIL_STORAGE;
   const feedId = c.req.param("feedId");
 
@@ -2051,7 +2112,7 @@ app.post("/feeds/:feedId/purge", async (c) => {
 
 // Bulk delete feeds selected in the dashboard
 app.post("/feeds/bulk-delete", async (c) => {
-  const env = c.env as unknown as Env;
+  const env = c.env;
   const emailStorage = env.EMAIL_STORAGE;
   const contentType = c.req.header("Content-Type") || "";
   const wantsJson =
@@ -2188,7 +2249,7 @@ app.post("/feeds/bulk-delete", async (c) => {
 // View all emails for a feed
 app.get("/feeds/:feedId/emails", async (c) => {
   // Type assertion for environment variables
-  const env = c.env as unknown as Env;
+  const env = c.env;
   const emailStorage = env.EMAIL_STORAGE;
   const feedId = c.req.param("feedId");
   const message = c.req.query("message");
@@ -2772,6 +2833,7 @@ app.get("/feeds/:feedId/emails", async (c) => {
             method: 'POST',
             headers: {
               'Accept': 'application/json',
+              ''X-CSRF-Token': document.querySelector('meta[name=\"csrf-token\"]')?.content || '',
             },
             credentials: 'same-origin',
           });
@@ -3023,6 +3085,7 @@ app.get("/feeds/:feedId/emails", async (c) => {
 	                headers: {
 	                  'Content-Type': 'application/json',
 	                  'Accept': 'application/json',
+	                  'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]')?.content || '',
 	                },
 	                credentials: 'same-origin',
 	                body: JSON.stringify({ emailKeys: batch }),
@@ -3084,6 +3147,7 @@ app.get("/feeds/:feedId/emails", async (c) => {
       `)};
         </script>
       `,
+      c.var.csrfToken ?? "",
     ),
   );
 });
@@ -3091,7 +3155,7 @@ app.get("/feeds/:feedId/emails", async (c) => {
 // View email content
 app.get("/emails/:emailKey", async (c) => {
   // Type assertion for environment variables
-  const env = c.env as unknown as Env;
+  const env = c.env;
   const emailStorage = env.EMAIL_STORAGE;
   const emailKey = c.req.param("emailKey");
 
@@ -3444,6 +3508,7 @@ ${emailData.content.replace(/</g, "&lt;").replace(/>/g, "&gt;")}</pre
       `)};
         </script>
       `,
+      c.var.csrfToken ?? "",
     ),
   );
 });
@@ -3451,7 +3516,7 @@ ${emailData.content.replace(/</g, "&lt;").replace(/>/g, "&gt;")}</pre
 // Delete email
 app.post("/emails/:emailKey/delete", async (c) => {
   // Type assertion for environment variables
-  const env = c.env as unknown as Env;
+  const env = c.env;
   const emailStorage = env.EMAIL_STORAGE;
   const emailKey = c.req.param("emailKey");
   const wantsJson = (c.req.header("Accept") || "").includes("application/json");
@@ -3515,7 +3580,7 @@ app.post("/emails/:emailKey/delete", async (c) => {
 
 // Bulk delete selected emails from a feed
 app.post("/feeds/:feedId/emails/bulk-delete", async (c) => {
-  const env = c.env as unknown as Env;
+  const env = c.env;
   const emailStorage = env.EMAIL_STORAGE;
   const feedId = c.req.param("feedId");
   const contentType = c.req.header("Content-Type") || "";
@@ -3769,7 +3834,7 @@ app.post(
   ),
   async (c) => {
     // Type assertion for environment variables
-    const env = c.env as unknown as Env;
+    const env = c.env;
     const emailStorage = env.EMAIL_STORAGE;
     const feedId = c.req.param("feedId");
 
