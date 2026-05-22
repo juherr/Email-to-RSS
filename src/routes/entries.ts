@@ -4,7 +4,7 @@ import { Env, FeedMetadata, EmailData } from "../types";
 
 export async function handle(c: Context<{ Bindings: Env }>): Promise<Response> {
   const feedId = c.req.param("feedId");
-  const receivedAt = parseInt(c.req.param("entryId"), 10);
+  const receivedAt = parseInt(c.req.param("entryId") ?? "", 10);
 
   if (!feedId || isNaN(receivedAt)) {
     return new Response("Not Found", { status: 404 });

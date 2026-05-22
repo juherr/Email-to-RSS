@@ -9,6 +9,10 @@ export async function handle(c: Context<{ Bindings: Env }>): Promise<Response> {
   const attachmentId = c.req.param("attachmentId");
   const filename = c.req.param("filename");
 
+  if (!attachmentId || !filename) {
+    return new Response("Not found", { status: 404 });
+  }
+
   const object = await c.env.ATTACHMENT_BUCKET.get(attachmentId);
 
   if (!object) {

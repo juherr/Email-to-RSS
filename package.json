@@ -51,7 +51,7 @@
   "dependencies": {
     "@hono/zod-validator": "^0.8.0",
     "feed": "5.2.1",
-    "hono": "^4.11.7",
+    "hono": "4.12.22",
     "postal-mime": "^2.7.4",
     "zod": "4.4.3"
   }
