@@ -17,6 +17,7 @@ kv_namespaces = [
 [[rules]]
 type = "Text"
 globs = ["**/*.css"]
+fallthrough = false
 
 # Workers Observability (keeps config in sync with dashboard toggle)
 [observability.logs]
