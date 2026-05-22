@@ -14,7 +14,13 @@ export async function handle(c: Context): Promise<Response> {
       contentType: payload.html ? "HTML" : "Text",
     });
 
-    return handleForwardEmail(payload, env, c.executionCtx);
+    let ctx: ExecutionContext | undefined;
+    try {
+      ctx = c.executionCtx;
+    } catch {
+      // No ExecutionContext in this environment (e.g. tests); WebSub notifications will be skipped
+    }
+    return handleForwardEmail(payload, env, ctx);
   } catch (error) {
     console.error("Error processing email:", error);
     return new Response("Error processing email", { status: 500 });
