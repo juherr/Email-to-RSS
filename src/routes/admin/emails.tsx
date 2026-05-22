@@ -1,5 +1,4 @@
 import { Hono } from "hono";
-import { html, raw } from "hono/html";
 import {
   Env,
   FeedConfig,
@@ -8,12 +7,68 @@ import {
   EmailMetadata,
 } from "../../types";
 import { logger } from "../../lib/logger";
-import { layout, clampText } from "./ui";
+import { Layout, clampText } from "./ui";
 import { deleteKeysWithConcurrency } from "./helpers";
 
 type AppEnv = { Bindings: Env };
 
 export const emailsRouter = new Hono<AppEnv>();
+
+// ── Shared SVG icons ──────────────────────────────────────────────────────────
+
+const CopyIcon = () => (
+  <svg
+    class="copy-icon copy-icon-original"
+    width="16"
+    height="16"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    stroke-width="2"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  >
+    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+  </svg>
+);
+
+const CheckIcon = () => (
+  <svg
+    class="copy-icon copy-icon-success"
+    width="16"
+    height="16"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    stroke-width="2"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  >
+    <path d="M20 6L9 17l-5-5"></path>
+  </svg>
+);
+
+type CopyFieldProps = {
+  label: string;
+  value: string;
+  display?: string;
+};
+
+const CopyField = ({ label, value, display }: CopyFieldProps) => (
+  <div class="copyable">
+    <span class="copyable-label">{label}</span>
+    <div class="copyable-content">
+      <span class="copyable-value" data-copy={value}>
+        {display ?? value}
+      </span>
+      <div class="copy-icon-container">
+        <CopyIcon />
+        <CheckIcon />
+      </div>
+    </div>
+  </div>
+);
 
 // ── View all emails for a feed ────────────────────────────────────────────────
 
@@ -35,327 +90,11 @@ emailsRouter.get("/feeds/:feedId/emails", async (c) => {
     return c.text("Feed not found", 404);
   }
 
-  return c.html(
-    layout(
-      `${feedConfig.title} - Emails`,
-      html`
-        <div class="container container-wide fade-in">
-          <div class="header-with-actions">
-            <div class="header-title">
-              <h1>${feedConfig.title} - Emails</h1>
-            </div>
-            <div class="header-actions">
-              <a href="/admin" class="button button-secondary button-back"
-                >Back to Dashboard</a
-              >
-            </div>
-          </div>
+  const emailAddress = `${feedId}@${env.DOMAIN}`;
+  const rssUrl = `https://${env.DOMAIN}/rss/${feedId}`;
 
-          <div class="card">
-            <h2>Feed Details</h2>
-            <div>
-              <div class="copyable">
-                <span class="copyable-label">Email Address:</span>
-                <div class="copyable-content">
-                  <span
-                    class="copyable-value"
-                    data-copy="${feedId}@${env.DOMAIN}"
-                    >${feedId}@${env.DOMAIN}</span
-                  >
-                  <div class="copy-icon-container">
-                    <svg
-                      class="copy-icon copy-icon-original"
-                      width="16"
-                      height="16"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      stroke-width="2"
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                    >
-                      <rect
-                        x="9"
-                        y="9"
-                        width="13"
-                        height="13"
-                        rx="2"
-                        ry="2"
-                      ></rect>
-                      <path
-                        d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"
-                      ></path>
-                    </svg>
-                    <svg
-                      class="copy-icon copy-icon-success"
-                      width="16"
-                      height="16"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      stroke-width="2"
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                    >
-                      <path d="M20 6L9 17l-5-5"></path>
-                    </svg>
-                  </div>
-                </div>
-              </div>
-              <div class="copyable">
-                <span class="copyable-label">RSS Feed:</span>
-                <div class="copyable-content">
-                  <span
-                    class="copyable-value"
-                    data-copy="https://${env.DOMAIN}/rss/${feedId}"
-                    >https://${env.DOMAIN}/rss/${feedId}</span
-                  >
-                  <div class="copy-icon-container">
-                    <svg
-                      class="copy-icon copy-icon-original"
-                      width="16"
-                      height="16"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      stroke-width="2"
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                    >
-                      <rect
-                        x="9"
-                        y="9"
-                        width="13"
-                        height="13"
-                        rx="2"
-                        ry="2"
-                      ></rect>
-                      <path
-                        d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"
-                      ></path>
-                    </svg>
-                    <svg
-                      class="copy-icon copy-icon-success"
-                      width="16"
-                      height="16"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      stroke-width="2"
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                    >
-                      <path d="M20 6L9 17l-5-5"></path>
-                    </svg>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <h2>
-            Emails (<span id="email-total-count"
-              >${feedMetadata.emails.length}</span
-            >)
-          </h2>
-
-          ${message === "bulkDeleted"
-            ? html`<div class="card">
-                <p>Deleted ${Number.isFinite(count) ? count : 0} email(s).</p>
-              </div>`
-            : ""}
-          ${message === "bulkDeleteNoop"
-            ? html`<div class="card"><p>No emails were selected.</p></div>`
-            : ""}
-          ${feedMetadata.emails.length > 0
-            ? html`
-                <form
-                  action="/admin/feeds/${feedId}/emails/bulk-delete"
-                  method="post"
-                  onsubmit="return onBulkEmailDeleteSubmit(event)"
-                >
-                  <div class="toolbar">
-                    <div class="toolbar-group toolbar-group-fill">
-                      <input
-                        type="search"
-                        id="email-search"
-                        class="search"
-                        placeholder="Search email subjects"
-                        oninput="scheduleEmailFilter()"
-                      />
-                      <span class="pill" id="email-match-count"
-                        >Showing ${feedMetadata.emails.length}</span
-                      >
-                      <span class="pill" id="selected-email-count"
-                        >0 selected</span
-                      >
-                      <button
-                        type="button"
-                        class="button button-small button-secondary"
-                        onclick="selectMatchingEmails()"
-                      >
-                        Select Results
-                      </button>
-                      <button
-                        type="button"
-                        class="button button-small button-secondary"
-                        onclick="clearEmailSelection()"
-                      >
-                        Clear Selection
-                      </button>
-                      <button
-                        id="bulk-delete-emails-button"
-                        type="submit"
-                        class="button button-small button-danger"
-                        disabled
-                      >
-                        Delete Selected
-                      </button>
-                    </div>
-                  </div>
-
-                  <div class="table-wrap">
-                    <table class="table table-emails">
-                      <colgroup>
-                        <col data-col="select" style="width: 44px;" />
-                        <col data-col="subject" style="width: 520px;" />
-                        <col data-col="receivedAt" style="width: 220px;" />
-                        <col data-col="actions" style="width: 200px;" />
-                      </colgroup>
-                      <thead>
-                        <tr>
-                          <th>
-                            <input
-                              type="checkbox"
-                              id="select-all-emails"
-                              onchange="toggleAllEmails(this.checked)"
-                            />
-                          </th>
-                          <th
-                            class="th-resizable"
-                            data-sort-key="subject"
-                            aria-sort="none"
-                          >
-                            <button
-                              type="button"
-                              class="th-button"
-                              data-sort-key="subject"
-                            >
-                              Subject
-                              <span
-                                class="sort-indicator"
-                                aria-hidden="true"
-                              ></span>
-                            </button>
-                            <div
-                              class="col-resizer"
-                              data-col="subject"
-                              title="Resize"
-                            ></div>
-                          </th>
-                          <th
-                            class="th-resizable"
-                            data-sort-key="receivedAt"
-                            aria-sort="none"
-                          >
-                            <button
-                              type="button"
-                              class="th-button"
-                              data-sort-key="receivedAt"
-                            >
-                              Received
-                              <span
-                                class="sort-indicator"
-                                aria-hidden="true"
-                              ></span>
-                            </button>
-                            <div
-                              class="col-resizer"
-                              data-col="receivedAt"
-                              title="Resize"
-                            ></div>
-                          </th>
-                          <th class="th-resizable">
-                            <span>Actions</span>
-                            <div
-                              class="col-resizer"
-                              data-col="actions"
-                              title="Resize"
-                            ></div>
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        ${feedMetadata.emails.map((email: EmailMetadata) => {
-                          const subjectDisplay = clampText(email.subject, 180);
-                          const subjectHover = clampText(email.subject, 1000);
-                          const sortSubject = subjectHover.toLowerCase();
-                          const sortReceivedAt = String(email.receivedAt);
-                          const searchHaystack = clampText(
-                            email.subject,
-                            320,
-                          ).toLowerCase();
-                          return html`
-                            <tr
-                              class="email-row"
-                              data-email-key="${email.key}"
-                              data-search="${searchHaystack}"
-                              data-sort-subject="${sortSubject}"
-                              data-sort-received-at="${sortReceivedAt}"
-                            >
-                              <td>
-                                <input
-                                  type="checkbox"
-                                  class="email-select"
-                                  name="emailKeys"
-                                  value="${email.key}"
-                                  onchange="updateEmailSelectionState()"
-                                />
-                              </td>
-                              <td>
-                                <span class="truncate" title="${subjectHover}"
-                                  >${subjectDisplay}</span
-                                >
-                              </td>
-                              <td>
-                                ${new Date(email.receivedAt).toLocaleString()}
-                              </td>
-                              <td>
-                                <div class="row-actions">
-                                  <a
-                                    href="/admin/emails/${email.key}"
-                                    class="button button-small"
-                                    >View</a
-                                  >
-                                  <button
-                                    type="button"
-                                    class="button button-small button-danger button-delete"
-                                    data-delete-kind="email"
-                                    data-email-key="${email.key}"
-                                    data-feed-id="${feedId}"
-                                  >
-                                    Delete
-                                  </button>
-                                </div>
-                              </td>
-                            </tr>
-                          `;
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                </form>
-              `
-            : html`<div class="card">
-                <p>
-                  No emails received yet. Subscribe to newsletters using the
-                  email address above.
-                </p>
-              </div>`}
-        </div>
-
-        <script>
-          ${raw(`
+  // Inline script for the emails page
+  const emailsScript = `
         const EMAIL_FEED_ID = ${JSON.stringify(feedId)};
         let EMAIL_ROWS = [];
         let EMAIL_CHECKBOXES = [];
@@ -615,7 +354,7 @@ emailsRouter.get("/feeds/:feedId/emails", async (c) => {
           const selected = EMAIL_CHECKBOXES.filter((c) => c.checked).length;
           if (selected === 0) return false;
           const query = (document.getElementById('email-search')?.value || '').trim();
-          const extra = selected >= 200 && !query ? '\n\nThis is a large delete. Tip: use Search to narrow down spam first.' : '';
+          const extra = selected >= 200 && !query ? '\\n\\nThis is a large delete. Tip: use Search to narrow down spam first.' : '';
           return confirm('Delete ' + selected + ' selected email(s)?' + extra);
         }
 
@@ -667,10 +406,227 @@ emailsRouter.get("/feeds/:feedId/emails", async (c) => {
         }
 
         document.addEventListener('DOMContentLoaded', () => { initEmailUI(); });
-      `)};
-        </script>
-      `,
-    ),
+      `;
+
+  return c.html(
+    <Layout title={`${feedConfig.title} - Emails`}>
+      <div class="container container-wide fade-in">
+        <div class="header-with-actions">
+          <div class="header-title">
+            <h1>{feedConfig.title} - Emails</h1>
+          </div>
+          <div class="header-actions">
+            <a href="/admin" class="button button-secondary button-back">
+              Back to Dashboard
+            </a>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2>Feed Details</h2>
+          <div>
+            <CopyField label="Email Address:" value={emailAddress} />
+            <CopyField label="RSS Feed:" value={rssUrl} />
+          </div>
+        </div>
+
+        <h2>
+          Emails (
+          <span id="email-total-count">{feedMetadata.emails.length}</span>)
+        </h2>
+
+        {message === "bulkDeleted" && (
+          <div class="card">
+            <p>Deleted {Number.isFinite(count) ? count : 0} email(s).</p>
+          </div>
+        )}
+        {message === "bulkDeleteNoop" && (
+          <div class="card">
+            <p>No emails were selected.</p>
+          </div>
+        )}
+        {feedMetadata.emails.length > 0 ? (
+          <form
+            action={`/admin/feeds/${feedId}/emails/bulk-delete`}
+            method="post"
+            onsubmit="return onBulkEmailDeleteSubmit(event)"
+          >
+            <div class="toolbar">
+              <div class="toolbar-group toolbar-group-fill">
+                <input
+                  type="search"
+                  id="email-search"
+                  class="search"
+                  placeholder="Search email subjects"
+                  oninput="scheduleEmailFilter()"
+                />
+                <span class="pill" id="email-match-count">
+                  Showing {feedMetadata.emails.length}
+                </span>
+                <span class="pill" id="selected-email-count">
+                  0 selected
+                </span>
+                <button
+                  type="button"
+                  class="button button-small button-secondary"
+                  onclick="selectMatchingEmails()"
+                >
+                  Select Results
+                </button>
+                <button
+                  type="button"
+                  class="button button-small button-secondary"
+                  onclick="clearEmailSelection()"
+                >
+                  Clear Selection
+                </button>
+                <button
+                  id="bulk-delete-emails-button"
+                  type="submit"
+                  class="button button-small button-danger"
+                  disabled
+                >
+                  Delete Selected
+                </button>
+              </div>
+            </div>
+
+            <div class="table-wrap">
+              <table class="table table-emails">
+                <colgroup>
+                  <col data-col="select" style="width: 44px;" />
+                  <col data-col="subject" style="width: 520px;" />
+                  <col data-col="receivedAt" style="width: 220px;" />
+                  <col data-col="actions" style="width: 200px;" />
+                </colgroup>
+                <thead>
+                  <tr>
+                    <th>
+                      <input
+                        type="checkbox"
+                        id="select-all-emails"
+                        onchange="toggleAllEmails(this.checked)"
+                      />
+                    </th>
+                    <th
+                      class="th-resizable"
+                      data-sort-key="subject"
+                      aria-sort="none"
+                    >
+                      <button
+                        type="button"
+                        class="th-button"
+                        data-sort-key="subject"
+                      >
+                        Subject
+                        <span class="sort-indicator" aria-hidden="true"></span>
+                      </button>
+                      <div
+                        class="col-resizer"
+                        data-col="subject"
+                        title="Resize"
+                      ></div>
+                    </th>
+                    <th
+                      class="th-resizable"
+                      data-sort-key="receivedAt"
+                      aria-sort="none"
+                    >
+                      <button
+                        type="button"
+                        class="th-button"
+                        data-sort-key="receivedAt"
+                      >
+                        Received
+                        <span class="sort-indicator" aria-hidden="true"></span>
+                      </button>
+                      <div
+                        class="col-resizer"
+                        data-col="receivedAt"
+                        title="Resize"
+                      ></div>
+                    </th>
+                    <th class="th-resizable">
+                      <span>Actions</span>
+                      <div
+                        class="col-resizer"
+                        data-col="actions"
+                        title="Resize"
+                      ></div>
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {feedMetadata.emails.map((email: EmailMetadata) => {
+                    const subjectDisplay = clampText(email.subject, 180);
+                    const subjectHover = clampText(email.subject, 1000);
+                    const sortSubject = subjectHover.toLowerCase();
+                    const sortReceivedAt = String(email.receivedAt);
+                    const searchHaystack = clampText(
+                      email.subject,
+                      320,
+                    ).toLowerCase();
+                    return (
+                      <tr
+                        class="email-row"
+                        data-email-key={email.key}
+                        data-search={searchHaystack}
+                        data-sort-subject={sortSubject}
+                        data-sort-received-at={sortReceivedAt}
+                      >
+                        <td>
+                          <input
+                            type="checkbox"
+                            class="email-select"
+                            name="emailKeys"
+                            value={email.key}
+                            onchange="updateEmailSelectionState()"
+                          />
+                        </td>
+                        <td>
+                          <span class="truncate" title={subjectHover}>
+                            {subjectDisplay}
+                          </span>
+                        </td>
+                        <td>{new Date(email.receivedAt).toLocaleString()}</td>
+                        <td>
+                          <div class="row-actions">
+                            <a
+                              href={`/admin/emails/${email.key}`}
+                              class="button button-small"
+                            >
+                              View
+                            </a>
+                            <button
+                              type="button"
+                              class="button button-small button-danger button-delete"
+                              data-delete-kind="email"
+                              data-email-key={email.key}
+                              data-feed-id={feedId}
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </form>
+        ) : (
+          <div class="card">
+            <p>
+              No emails received yet. Subscribe to newsletters using the email
+              address above.
+            </p>
+          </div>
+        )}
+      </div>
+
+      <script dangerouslySetInnerHTML={{ __html: emailsScript }} />
+    </Layout>,
   );
 });
 
@@ -697,251 +653,11 @@ emailsRouter.get("/emails/:emailKey", async (c) => {
     return btoa(String.fromCharCode(...new Uint8Array(bytes)));
   })();
 
-  return c.html(
-    layout(
-      `Email: ${emailData.subject}`,
-      html`
-        <div class="container fade-in">
-          <div class="header-with-actions">
-            <div class="header-title"><h1>Email Content</h1></div>
-            <div class="header-actions">
-              <a
-                href="/admin/feeds/${feedId}/emails"
-                class="button button-secondary button-back"
-                >Back to Emails</a
-              >
-            </div>
-          </div>
+  const rawHtml = emailData.content
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
 
-          <div class="card">
-            <div class="email-meta">
-              <div class="email-metadata-grid">
-                <div class="copyable">
-                  <span class="copyable-label">Subject:</span>
-                  <div class="copyable-content">
-                    <span
-                      class="copyable-value"
-                      data-copy="${emailData.subject}"
-                      >${emailData.subject}</span
-                    >
-                    <div class="copy-icon-container">
-                      <svg
-                        class="copy-icon copy-icon-original"
-                        width="16"
-                        height="16"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        stroke-width="2"
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                      >
-                        <rect
-                          x="9"
-                          y="9"
-                          width="13"
-                          height="13"
-                          rx="2"
-                          ry="2"
-                        ></rect>
-                        <path
-                          d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"
-                        ></path>
-                      </svg>
-                      <svg
-                        class="copy-icon copy-icon-success"
-                        width="16"
-                        height="16"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        stroke-width="2"
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                      >
-                        <path d="M20 6L9 17l-5-5"></path>
-                      </svg>
-                    </div>
-                  </div>
-                </div>
-                <div class="copyable">
-                  <span class="copyable-label">Received:</span>
-                  <div class="copyable-content">
-                    <span
-                      class="copyable-value"
-                      data-copy="${new Date(
-                        emailData.receivedAt,
-                      ).toLocaleString()}"
-                      >${new Date(emailData.receivedAt).toLocaleString()}</span
-                    >
-                    <div class="copy-icon-container">
-                      <svg
-                        class="copy-icon copy-icon-original"
-                        width="16"
-                        height="16"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        stroke-width="2"
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                      >
-                        <rect
-                          x="9"
-                          y="9"
-                          width="13"
-                          height="13"
-                          rx="2"
-                          ry="2"
-                        ></rect>
-                        <path
-                          d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"
-                        ></path>
-                      </svg>
-                      <svg
-                        class="copy-icon copy-icon-success"
-                        width="16"
-                        height="16"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        stroke-width="2"
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                      >
-                        <path d="M20 6L9 17l-5-5"></path>
-                      </svg>
-                    </div>
-                  </div>
-                </div>
-                <div class="copyable">
-                  <span class="copyable-label">From:</span>
-                  <div class="copyable-content">
-                    <span class="copyable-value" data-copy="${emailData.from}"
-                      >${emailData.from}</span
-                    >
-                    <div class="copy-icon-container">
-                      <svg
-                        class="copy-icon copy-icon-original"
-                        width="16"
-                        height="16"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        stroke-width="2"
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                      >
-                        <rect
-                          x="9"
-                          y="9"
-                          width="13"
-                          height="13"
-                          rx="2"
-                          ry="2"
-                        ></rect>
-                        <path
-                          d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"
-                        ></path>
-                      </svg>
-                      <svg
-                        class="copy-icon copy-icon-success"
-                        width="16"
-                        height="16"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        stroke-width="2"
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                      >
-                        <path d="M20 6L9 17l-5-5"></path>
-                      </svg>
-                    </div>
-                  </div>
-                </div>
-                <div class="copyable">
-                  <span class="copyable-label">To:</span>
-                  <div class="copyable-content">
-                    <span
-                      class="copyable-value"
-                      data-copy="${feedId}@${env.DOMAIN}"
-                      >${feedId}@${env.DOMAIN}</span
-                    >
-                    <div class="copy-icon-container">
-                      <svg
-                        class="copy-icon copy-icon-original"
-                        width="16"
-                        height="16"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        stroke-width="2"
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                      >
-                        <rect
-                          x="9"
-                          y="9"
-                          width="13"
-                          height="13"
-                          rx="2"
-                          ry="2"
-                        ></rect>
-                        <path
-                          d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"
-                        ></path>
-                      </svg>
-                      <svg
-                        class="copy-icon copy-icon-success"
-                        width="16"
-                        height="16"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        stroke-width="2"
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                      >
-                        <path d="M20 6L9 17l-5-5"></path>
-                      </svg>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div class="toggle-view">
-              <button
-                id="rendered-button"
-                class="toggle-button active"
-                onclick="showRendered()"
-              >
-                Rendered View
-              </button>
-              <button id="raw-button" class="toggle-button" onclick="showRaw()">
-                Raw HTML
-              </button>
-            </div>
-
-            <div class="email-content">
-              <div id="rendered-view" class="email-iframe-container">
-                <iframe
-                  class="email-iframe"
-                  src="data:text/html;base64,${encodedHtmlContent}"
-                ></iframe>
-              </div>
-              <div id="raw-view" class="email-raw" style="display: none;">
-                <pre>
-${emailData.content.replace(/</g, "&lt;").replace(/>/g, "&gt;")}</pre
-                >
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <script>
-          ${raw(`
+  const viewScript = `
         function showRendered() {
           document.getElementById('rendered-view').style.display = 'block';
           document.getElementById('raw-view').style.display = 'none';
@@ -965,10 +681,70 @@ ${emailData.content.replace(/</g, "&lt;").replace(/>/g, "&gt;")}</pre
             };
           } catch (e) { /* cross-origin */ }
         });
-      `)};
-        </script>
-      `,
-    ),
+      `;
+
+  return c.html(
+    <Layout title={`Email: ${emailData.subject}`}>
+      <div class="container fade-in">
+        <div class="header-with-actions">
+          <div class="header-title">
+            <h1>Email Content</h1>
+          </div>
+          <div class="header-actions">
+            <a
+              href={`/admin/feeds/${feedId}/emails`}
+              class="button button-secondary button-back"
+            >
+              Back to Emails
+            </a>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="email-meta">
+            <div class="email-metadata-grid">
+              <CopyField label="Subject:" value={emailData.subject} />
+              <CopyField
+                label="Received:"
+                value={new Date(emailData.receivedAt).toLocaleString()}
+              />
+              <CopyField label="From:" value={emailData.from} />
+              <CopyField
+                label="To:"
+                value={`${feedId}@${env.DOMAIN}`}
+              />
+            </div>
+          </div>
+
+          <div class="toggle-view">
+            <button
+              id="rendered-button"
+              class="toggle-button active"
+              onclick="showRendered()"
+            >
+              Rendered View
+            </button>
+            <button id="raw-button" class="toggle-button" onclick="showRaw()">
+              Raw HTML
+            </button>
+          </div>
+
+          <div class="email-content">
+            <div id="rendered-view" class="email-iframe-container">
+              <iframe
+                class="email-iframe"
+                src={`data:text/html;base64,${encodedHtmlContent}`}
+              ></iframe>
+            </div>
+            <div id="raw-view" class="email-raw" style="display: none;">
+              <pre dangerouslySetInnerHTML={{ __html: rawHtml }}></pre>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <script dangerouslySetInnerHTML={{ __html: viewScript }} />
+    </Layout>,
   );
 });
 
