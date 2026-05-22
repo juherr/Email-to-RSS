@@ -159,7 +159,7 @@ app.get("/login", (c) => {
               />
             </svg>
           </div>
-          <h1 class="auth-title">Email to RSS Admin</h1>
+          <h1 class="auth-title">kill-the-news</h1>
           {errorMessage && (
             <div class="auth-error">{errorMessage}</div>
           )}
@@ -337,12 +337,10 @@ app.get("/", async (c) => {
 
   return c.html(
     <Layout title="Dashboard">
-      <div
-        class={`container ${view === "table" ? "container-wide" : ""} fade-in`}
-      >
+      <div class="container fade-in">
         <div class="header-with-actions">
           <div class="header-title">
-            <h1>Email to RSS Admin</h1>
+            <h1>kill-the-news</h1>
             <p>Manage your email newsletter feeds</p>
           </div>
           <div class="header-actions">
@@ -469,11 +467,12 @@ app.get("/", async (c) => {
                 <table class="table table-feeds">
                   <colgroup>
                     <col data-col="select" style="width: 44px;" />
-                    <col data-col="title" style="width: 340px;" />
-                    <col data-col="feedId" style="width: 160px;" />
-                    <col data-col="email" style="width: 220px;" />
-                    <col data-col="rss" style="width: 220px;" />
-                    <col data-col="actions" style="width: 200px;" />
+                    <col data-col="title" style="width: 280px;" />
+                    <col data-col="feedId" style="width: 150px;" />
+                    <col data-col="email" style="width: 200px;" />
+                    <col data-col="rss" style="width: 190px;" />
+                    <col data-col="atom" style="width: 190px;" />
+                    <col data-col="actions" style="width: 170px;" />
                   </colgroup>
                   <thead>
                     <tr>
@@ -572,6 +571,24 @@ app.get("/", async (c) => {
                           title="Resize"
                         ></div>
                       </th>
+                      <th class="th-resizable" data-sort-key="atom" aria-sort="none">
+                        <button
+                          type="button"
+                          class="th-button"
+                          data-sort-key="atom"
+                        >
+                          Atom
+                          <span
+                            class="sort-indicator"
+                            aria-hidden="true"
+                          ></span>
+                        </button>
+                        <div
+                          class="col-resizer"
+                          data-col="atom"
+                          title="Resize"
+                        ></div>
+                      </th>
                       <th class="th-resizable">
                         <span>Actions</span>
                         <div
@@ -586,12 +603,14 @@ app.get("/", async (c) => {
                     {feedsWithConfig.map((feed) => {
                       const emailAddress = `${feed.id}@${env.DOMAIN}`;
                       const rssUrl = `https://${env.DOMAIN}/rss/${feed.id}`;
+                      const atomUrl = `https://${env.DOMAIN}/atom/${feed.id}`;
                       const titleDisplay = clampText(feed.title, 160);
                       const titleHover = clampText(feed.title, 1000);
                       const sortTitle = titleHover.toLowerCase();
                       const sortFeedId = feed.id.toLowerCase();
                       const sortEmail = emailAddress.toLowerCase();
                       const sortRss = rssUrl.toLowerCase();
+                      const sortAtom = atomUrl.toLowerCase();
                       const descDisplay = clampText(feed.description || "", 220);
                       const descHover = clampText(feed.description || "", 1000);
                       const searchHaystack =
@@ -606,6 +625,7 @@ app.get("/", async (c) => {
                           data-sort-feed-id={sortFeedId}
                           data-sort-email={sortEmail}
                           data-sort-rss={sortRss}
+                          data-sort-atom={sortAtom}
                         >
                           <td>
                             <input
@@ -638,6 +658,9 @@ app.get("/", async (c) => {
                           </td>
                           <td>
                             <CopyFieldInline value={rssUrl} />
+                          </td>
+                          <td>
+                            <CopyFieldInline value={atomUrl} />
                           </td>
                           <td>
                             <div class="row-actions">
@@ -691,6 +714,7 @@ app.get("/", async (c) => {
               {feedsWithConfig.map((feed) => {
                 const emailAddress = `${feed.id}@${env.DOMAIN}`;
                 const rssUrl = `https://${env.DOMAIN}/rss/${feed.id}`;
+                const atomUrl = `https://${env.DOMAIN}/atom/${feed.id}`;
                 const titleDisplay = clampText(feed.title, 140);
                 const titleHover = clampText(feed.title, 1000);
                 const descDisplay = clampText(feed.description || "", 240);
@@ -741,6 +765,22 @@ app.get("/", async (c) => {
                             title={rssUrl}
                           >
                             {rssUrl}
+                          </span>
+                          <div class="copy-icon-container">
+                            <CopyIcon />
+                            <CheckIcon />
+                          </div>
+                        </div>
+                      </div>
+                      <div class="copyable">
+                        <span class="copyable-label">Atom Feed:</span>
+                        <div class="copyable-content">
+                          <span
+                            class="copyable-value"
+                            data-copy={atomUrl}
+                            title={atomUrl}
+                          >
+                            {atomUrl}
                           </span>
                           <div class="copy-icon-container">
                             <CopyIcon />
