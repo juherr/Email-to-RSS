@@ -27,12 +27,12 @@ Generated: 2026-05-22
 
 ## Phase 3 — Ongoing / Infrastructure
 
-| #     | Task                                                 | Priority |
-| ----- | ---------------------------------------------------- | -------- |
-| P1-4  | Structured logging + error aggregation               | 36       |
-| P1-5  | Rate limiting (Cloudflare WAF rules)                 | 24       |
-| P2-10 | Extract constants module (`src/config/constants.ts`) | 12       |
-| P2-11 | Split `admin.ts` into sub-modules                    | 8        |
+| #     | Task                                                 | Priority | Status                    |
+| ----- | ---------------------------------------------------- | -------- | ------------------------- |
+| P1-4  | Structured logging + error aggregation               | 36       | DONE                      |
+| P1-5  | Rate limiting (Cloudflare WAF rules)                 | 24       | Infrastructure (see TODO) |
+| P2-10 | Extract constants module (`src/config/constants.ts`) | 12       | DONE                      |
+| P2-11 | Split `admin.ts` into sub-modules                    | 8        | DONE                      |
 
 ---
 
