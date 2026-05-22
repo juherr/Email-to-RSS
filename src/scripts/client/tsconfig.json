@@ -1,0 +1,10 @@
+{
+  "extends": "../../../tsconfig.json",
+  "compilerOptions": {
+    "lib": ["ES2021", "DOM"],
+    "types": [],
+    "noEmit": true
+  },
+  "include": ["./**/*"],
+  "exclude": []
+}
