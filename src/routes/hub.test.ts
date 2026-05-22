@@ -124,6 +124,21 @@ describe("POST /hub — input validation", () => {
     expect(res.status).toBe(400);
   });
 
+  it("returns 400 when hub.topic uses an unsupported path (not rss or atom)", async () => {
+    const app = makeApp();
+    const env = createMockEnv();
+    const res = await app.request(
+      "/hub",
+      hubBody({
+        "hub.mode": "subscribe",
+        "hub.topic": `https://${env.DOMAIN}/feed/feed1`,
+        "hub.callback": "https://cb.example/sub",
+      }),
+      env,
+    );
+    expect(res.status).toBe(400);
+  });
+
   it("returns 400 when hub.secret exceeds 200 bytes", async () => {
     const app = makeApp();
     const env = createMockEnv();
@@ -213,10 +228,51 @@ describe("POST /hub — subscribe", () => {
     );
     expect(res.status).toBe(404);
   });
+
+  it("returns 202 for valid Atom subscribe request", async () => {
+    const app = makeApp();
+    const env = createMockEnv();
+    await env.EMAIL_STORAGE.put(
+      "feed:feed1:config",
+      JSON.stringify({ title: "Feed 1" }),
+    );
+    server.use(
+      http.get("https://cb.example/sub", ({ request }) => {
+        const challenge =
+          new URL(request.url).searchParams.get("hub.challenge") ?? "";
+        return HttpResponse.text(challenge);
+      }),
+    );
+    const res = await app.request(
+      "/hub",
+      hubBody({
+        "hub.mode": "subscribe",
+        "hub.topic": `https://${env.DOMAIN}/atom/feed1`,
+        "hub.callback": "https://cb.example/sub",
+      }),
+      env,
+    );
+    expect(res.status).toBe(202);
+  });
+
+  it("returns 404 for Atom topic when feed does not exist", async () => {
+    const app = makeApp();
+    const env = createMockEnv();
+    const res = await app.request(
+      "/hub",
+      hubBody({
+        "hub.mode": "subscribe",
+        "hub.topic": `https://${env.DOMAIN}/atom/nonexistent`,
+        "hub.callback": "https://cb.example/sub",
+      }),
+      env,
+    );
+    expect(res.status).toBe(404);
+  });
 });
 
 describe("POST /hub — unsubscribe", () => {
-  it("returns 202 for valid unsubscribe request", async () => {
+  it("returns 202 for valid RSS unsubscribe request", async () => {
     const app = makeApp();
     const env = createMockEnv();
     await env.EMAIL_STORAGE.put(
@@ -235,6 +291,32 @@ describe("POST /hub — unsubscribe", () => {
       hubBody({
         "hub.mode": "unsubscribe",
         "hub.topic": `https://${env.DOMAIN}/rss/feed1`,
+        "hub.callback": "https://cb.example/sub",
+      }),
+      env,
+    );
+    expect(res.status).toBe(202);
+  });
+
+  it("returns 202 for valid Atom unsubscribe request", async () => {
+    const app = makeApp();
+    const env = createMockEnv();
+    await env.EMAIL_STORAGE.put(
+      "feed:feed1:config",
+      JSON.stringify({ title: "Feed 1" }),
+    );
+    server.use(
+      http.get("https://cb.example/sub", ({ request }) => {
+        const challenge =
+          new URL(request.url).searchParams.get("hub.challenge") ?? "";
+        return HttpResponse.text(challenge);
+      }),
+    );
+    const res = await app.request(
+      "/hub",
+      hubBody({
+        "hub.mode": "unsubscribe",
+        "hub.topic": `https://${env.DOMAIN}/atom/feed1`,
         "hub.callback": "https://cb.example/sub",
       }),
       env,

@@ -170,6 +170,94 @@ describe("notifySubscribers", () => {
     expect(receivedSig).toBe(""); // legacy header should NOT be sent
   });
 
+  it("POSTs Atom feed XML with correct Content-Type to Atom subscriber", async () => {
+    const env = mockEnv();
+    await env.EMAIL_STORAGE.put(
+      "feed:feed1:metadata",
+      JSON.stringify({ emails: [] }),
+    );
+    await env.EMAIL_STORAGE.put(
+      "feed:feed1:config",
+      JSON.stringify({
+        title: "Test Feed",
+        language: "en",
+        site_url: "https://example.com",
+        feed_url: "https://example.com/rss/feed1",
+        created_at: Date.now(),
+      }),
+    );
+    const subs: WebSubSubscription[] = [
+      {
+        callbackUrl: "https://atom-reader.example/callback",
+        expiresAt: Date.now() + 60000,
+        format: "atom",
+      },
+    ];
+    await saveSubscriptions("feed1", subs, env);
+
+    let receivedContentType = "";
+    let receivedLink = "";
+    server.use(
+      http.post("https://atom-reader.example/callback", async ({ request }) => {
+        receivedContentType = request.headers.get("Content-Type") ?? "";
+        receivedLink = request.headers.get("Link") ?? "";
+        return HttpResponse.text("ok");
+      }),
+    );
+
+    await notifySubscribers("feed1", env);
+    expect(receivedContentType).toContain("application/atom+xml");
+    expect(receivedLink).toContain(`/atom/feed1`);
+    expect(receivedLink).toContain(`rel="self"`);
+  });
+
+  it("notifies RSS and Atom subscribers independently with correct formats", async () => {
+    const env = mockEnv();
+    await env.EMAIL_STORAGE.put(
+      "feed:feed1:metadata",
+      JSON.stringify({ emails: [] }),
+    );
+    await env.EMAIL_STORAGE.put(
+      "feed:feed1:config",
+      JSON.stringify({
+        title: "Test Feed",
+        language: "en",
+        site_url: "https://example.com",
+        feed_url: "https://example.com/rss/feed1",
+        created_at: Date.now(),
+      }),
+    );
+    const subs: WebSubSubscription[] = [
+      {
+        callbackUrl: "https://rss-reader.example/callback",
+        expiresAt: Date.now() + 60000,
+        format: "rss",
+      },
+      {
+        callbackUrl: "https://atom-reader.example/callback",
+        expiresAt: Date.now() + 60000,
+        format: "atom",
+      },
+    ];
+    await saveSubscriptions("feed1", subs, env);
+
+    const received: Record<string, string> = {};
+    server.use(
+      http.post("https://rss-reader.example/callback", async ({ request }) => {
+        received.rss = request.headers.get("Content-Type") ?? "";
+        return HttpResponse.text("ok");
+      }),
+      http.post("https://atom-reader.example/callback", async ({ request }) => {
+        received.atom = request.headers.get("Content-Type") ?? "";
+        return HttpResponse.text("ok");
+      }),
+    );
+
+    await notifySubscribers("feed1", env);
+    expect(received.rss).toContain("application/rss+xml");
+    expect(received.atom).toContain("application/atom+xml");
+  });
+
   it("prunes expired subscriptions and does not notify them", async () => {
     const env = mockEnv();
     await env.EMAIL_STORAGE.put(
@@ -235,6 +323,7 @@ describe("verifyAndStoreSubscription", () => {
       "https://reader.example/callback",
       undefined,
       86400,
+      "rss",
       env,
     );
 
@@ -243,6 +332,33 @@ describe("verifyAndStoreSubscription", () => {
     expect(subs).toHaveLength(1);
     expect(subs[0].callbackUrl).toBe("https://reader.example/callback");
     expect(subs[0].expiresAt).toBeGreaterThan(Date.now());
+  });
+
+  it("stores format=atom and sends atom topic URL in verification request", async () => {
+    const env = mockEnv();
+    let receivedTopic = "";
+    server.use(
+      http.get("https://reader.example/callback", ({ request }) => {
+        const url = new URL(request.url);
+        receivedTopic = url.searchParams.get("hub.topic") ?? "";
+        const challenge = url.searchParams.get("hub.challenge") ?? "";
+        return HttpResponse.text(challenge);
+      }),
+    );
+
+    const result = await verifyAndStoreSubscription(
+      "feed1",
+      "https://reader.example/callback",
+      undefined,
+      86400,
+      "atom",
+      env,
+    );
+
+    expect(result).toBe(true);
+    expect(receivedTopic).toContain("/atom/feed1");
+    const subs = await getSubscriptions("feed1", env);
+    expect(subs[0].format).toBe("atom");
   });
 
   it("returns false and does not store when callback returns wrong challenge", async () => {
@@ -258,6 +374,7 @@ describe("verifyAndStoreSubscription", () => {
       "https://reader.example/callback",
       undefined,
       86400,
+      "rss",
       env,
     );
 
@@ -286,6 +403,7 @@ describe("verifyAndStoreSubscription", () => {
       "https://reader.example/callback",
       "newsecret",
       3600,
+      "rss",
       env,
     );
 
@@ -306,6 +424,7 @@ describe("verifyAndStoreSubscription", () => {
       "https://reader.example/callback",
       undefined,
       86400,
+      "rss",
       env,
     );
 
@@ -329,6 +448,7 @@ describe("verifyAndStoreSubscription", () => {
       "https://reader.example/callback",
       undefined,
       86400,
+      "rss",
       env,
     );
 

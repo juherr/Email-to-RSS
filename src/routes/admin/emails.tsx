@@ -116,6 +116,30 @@ emailsRouter.get("/feeds/:feedId/emails", async (c) => {
             <CopyField label="RSS Feed:" value={rssUrl} />
             <CopyField label="Atom Feed:" value={atomUrl} />
           </div>
+          <div class="feed-validate">
+            <a
+              href={`https://validator.w3.org/feed/check.cgi?url=${encodeURIComponent(atomUrl)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <img
+                src="https://validator.w3.org/feed/images/valid-atom.png"
+                alt="[Valid Atom 1.0]"
+                title="Validate my Atom 1.0 feed"
+              />
+            </a>
+            <a
+              href={`https://validator.w3.org/feed/check.cgi?url=${encodeURIComponent(rssUrl)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <img
+                src="https://validator.w3.org/feed/images/valid-rss-rogers.png"
+                alt="[Valid RSS]"
+                title="Validate my RSS feed"
+              />
+            </a>
+          </div>
         </div>
 
         <h2>

@@ -32,6 +32,7 @@
   "license": "MIT",
   "devDependencies": {
     "@cloudflare/workers-types": "4.20260522.1",
+    "@types/escape-html": "^1.0.4",
     "@types/mailparser": "^3.4.6",
     "@types/rss": "^0.0.32",
     "@vitest/coverage-v8": "4.1.7",
@@ -50,8 +51,10 @@
   },
   "dependencies": {
     "@hono/zod-validator": "^0.8.0",
+    "escape-html": "^1.0.3",
     "feed": "5.2.1",
     "hono": "4.12.22",
+    "linkedom": "^0.18.12",
     "postal-mime": "^2.7.4",
     "zod": "4.4.3"
   }

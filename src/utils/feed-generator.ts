@@ -1,5 +1,8 @@
 import { Feed } from "feed";
 import { FeedConfig, EmailData } from "../types";
+import { processEmailContent } from "./html-processor";
+
+export { processEmailContent as extractBodyContent };
 
 function parseFromAddress(from: string): { name: string; email?: string } {
   const match = from.match(/^(.*?)\s*<([^>]+)>\s*$/);
@@ -11,29 +14,6 @@ function parseFromAddress(from: string): { name: string; email?: string } {
     return { email: from.trim(), name: from.trim() };
   }
   return { name: from.trim() };
-}
-
-// Email content is stored as a full HTML document. Feed readers expect only
-// the body fragment in <description>/<content:encoded>, not a full document.
-export function extractBodyContent(html: string): string {
-  const withClose = html.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
-  const body = withClose
-    ? withClose[1]
-    : (() => {
-        const withoutClose = html.match(/<body[^>]*>([\s\S]*)/i);
-        return withoutClose
-          ? withoutClose[1].replace(/<\/html>\s*$/i, "")
-          : html;
-      })();
-  // Strip mso-* properties from inline styles (Office HTML — triggers feed validator warnings)
-  return body.replace(/\bstyle="([^"]*)"/gi, (_match, style: string) => {
-    const cleaned = style
-      .split(";")
-      .map((p) => p.trim())
-      .filter((p) => p && !/^mso-/i.test(p))
-      .join("; ");
-    return cleaned ? `style="${cleaned}"` : "";
-  });
 }
 
 function buildFeed(
@@ -70,7 +50,7 @@ function buildFeed(
   for (const email of emails) {
     const entryUrl = `${baseUrl}/entries/${feedId}/${email.receivedAt}`;
     const firstAttachment = email.attachments?.[0];
-    const bodyContent = extractBodyContent(email.content);
+    const bodyContent = processEmailContent(email.content);
     feed.addItem({
       title: email.subject,
       id: entryUrl,

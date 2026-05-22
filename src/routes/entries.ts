@@ -1,6 +1,7 @@
 import { Context } from "hono";
 import { html, raw } from "hono/html";
 import { Env, FeedMetadata, EmailData } from "../types";
+import { processEmailContent } from "../utils/html-processor";
 
 export async function handle(c: Context<{ Bindings: Env }>): Promise<Response> {
   const feedId = c.req.param("feedId");
@@ -82,7 +83,9 @@ export async function handle(c: Context<{ Bindings: Env }>): Promise<Response> {
             <dt>Date:</dt>
             <dd>${new Date(emailData.receivedAt).toUTCString()}</dd>
           </dl>
-          <div class="content">${raw(emailData.content)}</div>
+          <div class="content">
+            ${raw(processEmailContent(emailData.content))}
+          </div>
         </body>
       </html>`,
   );

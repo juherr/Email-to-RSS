@@ -59,18 +59,19 @@ hubRouter.post("/", async (c) => {
     return c.text("Bad Request: hub.callback must use HTTPS", 400);
   }
 
-  // Validate that topic matches a known RSS feed on this hub
+  // Validate that topic matches a known RSS or Atom feed on this hub
   const topicPattern = new RegExp(
-    `^https://${env.DOMAIN.replaceAll(".", "\\.")}/rss/([^/]+)$`,
+    `^https://${env.DOMAIN.replaceAll(".", "\\.")}/(rss|atom)/([^/]+)$`,
   );
   const match = topic.match(topicPattern);
   if (!match) {
     return c.text(
-      "Bad Request: hub.topic must be an RSS feed URL on this hub",
+      "Bad Request: hub.topic must be an RSS or Atom feed URL on this hub",
       400,
     );
   }
-  const feedId = match[1];
+  const format = match[1] as "rss" | "atom";
+  const feedId = match[2];
 
   // Verify the feed exists before accepting any subscription
   const feedConfig = await env.EMAIL_STORAGE.get(
@@ -99,6 +100,7 @@ hubRouter.post("/", async (c) => {
         callbackUrl as string,
         secret as string | undefined,
         leaseSeconds,
+        format,
         env,
       ),
     );

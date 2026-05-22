@@ -5,7 +5,7 @@ import {
   EmailData,
   WebSubSubscription,
 } from "../types";
-import { generateRssFeed } from "./feed-generator";
+import { generateRssFeed, generateAtomFeed } from "./feed-generator";
 
 const KV_PREFIX = "websub:subs:";
 
@@ -54,7 +54,11 @@ export async function buildHmacSignature(
   return `sha256=${hex}`;
 }
 
-async function buildFeedXml(feedId: string, env: Env): Promise<string | null> {
+async function buildFeedXml(
+  feedId: string,
+  env: Env,
+  format: "rss" | "atom" = "rss",
+): Promise<string | null> {
   const [rawMetadata, rawConfig] = await Promise.all([
     env.EMAIL_STORAGE.get(`feed:${feedId}:metadata`, "json"),
     env.EMAIL_STORAGE.get(`feed:${feedId}:config`, "json"),
@@ -63,11 +67,12 @@ async function buildFeedXml(feedId: string, env: Env): Promise<string | null> {
   const feedMetadata = rawMetadata as FeedMetadata | null;
   if (!feedMetadata) return null;
 
+  const baseUrl = `https://${env.DOMAIN}`;
   const feedConfig = (rawConfig as FeedConfig | null) ?? {
     title: `Newsletter Feed ${feedId}`,
     description: "Converted email newsletter",
-    site_url: `https://${env.DOMAIN}/rss/${feedId}`,
-    feed_url: `https://${env.DOMAIN}/rss/${feedId}`,
+    site_url: `${baseUrl}/rss/${feedId}`,
+    feed_url: `${baseUrl}/rss/${feedId}`,
     language: "en",
     created_at: Date.now(),
   };
@@ -82,12 +87,16 @@ async function buildFeedXml(feedId: string, env: Env): Promise<string | null> {
     )
   ).filter((d): d is EmailData => d !== null);
 
-  return generateRssFeed(
-    feedConfig,
-    emailsData,
-    `https://${env.DOMAIN}`,
-    feedId,
-  );
+  if (format === "atom") {
+    return generateAtomFeed(
+      feedConfig,
+      emailsData,
+      baseUrl,
+      feedId,
+      `${baseUrl}/atom/${feedId}`,
+    );
+  }
+  return generateRssFeed(feedConfig, emailsData, baseUrl, feedId);
 }
 
 export async function notifySubscribers(
@@ -105,36 +114,59 @@ export async function notifySubscribers(
     return;
   }
 
-  const feedXml = await buildFeedXml(feedId, env);
-  if (!feedXml) return;
+  const rssSubs = active.filter((s) => (s.format ?? "rss") === "rss");
+  const atomSubs = active.filter((s) => s.format === "atom");
+
+  const [rssFeed, atomFeed] = await Promise.all([
+    rssSubs.length > 0 ? buildFeedXml(feedId, env, "rss") : null,
+    atomSubs.length > 0 ? buildFeedXml(feedId, env, "atom") : null,
+  ]);
+
+  if (!rssFeed && !atomFeed) return;
 
   const baseUrl = `https://${env.DOMAIN}`;
-  const linkHeader = `<${baseUrl}/hub>; rel="hub", <${baseUrl}/rss/${feedId}>; rel="self"`;
 
-  await Promise.allSettled(
-    active.map(async (sub) => {
-      const headers: Record<string, string> = {
-        "Content-Type": "application/rss+xml",
-        Link: linkHeader,
-      };
-      if (sub.secret) {
-        headers["X-Hub-Signature-256"] = await buildHmacSignature(
-          feedXml,
-          sub.secret,
-        );
-      }
-      const res = await fetch(sub.callbackUrl, {
-        method: "POST",
-        headers,
-        body: feedXml,
-      });
-      if (!res.ok) {
-        console.error(
-          `WebSub: delivery failed ${sub.callbackUrl}: ${res.status}`,
-        );
-      }
-    }),
-  );
+  const deliver = async (
+    sub: WebSubSubscription,
+    feedXml: string,
+    contentType: string,
+    selfPath: string,
+  ) => {
+    const linkHeader = `<${baseUrl}/hub>; rel="hub", <${baseUrl}${selfPath}>; rel="self"`;
+    const headers: Record<string, string> = {
+      "Content-Type": contentType,
+      Link: linkHeader,
+    };
+    if (sub.secret) {
+      headers["X-Hub-Signature-256"] = await buildHmacSignature(
+        feedXml,
+        sub.secret,
+      );
+    }
+    const res = await fetch(sub.callbackUrl, {
+      method: "POST",
+      headers,
+      body: feedXml,
+    });
+    if (!res.ok) {
+      console.error(
+        `WebSub: delivery failed ${sub.callbackUrl}: ${res.status}`,
+      );
+    }
+  };
+
+  await Promise.allSettled([
+    ...(rssFeed
+      ? rssSubs.map((sub) =>
+          deliver(sub, rssFeed, "application/rss+xml", `/rss/${feedId}`),
+        )
+      : []),
+    ...(atomFeed
+      ? atomSubs.map((sub) =>
+          deliver(sub, atomFeed, "application/atom+xml", `/atom/${feedId}`),
+        )
+      : []),
+  ]);
 
   if (active.length < subs.length) {
     await saveSubscriptions(feedId, active, env);
@@ -146,10 +178,11 @@ export async function verifyAndStoreSubscription(
   callbackUrl: string,
   secret: string | undefined,
   leaseSeconds: number,
+  format: "rss" | "atom",
   env: Env,
 ): Promise<boolean> {
   const challenge = crypto.randomUUID().replace(/-/g, "");
-  const topicUrl = `https://${env.DOMAIN}/rss/${feedId}`;
+  const topicUrl = `https://${env.DOMAIN}/${format}/${feedId}`;
   const verifyUrl = new URL(callbackUrl);
   verifyUrl.searchParams.set("hub.mode", "subscribe");
   verifyUrl.searchParams.set("hub.topic", topicUrl);
@@ -172,6 +205,7 @@ export async function verifyAndStoreSubscription(
   const entry: WebSubSubscription = {
     callbackUrl,
     expiresAt: Date.now() + leaseSeconds * 1000,
+    format,
     ...(secret ? { secret } : {}),
   };
   if (idx >= 0) {
