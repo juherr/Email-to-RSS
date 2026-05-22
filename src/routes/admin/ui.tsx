@@ -1,28 +1,28 @@
-import { html, raw } from "hono/html";
 import { designSystem } from "../../styles/index";
 import { interactiveScripts } from "../../scripts/index";
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export const layout = (title: string, content: any) => {
-  return html`<!DOCTYPE html>
+type LayoutProps = {
+  title: string;
+  children: unknown;
+};
+
+export const Layout = ({ title, children }: LayoutProps) => {
+  return (
     <html>
       <head>
-        <title>${title} - Email to RSS Admin</title>
+        <title>{title} - Email to RSS Admin</title>
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <meta name="color-scheme" content="light dark" />
-        <style>
-          ${raw(designSystem)}
-        </style>
-        <script>
-          ${raw(interactiveScripts)};
-        </script>
+        <style dangerouslySetInnerHTML={{ __html: designSystem }} />
+        <script dangerouslySetInnerHTML={{ __html: interactiveScripts + ";" }} />
       </head>
-      <body class="page">
-        ${content}
-      </body>
-    </html>`;
+      <body class="page">{children as any}</body>
+    </html>
+  );
 };
+
+export { Layout as layout };
 
 export function clampText(value: string, maxLen: number): string {
   const raw = `${value || ""}`;
