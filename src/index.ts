@@ -151,6 +151,9 @@ app.route("/files", files);
 app.route("/admin", admin);
 app.route("/hub", hubRouter);
 
+// Health check endpoint for monitoring
+app.get("/health", (c) => c.json({ status: "ok", timestamp: Date.now() }));
+
 // Root path redirects to admin dashboard
 app.get("/", (c) => c.redirect("/admin"));
 
