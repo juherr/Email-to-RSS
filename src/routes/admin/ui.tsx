@@ -1,5 +1,10 @@
-import { designSystem } from "../../styles/index";
+import variablesCss from "../../styles/variables.css";
+import layoutCss from "../../styles/layout.css";
+import componentsCss from "../../styles/components.css";
+import utilitiesCss from "../../styles/utilities.css";
 import { interactiveScripts } from "../../scripts/index";
+
+const designSystem = [variablesCss, layoutCss, componentsCss, utilitiesCss].join("\n");
 
 type LayoutProps = {
   title: string;
