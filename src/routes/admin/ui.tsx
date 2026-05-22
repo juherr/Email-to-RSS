@@ -29,10 +29,26 @@ export const Layout = ({ title, children }: LayoutProps) => {
           href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
           rel="stylesheet"
         />
+        {/* designSystem and interactiveScripts are static trusted strings, not user input */}
         <style dangerouslySetInnerHTML={{ __html: designSystem }} />
         <script dangerouslySetInnerHTML={{ __html: interactiveScripts + ";" }} />
       </head>
-      <body class="page">{children}</body>
+      <body class="page">
+        <header class="site-header">
+          <a href="https://kill-the.news/" class="site-header-logo" target="_blank" rel="noopener">
+            kill-the-news
+          </a>
+          <span class="site-header-label">admin</span>
+        </header>
+        {children}
+        <footer class="site-footer">
+          <a href="https://kill-the.news/" target="_blank" rel="noopener">kill-the.news</a>
+          <span class="site-footer-sep" aria-hidden="true">·</span>
+          <a href="https://github.com/sponsors/juherr" target="_blank" rel="noopener" class="site-footer-sponsor">
+            ♥ Sponsor
+          </a>
+        </footer>
+      </body>
     </html>
   );
 };
