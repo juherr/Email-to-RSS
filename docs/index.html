@@ -923,7 +923,8 @@ bucket_name = "kill-the-news-attachments"</span></pre>
           <div class="install-card">
             <div class="tag tag-recommended" style="background:var(--accent-dim);color:var(--accent);">Dashboard</div>
             <h4>Via Cloudflare Dashboard</h4>
-            <p>Go to <strong>Security → WAF → Rate limiting rules</strong> and create one rule per endpoint below.</p>
+            <p>Go to <strong>Security → Security rules</strong>, click <strong>Create rule</strong>, choose <strong>Rate limiting rule</strong>, and create one rule per endpoint below.</p>
+            <p style="margin-top:0.5rem;font-size:0.82em;color:#666;">⚠️ Free tier limitations: only <strong>1 rate limiting rule</strong> allowed; period and block duration capped at <strong>10 seconds</strong>. Prioritise the <code>/api/inbound</code> rule — it's the public-facing attack surface. Upgrade to a paid plan for full coverage.</p>
           </div>
           <div class="install-card">
             <div class="tag tag-opt">Terraform</div>
@@ -937,26 +938,30 @@ bucket_name = "kill-the-news-attachments"</span></pre>
           <div class="code-block-header"><span class="dot-r"></span><span class="dot-y"></span><span class="dot-g"></span> WAF rules</div>
           <table class="waf-table">
             <thead>
-              <tr><th>Endpoint</th><th>Condition</th><th>Limit</th><th>Action</th></tr>
+              <tr><th>Endpoint</th><th>Condition (URI Path)</th><th>Limit (recommended)</th><th>Limit (free tier)</th><th>Action (recommended)</th><th>Action (free tier)</th></tr>
             </thead>
             <tbody>
               <tr>
                 <td><code>/api/inbound</code></td>
-                <td>URI path = <code>/api/inbound</code>, method = <code>POST</code></td>
+                <td>wildcard <code>/api/inbound/*</code></td>
                 <td>60 req / min / IP</td>
+                <td>10 req / 10 s / IP</td>
                 <td>Block (1 min)</td>
+                <td>Block (10 s)</td>
               </tr>
               <tr>
                 <td><code>/admin*</code></td>
-                <td>URI path starts with <code>/admin</code></td>
+                <td>wildcard <code>/admin/*</code></td>
                 <td>20 req / min / IP</td>
+                <td>20 req / 10 s / IP</td>
                 <td>Managed Challenge (5 min)</td>
+                <td>Managed Challenge (10 s)</td>
               </tr>
             </tbody>
           </table>
         </div>
 
-        <p style="margin-top:0.75rem;">Terraform equivalent:</p>
+        <p style="margin-top:0.75rem;">Terraform equivalent <em style="font-size:0.82em;color:#666;">(supports method filtering and longer periods — requires a paid Cloudflare plan)</em>:</p>
         <div class="code-block" style="margin-top:0.5rem;">
           <div class="code-block-header"><span class="dot-r"></span><span class="dot-y"></span><span class="dot-g"></span> main.tf</div>
           <pre><span class="cmd">resource "cloudflare_ruleset" "rate_limiting" {</span>
