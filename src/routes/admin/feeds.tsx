@@ -1,11 +1,10 @@
 import { Hono } from "hono";
-import { html } from "hono/html";
 import { z } from "zod";
 import { Env, FeedConfig, FeedMetadata, EmailData } from "../../types";
 import { generateFeedId } from "../../utils/id-generator";
 import { waitUntilSafe } from "../../utils/worker";
 import { logger } from "../../lib/logger";
-import { layout } from "./ui";
+import { Layout } from "./ui";
 import {
   addFeedToList,
   updateFeedInList,
@@ -246,68 +245,66 @@ feedsRouter.get("/:feedId/edit", async (c) => {
   }
 
   return c.html(
-    layout(
-      "Edit Feed",
-      html`
-        <div class="container fade-in">
-          <div class="header-with-actions">
-            <div class="header-title">
-              <h1>${feedConfig.title} - Edit Feed</h1>
-            </div>
-            <div class="header-actions">
-              <a href="/admin" class="button button-secondary button-back"
-                >Back to Dashboard</a
-              >
-            </div>
+    <Layout title="Edit Feed">
+      <div class="container fade-in">
+        <div class="header-with-actions">
+          <div class="header-title">
+            <h1>{feedConfig.title} - Edit Feed</h1>
           </div>
-
-          <div class="card">
-            <form action="/admin/feeds/${feedId}/edit" method="post">
-              <div class="form-group">
-                <label for="title">Feed Title</label>
-                <input
-                  type="text"
-                  id="title"
-                  name="title"
-                  value="${feedConfig.title}"
-                  required
-                />
-              </div>
-
-              <div class="form-group">
-                <label for="description">Description</label>
-                <textarea id="description" name="description" rows="3">
-${feedConfig.description || ""}</textarea
-                >
-              </div>
-
-              <div class="form-group">
-                <label for="allowed_senders"
-                  >Allowed senders (optional, one email or domain per
-                  line)</label
-                >
-                <textarea
-                  id="allowed_senders"
-                  name="allowed_senders"
-                  rows="3"
-                  placeholder="newsletter@example.com&#10;techmeme.com"
-                >
-${(feedConfig.allowed_senders || []).join("\n")}</textarea
-                >
-                <small
-                  >When set, inbound emails are only accepted from these
-                  senders/domains.</small
-                >
-              </div>
-
-              <input type="hidden" id="language" name="language" value="en" />
-
-              <button type="submit" class="button">Update Feed</button>
-            </form>
+          <div class="header-actions">
+            <a href="/admin" class="button button-secondary button-back">
+              Back to Dashboard
+            </a>
           </div>
         </div>
-      `,
-    ),
+
+        <div class="card">
+          <form action={`/admin/feeds/${feedId}/edit`} method="post">
+            <div class="form-group">
+              <label for="title">Feed Title</label>
+              <input
+                type="text"
+                id="title"
+                name="title"
+                value={feedConfig.title}
+                required
+              />
+            </div>
+
+            <div class="form-group">
+              <label for="description">Description</label>
+              <textarea id="description" name="description" rows={3}>
+                {feedConfig.description || ""}
+              </textarea>
+            </div>
+
+            <div class="form-group">
+              <label for="allowed_senders">
+                Allowed senders (optional, one email or domain per line)
+              </label>
+              <textarea
+                id="allowed_senders"
+                name="allowed_senders"
+                rows={3}
+                placeholder={"newsletter@example.com\ntechmeme.com"}
+              >
+                {(feedConfig.allowed_senders || []).join("\n")}
+              </textarea>
+              <small>
+                When set, inbound emails are only accepted from these
+                senders/domains.
+              </small>
+            </div>
+
+            <input type="hidden" id="language" name="language" value="en" />
+
+            <button type="submit" class="button">
+              Update Feed
+            </button>
+          </form>
+        </div>
+      </div>
+    </Layout>,
   );
 });
 
