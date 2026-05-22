@@ -22,7 +22,7 @@ Feature gaps identified by comparing with [kill-the-newsletter](https://github.c
 
 - [x] **Email attachments as RSS enclosures** — store attachments in Cloudflare R2 and expose them as `<enclosure>` elements in the feed. kill-the-newsletter serves them at `/files/{enclosureId}/{filename}`.
 
-- [ ] **WebSub (PubSubHubbub) push notifications** — notify subscribers in real time when a new email arrives, instead of requiring them to poll the feed. Requires either integrating a public WebSub hub or implementing the hub protocol directly.
+- [x] **WebSub (PubSubHubbub) push notifications** — notify subscribers in real time when a new email arrives, instead of requiring them to poll the feed. Requires either integrating a public WebSub hub or implementing the hub protocol directly.
 
 - [ ] **Rate limiting via Cloudflare WAF rules** — protect `/api/inbound` and `/admin` against abuse. Configure WAF custom rules in the Cloudflare dashboard (or via Terraform): rate-limit `/api/inbound` to ~60 req/min per IP, and `/admin` to ~20 req/min per IP. No code changes required; this is pure infrastructure configuration.
 
