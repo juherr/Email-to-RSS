@@ -93,7 +93,7 @@ emailsRouter.get("/feeds/:feedId/emails", async (c) => {
 
   const emailAddress = `${feedId}@${env.DOMAIN}`;
   const rssUrl = `https://${env.DOMAIN}/rss/${feedId}`;
-
+  const atomUrl = `https://${env.DOMAIN}/atom/${feedId}`;
 
   return c.html(
     <Layout title={`${feedConfig.title} - Emails`}>
@@ -114,6 +114,7 @@ emailsRouter.get("/feeds/:feedId/emails", async (c) => {
           <div>
             <CopyField label="Email Address:" value={emailAddress} />
             <CopyField label="RSS Feed:" value={rssUrl} />
+            <CopyField label="Atom Feed:" value={atomUrl} />
           </div>
         </div>
 

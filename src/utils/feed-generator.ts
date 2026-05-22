@@ -16,8 +16,12 @@ function parseFromAddress(from: string): { name: string; email?: string } {
 // Email content is stored as a full HTML document. Feed readers expect only
 // the body fragment in <description>/<content:encoded>, not a full document.
 export function extractBodyContent(html: string): string {
-  const match = html.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
-  return match ? match[1] : html;
+  const withClose = html.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
+  if (withClose) return withClose[1];
+  // Some HTML emails omit </body>; capture everything after the opening tag
+  const withoutClose = html.match(/<body[^>]*>([\s\S]*)/i);
+  if (withoutClose) return withoutClose[1].replace(/<\/html>\s*$/i, "");
+  return html;
 }
 
 function buildFeed(
@@ -25,6 +29,7 @@ function buildFeed(
   emails: EmailData[],
   baseUrl: string,
   feedId: string,
+  selfUrl?: { rss?: string; atom?: string },
 ): Feed {
   const feed = new Feed({
     title: feedConfig.title,
@@ -39,8 +44,8 @@ function buildFeed(
     generator: "kill-the-news",
     copyright: `Copyright © ${new Date().getFullYear()} ${feedConfig.title}`,
     feedLinks: {
-      rss: `${baseUrl}/rss/${feedId}`,
-      atom: `${baseUrl}/atom/${feedId}`,
+      rss: selfUrl?.rss ?? `${baseUrl}/rss/${feedId}`,
+      atom: selfUrl?.atom ?? `${baseUrl}/atom/${feedId}`,
     },
     author: feedConfig.author
       ? {
@@ -80,8 +85,15 @@ export function generateRssFeed(
   emails: EmailData[],
   baseUrl: string,
   feedId: string,
+  selfUrl?: string,
 ): string {
-  return buildFeed(feedConfig, emails, baseUrl, feedId).rss2();
+  return buildFeed(
+    feedConfig,
+    emails,
+    baseUrl,
+    feedId,
+    selfUrl ? { rss: selfUrl } : undefined,
+  ).rss2();
 }
 
 export function generateAtomFeed(
@@ -89,6 +101,13 @@ export function generateAtomFeed(
   emails: EmailData[],
   baseUrl: string,
   feedId: string,
+  selfUrl?: string,
 ): string {
-  return buildFeed(feedConfig, emails, baseUrl, feedId).atom1();
+  return buildFeed(
+    feedConfig,
+    emails,
+    baseUrl,
+    feedId,
+    selfUrl ? { atom: selfUrl } : undefined,
+  ).atom1();
 }

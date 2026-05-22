@@ -16,11 +16,13 @@ export async function handle(c: Context<{ Bindings: Env }>): Promise<Response> {
     }
 
     const baseUrl = `https://${c.env.DOMAIN}`;
+    const selfUrl = new URL(c.req.url).origin + `/rss/${feedId}`;
     const rssXml = generateRssFeed(
       feedData.feedConfig,
       feedData.emails,
       baseUrl,
       feedId,
+      selfUrl,
     );
     const linkHeader = [
       `<${baseUrl}/hub>; rel="hub"`,
