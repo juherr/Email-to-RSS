@@ -39,6 +39,6 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           TAG_NAME: ${{ github.ref_name }}
+          BUNDLE_PATH: ${{ steps.bundle.outputs.path }}
         run: |
-          cp "${{ steps.bundle.outputs.path }}" dist/index.js
-          gh release upload "$TAG_NAME" dist/index.js --clobber
+          gh release upload "$TAG_NAME" "$BUNDLE_PATH" --clobber
