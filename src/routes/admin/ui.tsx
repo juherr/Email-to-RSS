@@ -3,7 +3,7 @@ import { interactiveScripts } from "../../scripts/index";
 
 type LayoutProps = {
   title: string;
-  children: unknown;
+  children: import("hono/jsx").Child;
 };
 
 export const Layout = ({ title, children }: LayoutProps) => {
@@ -17,7 +17,7 @@ export const Layout = ({ title, children }: LayoutProps) => {
         <style dangerouslySetInnerHTML={{ __html: designSystem }} />
         <script dangerouslySetInnerHTML={{ __html: interactiveScripts + ";" }} />
       </head>
-      <body class="page">{children as any}</body>
+      <body class="page">{children}</body>
     </html>
   );
 };
