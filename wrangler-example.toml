@@ -82,4 +82,4 @@ routes = [
 ]
 
 [env.demo.vars]
-DOMAIN = "kill-the.news"
+DOMAIN = "demo.kill-the.news"
