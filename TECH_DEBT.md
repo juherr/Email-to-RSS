@@ -27,13 +27,12 @@ Generated: 2026-05-22
 
 ## Phase 3 — Ongoing / Infrastructure
 
-| #     | Task                                                       | Priority |
-| ----- | ---------------------------------------------------------- | -------- |
-| P1-4  | Structured logging + error aggregation                     | 36       |
-| P1-5  | Rate limiting (Cloudflare WAF rules)                       | 24       |
-| P1-1  | Migrate feed metadata to Durable Objects for atomic writes | 36       |
-| P2-10 | Extract constants module (`src/config/constants.ts`)       | 12       |
-| P2-11 | Split `admin.ts` into sub-modules                          | 8        |
+| #     | Task                                                 | Priority |
+| ----- | ---------------------------------------------------- | -------- |
+| P1-4  | Structured logging + error aggregation               | 36       |
+| P1-5  | Rate limiting (Cloudflare WAF rules)                 | 24       |
+| P2-10 | Extract constants module (`src/config/constants.ts`) | 12       |
+| P2-11 | Split `admin.ts` into sub-modules                    | 8        |
 
 ---
 
@@ -52,7 +51,7 @@ Generated: 2026-05-22
 **Race condition in KV metadata updates** (`src/lib/email-processor.ts`)
 Two concurrent emails to the same feed read-modify-write the metadata non-atomically.
 The second writer silently overwrites the first's changes. Accepted limitation of KV;
-long-term fix is Cloudflare Durable Objects for serialised writes.
+see TODO.md for the Durable Objects migration roadmap item.
 
 **Email ingest path has zero tests** (`src/routes/inbound.ts`)
 The most critical path in the system is entirely unguarded. Required: happy path,
