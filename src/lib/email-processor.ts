@@ -7,6 +7,8 @@ import {
   FeedMetadata,
 } from "../types";
 import { notifySubscribers } from "../utils/websub";
+import { logger } from "./logger";
+import { FEED_MAX_BYTES } from "../config/constants";
 
 export interface RawAttachment {
   filename: string;
@@ -81,7 +83,9 @@ export async function validateEmail(
 ): Promise<ValidationResult> {
   const feedId = EmailParser.extractFeedId(input.toAddress);
   if (!feedId) {
-    console.error(`Invalid email address format: ${input.toAddress}`);
+    logger.error("Invalid email address format", {
+      toAddress: input.toAddress,
+    });
     return {
       ok: false,
       response: new Response("Invalid email address format", { status: 400 }),
@@ -93,7 +97,7 @@ export async function validateEmail(
     "json",
   )) as FeedConfig | null;
   if (!feedConfig) {
-    console.error(`Feed with ID ${feedId} does not exist or has been deleted`);
+    logger.error("Feed not found", { feedId });
     return {
       ok: false,
       response: new Response("Feed does not exist", { status: 404 }),
@@ -110,10 +114,11 @@ export async function validateEmail(
       ),
     );
     if (!senderAllowed) {
-      console.warn(
-        `Rejected email for feed ${feedId}; sender not in allowlist`,
-        { senders: input.senders, allowedSenders },
-      );
+      logger.warn("Rejected email: sender not in allowlist", {
+        feedId,
+        senders: input.senders,
+        allowedSenders,
+      });
       return {
         ok: false,
         response: new Response("Sender not allowed for this feed", {
@@ -164,9 +169,8 @@ export async function storeEmail(
     emails: [],
   }) as FeedMetadata;
 
-  const DEFAULT_MAX_BYTES = 524288; // 512 KB
   const maxBytes =
-    parseInt(env.FEED_MAX_SIZE_BYTES ?? "", 10) || DEFAULT_MAX_BYTES;
+    parseInt(env.FEED_MAX_SIZE_BYTES ?? "", 10) || FEED_MAX_BYTES;
 
   const serialised = JSON.stringify(emailData);
   const serialisedSize = new TextEncoder().encode(serialised).byteLength;
@@ -205,7 +209,7 @@ export async function storeEmail(
     ...r2Deletions,
   ]);
 
-  console.log(`Successfully processed email for feed ${feedId}`);
+  logger.info("Email processed", { feedId });
   if (ctx) {
     ctx.waitUntil(notifySubscribers(feedId, env));
   }

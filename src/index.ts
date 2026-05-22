@@ -9,6 +9,8 @@ import { handle as handleFiles } from "./routes/files";
 import { hubRouter } from "./routes/hub";
 import { handleCloudflareEmail } from "./lib/cloudflare-email";
 import { Env } from "./types";
+import { logger } from "./lib/logger";
+import { FORWARD_EMAIL_IPS_CACHE_TTL_MS } from "./config/constants";
 
 type AppEnv = { Bindings: Env };
 
@@ -71,16 +73,17 @@ async function getForwardEmailIps(): Promise<string[]> {
       )
       .flatMap((entry) => entry.ipv4);
 
-    // Store in cache for 24 hours
     forwardEmailIpsCache = {
       ips: mxIps,
-      expiresAt: Date.now() + 24 * 60 * 60 * 1000, // 24 hours
+      expiresAt: Date.now() + FORWARD_EMAIL_IPS_CACHE_TTL_MS,
     };
 
-    console.log("Fetched ForwardEmail.net IPs:", mxIps);
+    logger.info("Fetched ForwardEmail.net IPs", { count: mxIps.length });
     return mxIps;
   } catch (error) {
-    console.error("Error fetching ForwardEmail.net IPs:", error);
+    logger.error("Failed to fetch ForwardEmail.net IPs", {
+      error: String(error),
+    });
     // Return fallback IPs if fetch fails
     return FALLBACK_FORWARD_EMAIL_IPS;
   }
@@ -118,11 +121,11 @@ api.use("/inbound", async (c, next) => {
 
   // Check if the request is coming from ForwardEmail.net
   if (!allowedIps.includes(clientIP)) {
-    console.error(`Unauthorized webhook request from IP: ${clientIP}`);
+    logger.warn("Unauthorized webhook request", { clientIP });
     return c.text("Unauthorized", 401);
   }
 
-  console.log(`Authorized webhook request from ForwardEmail.net (${clientIP})`);
+  logger.info("Authorized webhook request", { clientIP });
   await next();
 });
 

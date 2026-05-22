@@ -1,23 +1,13 @@
-import { Hono, type Context } from "hono";
+import { Hono } from "hono";
 import { Env } from "../types";
-
-type AppEnv = { Bindings: Env };
 import {
   verifyAndStoreSubscription,
   verifyAndDeleteSubscription,
 } from "../utils/websub";
+import { waitUntilSafe } from "../utils/worker";
+import { DEFAULT_LEASE_SECONDS, MAX_LEASE_SECONDS } from "../config/constants";
 
-function waitUntilSafe(c: Context<AppEnv>, promise: Promise<unknown>) {
-  // Hono throws when ExecutionContext isn't present (e.g. Node unit tests).
-  try {
-    c.executionCtx.waitUntil(promise);
-  } catch {
-    // ignore
-  }
-}
-
-const DEFAULT_LEASE_SECONDS = 86400;
-const MAX_LEASE_SECONDS = 30 * 24 * 3600; // 30 days
+type AppEnv = { Bindings: Env };
 
 export const hubRouter = new Hono<AppEnv>();
 
