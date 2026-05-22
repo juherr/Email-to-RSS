@@ -5,7 +5,7 @@
   "main": "dist/worker.js",
   "scripts": {
     "build:client": "node scripts/build-client.mjs",
-    "build": "wrangler deploy --dry-run --outdir=dist",
+    "build": "wrangler deploy --config wrangler.build.toml --dry-run --outdir=dist --no-experimental-autoconfig",
     "prebuild": "npm run build:client",
     "format": "prettier --write '**/*.{js,ts,css,json,md}'",
     "format:check": "prettier --check '**/*.{js,ts,css,json,md}'",

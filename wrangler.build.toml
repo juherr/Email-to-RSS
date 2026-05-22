@@ -1,0 +1,13 @@
+name = "kill-the-news"
+main = "src/index.ts"
+compatibility_date = "2025-01-01"
+compatibility_flags = ["nodejs_compat"]
+
+kv_namespaces = [
+  { binding = "EMAIL_STORAGE", id = "00000000000000000000000000000000" }
+]
+
+[[rules]]
+type = "Text"
+globs = ["**/*.css"]
+fallthrough = false
