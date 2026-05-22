@@ -13,6 +13,11 @@ kv_namespaces = [
 #   { binding = "ATTACHMENT_BUCKET", bucket_name = "REPLACE_WITH_YOUR_BUCKET_NAME", preview_bucket_name = "REPLACE_WITH_YOUR_PREVIEW_BUCKET_NAME" }
 # ]
 
+# Import CSS files as text strings (inlined in HTML <style> tags)
+[[rules]]
+type = "Text"
+globs = ["**/*.css"]
+
 # Workers Observability (keeps config in sync with dashboard toggle)
 [observability.logs]
 enabled = true
