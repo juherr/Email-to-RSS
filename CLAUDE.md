@@ -1,18 +1,19 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance to Claude Code when working in this repository.
 
 ## Commands
 
 ```bash
-npm install          # Install dependencies
-npm run dev          # Start local dev server (wrangler dev)
-npm test             # Run tests once
-npm run test:watch   # Run tests in watch mode
+npm install           # Install dependencies (also builds client scripts via prepare)
+npm run dev           # Start local dev server (wrangler dev)
+npm test              # Run all tests once
+npm run test:watch    # Run tests in watch mode
 npm run test:coverage # Run tests with coverage report
-npm run build        # Dry-run deploy bundle (wrangler deploy --dry-run)
-npm run deploy       # Deploy to Cloudflare production
-npm run format       # Format with Prettier
+npm run build         # Dry-run deploy bundle (wrangler deploy --dry-run)
+npm run build:client  # Compile client scripts only (src/scripts/client → src/scripts/generated)
+npm run deploy        # Deploy to Cloudflare production
+npm run format        # Format with Prettier
 ```
 
 Run a single test file:
@@ -21,41 +22,101 @@ Run a single test file:
 npx vitest run src/routes/admin.test.ts
 ```
 
+## Project summary
+
+kill-the-news is a Cloudflare Worker that ingests email newsletters and exposes them as private RSS/Atom feeds. Self-hosted, free-tier-friendly (Cloudflare + ForwardEmail).
+
 ## Architecture
 
-Cloudflare Worker built with Hono. A single Worker handles three route groups:
+Single Cloudflare Worker built with Hono. Routes:
 
-- `POST /api/inbound` — ForwardEmail webhook; IP-restricted to ForwardEmail MX sources (verified dynamically via `https://forwardemail.net/ips/v4.json`, with in-memory cache + static fallback)
-- `GET /rss/:feedId` — public RSS feed rendered from KV
-- `/admin` — password-protected admin UI (server-rendered HTML with inline scripts)
+| Method                               | Path                                                                   | Purpose |
+| ------------------------------------ | ---------------------------------------------------------------------- | ------- |
+| `POST /api/inbound`                  | Webhook from ForwardEmail; IP-allowlisted to their MX sources          |
+| `GET /rss/:feedId`                   | Public RSS 2.0 feed                                                    |
+| `GET /atom/:feedId`                  | Public Atom feed (with WebSub hub header)                              |
+| `GET /entries/:feedId/:entryId`      | Individual email HTML view                                             |
+| `GET /files/:attachmentId/:filename` | R2 attachment serving                                                  |
+| `GET /admin`                         | Password-protected admin UI                                            |
+| `/hub`                               | WebSub hub (subscribe/publish)                                         |
+| `GET /health`                        | Health check                                                           |
+| `email`                              | Cloudflare Email routing handler (alternative to ForwardEmail webhook) |
 
-### Key files
+### Source layout
 
-| File                    | Purpose                                                                  |
-| ----------------------- | ------------------------------------------------------------------------ |
-| `src/index.ts`          | App entrypoint: CORS middleware, IP allowlist middleware, route mounting |
-| `src/routes/inbound.ts` | Email ingestion: validates, parses, stores to KV                         |
-| `src/routes/rss.ts`     | Reads KV and renders RSS XML                                             |
-| `src/routes/admin.ts`   | Admin UI (HTML) and feed/email CRUD API                                  |
-| `src/types/index.ts`    | Shared TypeScript types (`Env`, `FeedConfig`, `EmailData`, etc.)         |
-| `src/test/setup.ts`     | Test mocks for KV (`MockKV`) and Cache; exports `createMockEnv()`        |
+```
+src/
+  index.ts                  # App entrypoint: CORS, IP middleware, route mounting, email handler export
+  config/constants.ts       # Shared constants (TTLs, limits)
+  types/index.ts            # Env, FeedConfig, EmailData, WebSubSubscription, etc.
+  routes/
+    inbound.ts              # ForwardEmail webhook handler
+    rss.ts                  # RSS feed renderer
+    atom.ts                 # Atom feed renderer
+    entries.ts              # Single email HTML view
+    files.ts                # R2 attachment serving
+    hub.ts                  # WebSub hub
+    admin.tsx               # Admin UI entrypoint (hono/jsx)
+    admin/                  # Admin sub-modules
+      feeds.tsx             # Feeds CRUD UI
+      emails.tsx            # Emails list/delete UI
+      ui.tsx                # Shared UI components
+      helpers.ts            # Shared admin helpers
+  lib/
+    cloudflare-email.ts     # Cloudflare Email routing handler
+    email-parser.ts         # Email parsing (mailparser)
+    email-processor.ts      # Core ingestion logic (parse → store)
+    feed-fetcher.ts         # KV feed/email fetch helpers
+    feed-generator.ts       # RSS/Atom XML generation
+    forwardemail.ts         # ForwardEmail webhook types/parsing
+    id-generator.ts         # Feed/entry ID generation
+    logger.ts               # JSON structured logger
+    storage.ts              # KV key helpers
+    websub.ts               # WebSub subscription management
+    worker.ts               # Typed worker export helper
+  scripts/
+    client/                 # TypeScript client scripts (compiled by esbuild)
+      dashboard.ts          # Admin dashboard interactions
+      emails-page.ts        # Emails page interactions
+    generated/              # Compiled output (gitignored, rebuilt on npm install)
+  styles/                   # CSS files bundled into the Worker
+    variables.css
+    layout.css
+    components.css
+    utilities.css
+  data/nouns.ts             # Word list for ID generation
+  test/setup.ts             # Test mocks: MockKV, createMockEnv()
+```
 
 ### KV schema
 
 All data lives in the `EMAIL_STORAGE` KV namespace:
 
-| Key                         | Value                                             |
-| --------------------------- | ------------------------------------------------- |
-| `feeds:list`                | `{ feeds: Array<{ id, title, description? }> }`   |
-| `feed:<feedId>:config`      | `FeedConfig` object                               |
-| `feed:<feedId>:metadata`    | `{ emails: Array<{ key, subject, receivedAt }> }` |
-| `feed:<feedId>:<timestamp>` | Full `EmailData` object                           |
+| Key                              | Value                                                                    |
+| -------------------------------- | ------------------------------------------------------------------------ |
+| `feeds:list`                     | `{ feeds: Array<{ id, title, description? }> }`                          |
+| `feed:<feedId>:config`           | `FeedConfig`                                                             |
+| `feed:<feedId>:metadata`         | `{ emails: Array<{ key, subject, receivedAt, size?, attachmentIds? }> }` |
+| `feed:<feedId>:<timestamp>`      | Full `EmailData`                                                         |
+| `websub:<feedId>:<callbackHash>` | `WebSubSubscription`                                                     |
 
-`src/utils/storage.ts` contains alternate key helpers not used by routes — keep route key usage consistent with the schema above.
+`src/lib/storage.ts` contains key-builder helpers — use them; don't inline key strings in routes.
 
-### Admin UI architecture
+### Worker bindings (`Env`)
 
-The admin UI is server-rendered HTML returned by `src/routes/admin.ts`. Interactive behavior (toast notifications, clipboard, bulk delete, table column resizing/sorting) is implemented as inline scripts in `src/scripts/`. Styles are composed from `src/styles/`. These are bundled into the Worker — there is no separate frontend build step.
+```ts
+EMAIL_STORAGE: KVNamespace;    // All feed/email data
+ADMIN_PASSWORD: string;        // Worker secret — never in config files
+DOMAIN: string;                // e.g. "getmynews.app"
+ATTACHMENT_BUCKET?: R2Bucket;  // R2 for email attachments
+FEED_MAX_SIZE_BYTES?: string;  // Optional email size cap
+PROXY_TRUSTED_IPS?: string;    // Trusted reverse-proxy IPs
+PROXY_AUTH_SECRET?: string;    // Shared secret for proxy auth
+```
+
+### Client scripts
+
+`src/scripts/client/` contains TypeScript that runs in the browser. It is compiled by esbuild into `src/scripts/generated/` (gitignored) and bundled into the Worker as inline `<script>` tags. The `prepare` npm hook rebuilds them on `npm install`. Run `npm run build:client` to rebuild manually.
 
 ### Testing
 
@@ -65,25 +126,17 @@ Tests run in Node (not a Worker runtime). Hono test requests pass the mock env a
 const res = await app.request("/path", init, createMockEnv());
 ```
 
-MSW (`msw/node`) handles external HTTP mocks. Tests that hit validation paths intentionally produce stderr output — this is expected.
-
-### Worker environment bindings (`Env`)
-
-```ts
-EMAIL_STORAGE: KVNamespace; // KV namespace for all data
-ADMIN_PASSWORD: string; // Cloudflare Worker secret (not in wrangler.toml)
-DOMAIN: string; // e.g. "yourdomain.com"
-```
+MSW (`msw/node`) handles external HTTP mocks. Tests that hit validation paths intentionally produce stderr output — expected.
 
 ## Configuration
 
-- `wrangler.toml` is generated locally from `wrangler-example.toml` by `setup.sh` — do not commit `wrangler.toml`
-- `ADMIN_PASSWORD` is a Cloudflare Worker secret set via `wrangler secret put`; it is never in config files
+- `wrangler.toml` is generated locally from `wrangler-example.toml` by `setup.sh` — do not commit it
+- `ADMIN_PASSWORD` is set via `wrangler secret put` — never in config files
 - Keep `compatibility_date` current on runtime upgrades
 
 ## When changing behavior
 
-Update these together:
+Update together:
 
 - `README.md`
 - `AGENTS.md`
