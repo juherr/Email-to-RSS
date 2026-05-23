@@ -87,6 +87,14 @@ export class FeedRepository {
     await this.putMetadata(feed.id, feed.metadata);
   }
 
+  /**
+   * Persist only the config. Used by the rename/edit paths where metadata is
+   * unchanged — avoids re-writing (and risking clobbering) the email index.
+   */
+  async saveConfig(feed: Feed): Promise<void> {
+    await this.putConfig(feed.id, feed.config);
+  }
+
   // ── Feed config ───────────────────────────────────────────────────────────
 
   async getConfig(feedId: string): Promise<FeedConfig | null> {

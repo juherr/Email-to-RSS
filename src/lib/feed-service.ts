@@ -6,7 +6,6 @@ import { waitUntilSafe } from "../utils/worker";
 import { sendUnsubscribes } from "../utils/unsubscribe";
 import { getAttachmentBucket } from "../utils/attachments";
 import { FeedRepository } from "../domain/feed-repository";
-import { resolveExpiresAt, isExpired } from "../domain/feed";
 import {
   Feed,
   CreateFeedInput,
@@ -52,58 +51,56 @@ export type UpdateFeedResult =
   | { status: "expired" };
 
 /**
- * Apply a partial patch to a feed's config and mirror title/description/expiry
- * into the global list. Fields left undefined on `input` are preserved.
- *
- * A full edit (default) rejects expired feeds and recomputes `expires_at` from
- * `FEED_TTL_HOURS`/`lifetimeHours`. `inPlace` skips both — used by the dashboard's
- * minimal title/description edit, which must never touch expiry.
+ * In-place edit of title/description only — never touches expiry. Used by the
+ * dashboard's minimal edit. Mirrors the new title/description into the list.
  */
-export async function updateFeedRecord(
+export async function renameFeed(
+  env: Env,
+  feedId: string,
+  patch: { title?: string; description?: string },
+): Promise<UpdateFeedResult> {
+  const repo = FeedRepository.from(env);
+  const feed = await repo.load(feedId);
+  if (!feed) return { status: "not_found" };
+
+  feed.rename(patch);
+  await repo.saveConfig(feed);
+  await repo.updateInList(
+    feedId,
+    feed.config.title,
+    feed.config.description,
+    feed.config.expires_at,
+  );
+
+  return { status: "ok", config: feed.config };
+}
+
+/**
+ * Full edit: apply the patch, recompute expiry, and reject expired feeds. Fields
+ * left undefined are preserved. Mirrors title/description/expiry into the list.
+ */
+export async function editFeed(
   env: Env,
   feedId: string,
   input: UpdateFeedInput,
-  options: { inPlace?: boolean } = {},
 ): Promise<UpdateFeedResult> {
   const repo = FeedRepository.from(env);
+  const feed = await repo.load(feedId);
+  if (!feed) return { status: "not_found" };
 
-  const existing = await repo.getConfig(feedId);
-
-  if (!existing) return { status: "not_found" };
-
-  if (!options.inPlace && isExpired(existing)) {
+  if (feed.edit(input, env).status === "expired") {
     return { status: "expired" };
   }
 
-  // Full edit recomputes expiry (FEED_TTL_HOURS or a supplied lifetime resets the
-  // clock; an absent lifetime preserves it). In-place edits leave expiry alone.
-  const expiresAt =
-    !options.inPlace &&
-    (env.FEED_TTL_HOURS || input.lifetimeHours !== undefined)
-      ? resolveExpiresAt(env, input.lifetimeHours)
-      : existing.expires_at;
+  await repo.saveConfig(feed);
+  await repo.updateInList(
+    feedId,
+    feed.config.title,
+    feed.config.description,
+    feed.config.expires_at,
+  );
 
-  const config: FeedConfig = {
-    ...existing,
-    ...(input.title !== undefined ? { title: input.title } : {}),
-    ...(input.description !== undefined
-      ? { description: input.description }
-      : {}),
-    ...(input.language !== undefined ? { language: input.language } : {}),
-    ...(input.allowedSenders !== undefined
-      ? { allowed_senders: input.allowedSenders }
-      : {}),
-    ...(input.blockedSenders !== undefined
-      ? { blocked_senders: input.blockedSenders }
-      : {}),
-    updated_at: Date.now(),
-    expires_at: expiresAt,
-  };
-
-  await repo.putConfig(feedId, config);
-  await repo.updateInList(feedId, config.title, config.description, expiresAt);
-
-  return { status: "ok", config };
+  return { status: "ok", config: feed.config };
 }
 
 type DeleteFeedFastResult = {

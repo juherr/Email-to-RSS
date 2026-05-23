@@ -12,7 +12,7 @@ import { purgeFeedKeysStep, collectUnsubscribeUrls } from "./helpers";
 import { FeedRepository } from "../../domain/feed-repository";
 import {
   createFeedRecord,
-  updateFeedRecord,
+  editFeed,
   deleteFeedRecord,
   deleteFeedFastDetailed,
 } from "../../lib/feed-service";
@@ -329,7 +329,7 @@ feedsRouter.post("/:feedId/edit", async (c) => {
       blockedSenders,
     });
 
-    const result = await updateFeedRecord(env, feedId, {
+    const result = await editFeed(env, feedId, {
       title: parsedData.title,
       description: parsedData.description,
       language: parsedData.language,

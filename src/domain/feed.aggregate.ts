@@ -132,4 +132,46 @@ export class Feed {
     this._metadata.emails = kept;
     return { removed };
   }
+
+  /**
+   * In-place edit of the presentational fields only. Never touches expiry or the
+   * sender policy — used by the dashboard's minimal title/description edit.
+   */
+  rename(patch: { title?: string; description?: string }): void {
+    if (patch.title !== undefined) this._config.title = patch.title;
+    if (patch.description !== undefined) {
+      this._config.description = patch.description;
+    }
+    this._config.updated_at = Date.now();
+  }
+
+  /**
+   * Full edit: apply the patch and recompute expiry from `FEED_TTL_HOURS` or a
+   * supplied lifetime (an absent lifetime preserves the current expiry). Rejects
+   * an already-expired feed without mutating it.
+   */
+  edit(patch: UpdateFeedInput, env: Env): { status: "ok" | "expired" } {
+    if (this.isExpired()) return { status: "expired" };
+
+    const expiresAt =
+      env.FEED_TTL_HOURS || patch.lifetimeHours !== undefined
+        ? resolveExpiresAt(env, patch.lifetimeHours)
+        : this._config.expires_at;
+
+    if (patch.title !== undefined) this._config.title = patch.title;
+    if (patch.description !== undefined) {
+      this._config.description = patch.description;
+    }
+    if (patch.language !== undefined) this._config.language = patch.language;
+    if (patch.allowedSenders !== undefined) {
+      this._config.allowed_senders = patch.allowedSenders;
+    }
+    if (patch.blockedSenders !== undefined) {
+      this._config.blocked_senders = patch.blockedSenders;
+    }
+    this._config.updated_at = Date.now();
+    this._config.expires_at = expiresAt;
+
+    return { status: "ok" };
+  }
 }

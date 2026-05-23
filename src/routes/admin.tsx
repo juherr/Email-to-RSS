@@ -9,7 +9,7 @@ import { logger } from "../lib/logger";
 import { timingSafeEqual, checkProxyAuth } from "../lib/auth";
 import { Layout, clampText } from "./admin/ui";
 import { FeedRepository } from "../domain/feed-repository";
-import { updateFeedRecord } from "../lib/feed-service";
+import { renameFeed } from "../lib/feed-service";
 import { feedRssUrl, feedAtomUrl, feedEmailAddress } from "../utils/urls";
 import { feedsRouter } from "./admin/feeds";
 import { emailsRouter } from "./admin/emails";
@@ -993,12 +993,7 @@ app.post(
       const { title, description } = c.req.valid("json");
 
       // In-place edit: only title/description, expiry untouched.
-      const result = await updateFeedRecord(
-        env,
-        feedId,
-        { title, description },
-        { inPlace: true },
-      );
+      const result = await renameFeed(env, feedId, { title, description });
 
       if (result.status === "not_found") {
         return c.json({ error: "Feed not found" }, 404);

@@ -5,7 +5,7 @@ import { Env, FeedConfig } from "../../types";
 import { apiAuthMiddleware } from "../../lib/auth";
 import {
   createFeedRecord,
-  updateFeedRecord,
+  editFeed,
   deleteFeedRecord,
 } from "../../lib/feed-service";
 import { deleteAttachmentsForEmails } from "../admin/helpers";
@@ -203,7 +203,7 @@ apiApp.openapi(
     const env = c.env;
     const { feedId } = c.req.valid("param");
     const body = c.req.valid("json");
-    const result = await updateFeedRecord(env, feedId, {
+    const result = await editFeed(env, feedId, {
       title: body.title,
       description: body.description,
       language: body.language,
