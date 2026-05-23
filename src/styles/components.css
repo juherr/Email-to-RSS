@@ -1016,7 +1016,7 @@ table.table code {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: var(--spacing-md);
-  margin-bottom: var(--spacing-lg);
+  margin-bottom: 0;
 }
 
 .stat-card {
@@ -1039,7 +1039,100 @@ table.table code {
   color: var(--color-text-primary);
 }
 
+.stat-value-success {
+  color: var(--color-success);
+}
+
+.stat-value-danger {
+  color: var(--color-danger);
+}
+
 .stat-label {
   font-size: 0.85rem;
   color: var(--color-text-secondary);
+}
+
+/* Status page — hero featured metric */
+.stat-hero {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--spacing-lg);
+  margin-bottom: var(--spacing-xl);
+}
+
+.stat-hero-main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+}
+
+.stat-hero-value {
+  font-size: 3.25rem;
+  font-weight: var(--font-weight-bold);
+  line-height: 1;
+  color: var(--color-primary);
+}
+
+.stat-hero-label {
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-secondary);
+}
+
+.stat-hero-aside {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+  text-align: right;
+}
+
+.stat-hero-aside-value {
+  font-size: var(--font-size-xxl);
+  font-weight: var(--font-weight-semibold);
+  line-height: 1;
+  color: var(--color-success);
+}
+
+.stat-hero-aside-label {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+/* Status page — thematic sections */
+.stat-section {
+  margin-bottom: var(--spacing-xl);
+}
+
+.stat-section-title {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-text-tertiary);
+  margin: 0 0 var(--spacing-md);
+}
+
+@media (max-width: 640px) {
+  .stat-hero-aside {
+    text-align: left;
+  }
+
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--spacing-sm);
+  }
+
+  .stat-card {
+    padding: var(--spacing-md);
+  }
+
+  .stat-value {
+    font-size: 1.6rem;
+  }
+
+  .stat-value-time {
+    font-size: 0.9rem;
+  }
 }
