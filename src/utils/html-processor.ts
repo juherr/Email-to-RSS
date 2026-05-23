@@ -1,6 +1,6 @@
 import { parseHTML } from "linkedom";
 import escapeHtml from "escape-html";
-import { AttachmentData } from "../types";
+import type { AttachmentData } from "../types";
 
 // Strip surrounding angle brackets and whitespace from a Content-ID so that a
 // stored value like "<ii_mpi85rqy0>" matches an HTML reference "cid:ii_mpi85rqy0".
@@ -40,11 +40,7 @@ function rewriteCidSrc(
   );
 }
 
-function sanitizeElement(
-  el: Element,
-  cidMap: Map<string, AttachmentData>,
-  baseUrl: string,
-): void {
+function sanitizeElement(el: Element): void {
   // Snapshot attribute names before mutating (linkedom attributes is array-like)
   const attrs = Array.from(
     el.attributes as unknown as ArrayLike<{ name: string }>,
@@ -63,9 +59,6 @@ function sanitizeElement(
         continue;
       }
     }
-  }
-  if (cidMap.size > 0) {
-    rewriteCidSrc(el, cidMap, baseUrl);
   }
   // Strip mso-* inline style properties (Office HTML noise)
   const style = el.getAttribute("style");
@@ -113,9 +106,13 @@ export function processEmailContent(
     .querySelectorAll("script, object, embed, iframe, frame, frameset")
     .forEach((el: Element) => el.remove());
 
-  document
-    .querySelectorAll("*")
-    .forEach((el: Element) => sanitizeElement(el, cidMap, baseUrl));
+  document.querySelectorAll("*").forEach((el: Element) => sanitizeElement(el));
+
+  if (cidMap.size > 0) {
+    document
+      .querySelectorAll("[src]")
+      .forEach((el: Element) => rewriteCidSrc(el, cidMap, baseUrl));
+  }
 
   // Full documents expose a <body>; bodyless fragments are serialized directly
   // so that sanitization and cid rewriting still apply to their nodes.
