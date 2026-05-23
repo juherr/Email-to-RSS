@@ -9,7 +9,7 @@ import {
 import { parseOneClickUnsubscribe } from "../utils/unsubscribe";
 import { getAttachmentBucket } from "../utils/attachments";
 import { FeedRepository } from "../domain/feed-repository";
-import { isExpired, applySenderPolicy, trimToByteBudget } from "../domain/feed";
+import { Feed } from "../domain/feed.aggregate";
 import { logger } from "./logger";
 import { FEED_MAX_BYTES } from "../config/constants";
 
@@ -70,10 +70,12 @@ async function uploadAttachments(
   );
 }
 
-export async function validateEmail(
+async function loadAcceptingFeed(
   input: ProcessEmailInput,
   env: Env,
-): Promise<IngestResult> {
+): Promise<
+  { ok: true; feed: Feed } | { ok: false; reason: IngestRejectionReason }
+> {
   const feedId = EmailParser.extractFeedId(input.toAddress);
   if (!feedId) {
     logger.error("Invalid email address format", {
@@ -82,31 +84,30 @@ export async function validateEmail(
     return { ok: false, reason: "invalid_address" };
   }
 
-  const feedConfig = await FeedRepository.from(env).getConfig(feedId);
-  if (!feedConfig) {
+  const feed = await FeedRepository.from(env).load(feedId);
+  if (!feed) {
     logger.error("Feed not found", { feedId });
     return { ok: false, reason: "feed_not_found" };
   }
-  if (isExpired(feedConfig)) {
+  if (feed.isExpired()) {
     logger.warn("Rejected email: feed expired", { feedId });
     return { ok: false, reason: "feed_expired" };
   }
-
-  if (applySenderPolicy(feedConfig, input.senders) === "blocked") {
+  if (feed.accepts(input.senders) === "blocked") {
     logger.warn("Rejected email: sender filter", {
       feedId,
       senders: input.senders,
-      allowedSenders: feedConfig.allowed_senders,
-      blockedSenders: feedConfig.blocked_senders,
+      allowedSenders: feed.config.allowed_senders,
+      blockedSenders: feed.config.blocked_senders,
     });
     return { ok: false, reason: "sender_blocked" };
   }
 
-  return { ok: true, feedId };
+  return { ok: true, feed };
 }
 
-export async function storeEmail(
-  feedId: string,
+async function storeEmail(
+  feed: Feed,
   input: ProcessEmailInput,
   env: Env,
   ctx?: ExecutionContext,
@@ -127,26 +128,12 @@ export async function storeEmail(
   };
 
   const repo = FeedRepository.from(env);
-  const emailKey = repo.newEmailKey(feedId);
+  const emailKey = repo.newEmailKey(feed.id);
+  await repo.putEmail(emailKey, emailData);
 
-  const [, rawMetadata] = await Promise.all([
-    repo.putEmail(emailKey, emailData),
-    repo.getMetadata(feedId),
-  ]);
-
-  // Note: KV has no atomic compare-and-swap. Concurrent invocations for the
-  // same feed can read stale metadata and produce orphaned KV entries or
-  // duplicate trim deletions. This is an accepted limitation given Cloudflare
-  // KV's eventual-consistency model.
-  // TODO: Migrate feed metadata writes to Cloudflare Durable Objects to serialise
-  // concurrent writes and eliminate this race condition.
-  const feedMetadata = rawMetadata || { emails: [] };
-
-  const maxBytes =
-    parseInt(env.FEED_MAX_SIZE_BYTES ?? "", 10) || FEED_MAX_BYTES;
-
-  const serialised = JSON.stringify(emailData);
-  const serialisedSize = new TextEncoder().encode(serialised).byteLength;
+  const serialisedSize = new TextEncoder().encode(
+    JSON.stringify(emailData),
+  ).byteLength;
   const newEntry: EmailMetadata = {
     key: emailKey,
     subject: emailData.subject,
@@ -156,45 +143,48 @@ export async function storeEmail(
       ? { attachmentIds: storedAttachments.map((a) => a.id) }
       : {}),
   };
-  feedMetadata.emails.unshift(newEntry);
 
-  // Track the latest sender's domain so the feed icon follows the source.
+  // Track the latest sender's domain (feed icon) and capture the RFC 8058
+  // one-click unsubscribe link, keyed by sender so each newsletter keeps its
+  // own latest URL (fired when the feed is deleted).
   const iconDomain = extractEmailDomain(input.from);
-  if (iconDomain) {
-    feedMetadata.iconDomain = iconDomain;
-  }
-
-  // Capture the sender's RFC 8058 one-click unsubscribe link so we can stop the
-  // newsletter when the feed is deleted. Keyed by sender: each newsletter on the
-  // feed keeps its own entry, and a repeat send overwrites with the latest URL.
   const unsubUrl = parseOneClickUnsubscribe(input.headers ?? {});
-  if (unsubUrl) {
-    const senderKey =
-      input.senders[0] || extractEmailDomain(input.from) || input.from;
-    feedMetadata.unsubscribe = {
-      ...(feedMetadata.unsubscribe ?? {}),
-      [senderKey]: unsubUrl,
-    };
-  }
+  const unsub = unsubUrl
+    ? {
+        senderKey: input.senders[0] || iconDomain || input.from,
+        url: unsubUrl,
+      }
+    : undefined;
 
-  const { dropped: toDelete } = trimToByteBudget(feedMetadata, maxBytes);
+  const maxBytes =
+    parseInt(env.FEED_MAX_SIZE_BYTES ?? "", 10) || FEED_MAX_BYTES;
+
+  const { dropped } = feed.ingest(newEntry, {
+    maxBytes,
+    iconDomain: iconDomain ?? undefined,
+    unsub,
+  });
 
   const r2Deletions =
-    attachmentBucket && toDelete.length > 0
-      ? toDelete
+    attachmentBucket && dropped.length > 0
+      ? dropped
           .flatMap((e) => e.attachmentIds ?? [])
           .map((id) => attachmentBucket.delete(id))
       : [];
 
+  // KV has no compare-and-swap: the load (in loadAcceptingFeed) and this write
+  // are not serialised, so concurrent ingests for one feed can lose updates.
+  // Accepted under KV's eventual-consistency model; the Feed aggregate is the
+  // seam a Durable Object would later wrap to serialise these writers.
   await Promise.all([
-    repo.putMetadata(feedId, feedMetadata),
-    ...toDelete.map((e) => repo.deleteEmail(e.key)),
+    repo.saveMetadata(feed),
+    ...dropped.map((e) => repo.deleteEmail(e.key)),
     ...r2Deletions,
   ]);
 
-  logger.info("Email processed", { feedId });
+  logger.info("Email processed", { feedId: feed.id });
   if (ctx) {
-    ctx.waitUntil(notifySubscribers(feedId, env));
+    ctx.waitUntil(notifySubscribers(feed.id, env));
     if (iconDomain) {
       ctx.waitUntil(cacheFaviconForDomain(iconDomain, env));
     }
@@ -206,16 +196,16 @@ export async function processEmail(
   env: Env,
   ctx?: ExecutionContext,
 ): Promise<IngestResult> {
-  const validation = await validateEmail(input, env);
+  const validation = await loadAcceptingFeed(input, env);
   if (!validation.ok) {
     await bumpCounters(env.EMAIL_STORAGE, { emails_rejected: 1 });
     return validation;
   }
 
-  await storeEmail(validation.feedId, input, env, ctx);
+  await storeEmail(validation.feed, input, env, ctx);
   await bumpCounters(env.EMAIL_STORAGE, {
     emails_received: 1,
     last_email_at: new Date().toISOString(),
   });
-  return validation;
+  return { ok: true, feedId: validation.feed.id };
 }

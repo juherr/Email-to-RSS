@@ -650,18 +650,13 @@ emailsRouter.post("/emails/:emailKey/delete", async (c) => {
       return c.text("Feed ID is required", 400);
     }
 
-    const feedMetadata = await repo.getMetadata(feedId);
+    const feed = await repo.load(feedId);
 
     await repo.deleteEmail(emailKey);
-    await deleteAttachmentsForEmails(env, feedMetadata?.emails ?? [], [
-      emailKey,
-    ]);
-
-    if (feedMetadata) {
-      feedMetadata.emails = feedMetadata.emails.filter(
-        (email) => email.key !== emailKey,
-      );
-      await repo.putMetadata(feedId, feedMetadata);
+    if (feed) {
+      const { removed } = feed.removeEmails([emailKey]);
+      await deleteAttachmentsForEmails(env, removed, [emailKey]);
+      await repo.saveMetadata(feed);
     }
 
     if (wantsJson) return c.json({ ok: true, emailKey, feedId });
@@ -690,15 +685,15 @@ emailsRouter.post("/feeds/:feedId/emails/bulk-delete", async (c) => {
     (c.req.header("Accept") || "").includes("application/json");
 
   try {
-    const feedMetadata = await repo.getMetadata(feedId);
+    const feed = await repo.load(feedId);
 
-    if (!feedMetadata) {
+    if (!feed) {
       return wantsJson
         ? c.json({ ok: false, error: "Feed not found" }, 404)
         : c.text("Feed not found", 404);
     }
 
-    const allowedKeys = new Set(feedMetadata.emails.map((email) => email.key));
+    const allowedKeys = new Set(feed.metadata.emails.map((email) => email.key));
 
     if (wantsJson) {
       const body = (await c.req.json().catch(() => null)) as {
@@ -728,13 +723,10 @@ emailsRouter.post("/feeds/:feedId/emails/bulk-delete", async (c) => {
 
       const { ok: deletedOk, failed: failedEmailKeys } =
         await deleteKeysWithConcurrency(emailStorage, candidates, 35);
-      await deleteAttachmentsForEmails(env, feedMetadata.emails, candidates);
+      await deleteAttachmentsForEmails(env, feed.metadata.emails, candidates);
 
-      const deletedSet = new Set(deletedOk);
-      feedMetadata.emails = feedMetadata.emails.filter(
-        (email) => !deletedSet.has(email.key),
-      );
-      await repo.putMetadata(feedId, feedMetadata);
+      feed.removeEmails(deletedOk);
+      await repo.saveMetadata(feed);
 
       return c.json({
         ok: failedEmailKeys.length === 0,
@@ -759,13 +751,10 @@ emailsRouter.post("/feeds/:feedId/emails/bulk-delete", async (c) => {
       candidates,
       35,
     );
-    await deleteAttachmentsForEmails(env, feedMetadata.emails, candidates);
+    await deleteAttachmentsForEmails(env, feed.metadata.emails, candidates);
 
-    const deletedSet = new Set(deletedOk);
-    feedMetadata.emails = feedMetadata.emails.filter(
-      (email) => !deletedSet.has(email.key),
-    );
-    await repo.putMetadata(feedId, feedMetadata);
+    feed.removeEmails(deletedOk);
+    await repo.saveMetadata(feed);
 
     return c.redirect(
       `/admin/feeds/${feedId}/emails?message=bulkDeleted&count=${deletedOk.length}`,

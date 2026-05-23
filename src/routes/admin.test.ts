@@ -815,6 +815,10 @@ describe("Admin Routes", () => {
           "feeds:list",
           JSON.stringify({ feeds: [{ id: feedId, title: "F" }] }),
         );
+        await r2Env.EMAIL_STORAGE.put(
+          `feed:${feedId}:config`,
+          JSON.stringify({ title: "F", language: "en", created_at: 1 }),
+        );
         const emailKey = `feed:${feedId}:1`;
         await r2Env.EMAIL_STORAGE.put(
           emailKey,

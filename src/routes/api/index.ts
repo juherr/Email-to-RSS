@@ -345,15 +345,16 @@ apiApp.openapi(
     const repo = FeedRepository.from(env);
     const { feedId, entryId } = c.req.valid("param");
     const receivedAt = parseInt(entryId, 10);
-    const metadata = await repo.getMetadata(feedId);
-    const metaEntry = metadata?.emails.find((e) => e.receivedAt === receivedAt);
-    if (!metadata || !metaEntry)
-      return c.json({ error: "Email not found" }, 404);
+    const feed = await repo.load(feedId);
+    const metaEntry = feed?.metadata.emails.find(
+      (e) => e.receivedAt === receivedAt,
+    );
+    if (!feed || !metaEntry) return c.json({ error: "Email not found" }, 404);
 
     await repo.deleteEmail(metaEntry.key);
-    await deleteAttachmentsForEmails(env, metadata.emails, [metaEntry.key]);
-    metadata.emails = metadata.emails.filter((e) => e.key !== metaEntry.key);
-    await repo.putMetadata(feedId, metadata);
+    const { removed } = feed.removeEmails([metaEntry.key]);
+    await deleteAttachmentsForEmails(env, removed, [metaEntry.key]);
+    await repo.saveMetadata(feed);
 
     return c.json({ ok: true }, 200);
   },

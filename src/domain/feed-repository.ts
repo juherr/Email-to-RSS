@@ -8,6 +8,7 @@ import {
 } from "../types";
 import { FEEDS_LIST_KEY } from "../config/constants";
 import { feedKeys } from "./feed-keys";
+import { Feed } from "./feed.aggregate";
 import { logger } from "../lib/logger";
 
 /**
@@ -53,6 +54,37 @@ export class FeedRepository {
   /** Recover the feed id embedded in an email key (`feed:<id>:<ts>`). */
   feedIdFromEmailKey(key: string): string {
     return feedKeys.feedIdFromEmail(key);
+  }
+
+  // ── Feed aggregate ────────────────────────────────────────────────────────
+
+  /**
+   * Load the aggregate (config + email index). A feed exists iff it has a
+   * config; metadata defaults to empty so a freshly-created feed still loads.
+   */
+  async load(feedId: string): Promise<Feed | null> {
+    const [config, metadata] = await Promise.all([
+      this.getConfig(feedId),
+      this.getMetadata(feedId),
+    ]);
+    if (!config) return null;
+    return Feed.reconstitute(feedId, config, metadata ?? { emails: [] });
+  }
+
+  /** Persist both keys the aggregate owns (config + metadata). */
+  async save(feed: Feed): Promise<void> {
+    await Promise.all([
+      this.putConfig(feed.id, feed.config),
+      this.putMetadata(feed.id, feed.metadata),
+    ]);
+  }
+
+  /**
+   * Persist only the email index. Used by the ingest/delete paths where config
+   * is unchanged — avoids a redundant config write on the hot path.
+   */
+  async saveMetadata(feed: Feed): Promise<void> {
+    await this.putMetadata(feed.id, feed.metadata);
   }
 
   // ── Feed config ───────────────────────────────────────────────────────────

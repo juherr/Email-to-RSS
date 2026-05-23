@@ -1,5 +1,5 @@
 import { Context } from "hono";
-import { Env, FeedConfig, FeedMetadata } from "../types";
+import { Env, FeedConfig } from "../types";
 import { generateFeedId } from "../utils/id-generator";
 import { bumpCounters } from "../utils/stats";
 import { waitUntilSafe } from "../utils/worker";
@@ -8,18 +8,16 @@ import { getAttachmentBucket } from "../utils/attachments";
 import { FeedRepository } from "../domain/feed-repository";
 import { resolveExpiresAt, isExpired } from "../domain/feed";
 import {
+  Feed,
+  CreateFeedInput,
+  UpdateFeedInput,
+} from "../domain/feed.aggregate";
+import {
   purgeFeedKeysStep,
   collectUnsubscribeUrls,
 } from "../routes/admin/helpers";
 
-export interface CreateFeedInput {
-  title: string;
-  description?: string;
-  language: string;
-  allowedSenders: string[];
-  blockedSenders: string[];
-  lifetimeHours?: number;
-}
+export type { CreateFeedInput, UpdateFeedInput };
 
 /**
  * Create a feed: write its config + empty metadata, register it in the global
@@ -30,44 +28,22 @@ export async function createFeedRecord(
   input: CreateFeedInput,
 ): Promise<{ feedId: string; config: FeedConfig }> {
   const repo = FeedRepository.from(env);
-  const expiresAt = resolveExpiresAt(env, input.lifetimeHours);
-  const feedId = generateFeedId();
+  const feed = Feed.create(generateFeedId(), input, env);
 
-  const config: FeedConfig = {
-    title: input.title,
-    description: input.description,
-    language: input.language,
-    allowed_senders: input.allowedSenders,
-    blocked_senders: input.blockedSenders,
-    created_at: Date.now(),
-    updated_at: Date.now(),
-    ...(expiresAt !== undefined ? { expires_at: expiresAt } : {}),
-  };
-
-  const metadata: FeedMetadata = { emails: [] };
-
-  await Promise.all([
-    repo.putConfig(feedId, config),
-    repo.putMetadata(feedId, metadata),
-  ]);
-
-  await repo.addToList(feedId, input.title, input.description, expiresAt);
+  await repo.save(feed);
+  await repo.addToList(
+    feed.id,
+    feed.config.title,
+    feed.config.description,
+    feed.config.expires_at,
+  );
 
   await bumpCounters(env.EMAIL_STORAGE, {
     feeds_created: 1,
     last_feed_created_at: new Date().toISOString(),
   });
 
-  return { feedId, config };
-}
-
-export interface UpdateFeedInput {
-  title?: string;
-  description?: string;
-  language?: string;
-  allowedSenders?: string[];
-  blockedSenders?: string[];
-  lifetimeHours?: number;
+  return { feedId: feed.id, config: feed.config };
 }
 
 export type UpdateFeedResult =
