@@ -1,13 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { createMockEnv } from "../test/setup";
 import { FeedRepository } from "./feed-repository";
-import type {
-  Env,
-  FeedConfig,
-  FeedMetadata,
-  EmailData,
-  WebSubSubscription,
-} from "../types";
+import type { Env, FeedConfig, FeedMetadata, EmailData } from "../types";
 
 const mockEnv = () => createMockEnv() as unknown as Env;
 
@@ -31,7 +25,6 @@ describe("FeedRepository key schema", () => {
   it("builds the canonical KV keys via the public API", () => {
     const repo = new FeedRepository(mockEnv().EMAIL_STORAGE);
     expect(repo.feedKeyPrefix("a.b.42")).toBe("feed:a.b.42:");
-    expect(repo.iconKey("example.com")).toBe("icon:example.com");
     expect(repo.newEmailKey("a.b.42")).toMatch(/^feed:a\.b\.42:\d+$/);
   });
 
@@ -131,41 +124,5 @@ describe("FeedRepository feed list", () => {
     const removed = await repo.removeFromListBulk(["a.b.42", "e.f.10", "nope"]);
     expect(removed.sort()).toEqual(["a.b.42", "e.f.10"]);
     expect((await repo.listFeeds()).map((f) => f.id)).toEqual(["c.d.99"]);
-  });
-});
-
-describe("FeedRepository counters, icons, websub", () => {
-  it("round-trips raw counters", async () => {
-    const repo = new FeedRepository(mockEnv().EMAIL_STORAGE);
-    expect(await repo.getCountersRaw()).toBeNull();
-    await repo.putCounters({
-      feeds_created: 1,
-      feeds_deleted: 0,
-      emails_received: 2,
-      emails_rejected: 0,
-      unsubscribes_sent: 0,
-    });
-    expect(await repo.getCountersRaw()).toMatchObject({ emails_received: 2 });
-  });
-
-  it("stores and reads favicons as text or json", async () => {
-    const repo = new FeedRepository(mockEnv().EMAIL_STORAGE);
-    expect(await repo.getIconText("example.com")).toBeNull();
-    await repo.putIcon("example.com", JSON.stringify({ data: null }), 60);
-    expect(await repo.getIconText("example.com")).toBe('{"data":null}');
-    expect(await repo.getIconJson<{ data: null }>("example.com")).toEqual({
-      data: null,
-    });
-  });
-
-  it("round-trips websub subscriptions and counts them", async () => {
-    const repo = new FeedRepository(mockEnv().EMAIL_STORAGE);
-    expect(await repo.getSubscriptions("a.b.42")).toEqual([]);
-    const subs: WebSubSubscription[] = [
-      { callbackUrl: "https://r.example/cb", expiresAt: 9999 },
-    ];
-    await repo.saveSubscriptions("a.b.42", subs);
-    expect(await repo.getSubscriptions("a.b.42")).toEqual(subs);
-    expect(await repo.countSubscriptionKeys()).toBe(1);
   });
 });

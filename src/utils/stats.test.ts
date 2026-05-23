@@ -87,7 +87,7 @@ describe("stats helper", () => {
         ],
       }),
     );
-    await kv.put("websub:a:1", "{}");
+    await kv.put("websub:subs:a", "{}");
     await bumpCounters(kv, { emails_received: 5, feeds_created: 2 });
 
     const stats = await getStats(env);

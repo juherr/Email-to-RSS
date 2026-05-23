@@ -2,12 +2,13 @@ import { Env, FeedConfig, EmailData, WebSubSubscription } from "../types";
 import { generateRssFeed, generateAtomFeed } from "./feed-generator";
 import { baseUrl, feedRssUrl, feedAtomUrl, feedUrl } from "./urls";
 import { FeedRepository } from "../domain/feed-repository";
+import { WebSubSubscriptionRepository } from "../domain/websub-subscription-repository";
 
 export async function getSubscriptions(
   feedId: string,
   env: Env,
 ): Promise<WebSubSubscription[]> {
-  return FeedRepository.from(env).getSubscriptions(feedId);
+  return WebSubSubscriptionRepository.from(env).get(feedId);
 }
 
 export async function saveSubscriptions(
@@ -15,7 +16,7 @@ export async function saveSubscriptions(
   subscriptions: WebSubSubscription[],
   env: Env,
 ): Promise<void> {
-  await FeedRepository.from(env).saveSubscriptions(feedId, subscriptions);
+  await WebSubSubscriptionRepository.from(env).save(feedId, subscriptions);
 }
 
 export async function buildHmacSignature(

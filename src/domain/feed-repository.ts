@@ -1,14 +1,12 @@
 import {
-  Counters,
   EmailData,
   Env,
   FeedConfig,
   FeedList,
   FeedListItem,
   FeedMetadata,
-  WebSubSubscription,
 } from "../types";
-import { FEEDS_LIST_KEY, STATS_KEY } from "../config/constants";
+import { FEEDS_LIST_KEY } from "../config/constants";
 import { feedKeys } from "./feed-keys";
 import { logger } from "../lib/logger";
 
@@ -35,15 +33,6 @@ export class FeedRepository {
 
   private metadataKey(feedId: string): string {
     return feedKeys.metadata(feedId);
-  }
-
-  /** KV key for a domain's cached favicon (shared across feeds). */
-  iconKey(domain: string): string {
-    return feedKeys.icon(domain);
-  }
-
-  private websubKey(feedId: string): string {
-    return feedKeys.websub(feedId);
   }
 
   /** Prefix covering every key owned by a feed (config, metadata, emails). */
@@ -240,56 +229,5 @@ export class FeedRepository {
       logger.error("Error counting keys", { prefix, error: String(error) });
     }
     return total;
-  }
-
-  /** Number of feeds that currently hold at least one WebSub subscription. */
-  countSubscriptionKeys(): Promise<number> {
-    return this.countKeysByPrefix("websub:");
-  }
-
-  // ── Monitoring counters ───────────────────────────────────────────────────
-
-  async getCountersRaw(): Promise<Counters | null> {
-    return (await this.kv.get(STATS_KEY, { type: "json" })) as Counters | null;
-  }
-
-  async putCounters(counters: Counters): Promise<void> {
-    await this.kv.put(STATS_KEY, JSON.stringify(counters));
-  }
-
-  // ── Favicons ──────────────────────────────────────────────────────────────
-
-  async getIconText(domain: string): Promise<string | null> {
-    return this.kv.get(this.iconKey(domain), "text");
-  }
-
-  async getIconJson<T>(domain: string): Promise<T | null> {
-    return (await this.kv.get(this.iconKey(domain), {
-      type: "json",
-    })) as T | null;
-  }
-
-  async putIcon(
-    domain: string,
-    value: string,
-    ttlSeconds: number,
-  ): Promise<void> {
-    await this.kv.put(this.iconKey(domain), value, {
-      expirationTtl: ttlSeconds,
-    });
-  }
-
-  // ── WebSub subscriptions ──────────────────────────────────────────────────
-
-  async getSubscriptions(feedId: string): Promise<WebSubSubscription[]> {
-    const raw = await this.kv.get(this.websubKey(feedId), "json");
-    return (raw as WebSubSubscription[] | null) ?? [];
-  }
-
-  async saveSubscriptions(
-    feedId: string,
-    subscriptions: WebSubSubscription[],
-  ): Promise<void> {
-    await this.kv.put(this.websubKey(feedId), JSON.stringify(subscriptions));
   }
 }

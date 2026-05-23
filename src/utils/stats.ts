@@ -1,6 +1,8 @@
 import { Counters, Env, StatsResponse } from "../types";
 import { logger } from "../lib/logger";
 import { FeedRepository } from "../domain/feed-repository";
+import { CountersRepository } from "../domain/counters-repository";
+import { WebSubSubscriptionRepository } from "../domain/websub-subscription-repository";
 import { getAttachmentBucket } from "./attachments";
 
 const EMPTY_COUNTERS: Counters = {
@@ -13,7 +15,7 @@ const EMPTY_COUNTERS: Counters = {
 
 export async function getCounters(kv: KVNamespace): Promise<Counters> {
   try {
-    const stored = await new FeedRepository(kv).getCountersRaw();
+    const stored = await new CountersRepository(kv).getRaw();
     return { ...EMPTY_COUNTERS, ...(stored || {}) };
   } catch (error) {
     logger.error("Error reading counters", { error: String(error) });
@@ -44,7 +46,7 @@ export async function bumpCounters(
       current.last_feed_created_at = changes.last_feed_created_at;
     if (!current.first_seen) current.first_seen = new Date().toISOString();
 
-    await new FeedRepository(kv).putCounters(current);
+    await new CountersRepository(kv).put(current);
   } catch (error) {
     logger.error("Error updating counters", { error: String(error) });
   }
@@ -62,7 +64,7 @@ export async function getStats(env: Env): Promise<StatsResponse> {
   const [counters, feeds, websubCount] = await Promise.all([
     getCounters(env.EMAIL_STORAGE),
     repo.listFeeds(),
-    repo.countSubscriptionKeys(),
+    WebSubSubscriptionRepository.from(env).countKeys(),
   ]);
 
   return {
@@ -138,7 +140,7 @@ export async function setStorageSnapshot(
     current.kv_bytes_estimated = snapshot.kv_bytes_estimated;
     current.storage_scanned_at = new Date().toISOString();
     if (!current.first_seen) current.first_seen = new Date().toISOString();
-    await new FeedRepository(kv).putCounters(current);
+    await new CountersRepository(kv).put(current);
   } catch (error) {
     logger.error("Error writing storage snapshot", { error: String(error) });
   }
