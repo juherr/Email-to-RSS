@@ -63,6 +63,7 @@ export async function handle(c: Context<{ Bindings: Env }>): Promise<Response> {
             content="width=device-width, initial-scale=1.0"
           />
           <title>${emailData.subject}</title>
+          <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
           <style>
             body {
               font-family: sans-serif;

@@ -10,7 +10,7 @@ Feature gaps identified by comparing with [kill-the-newsletter](https://github.c
 
 - [x] **JSON API for feed creation** — accept `Content-Type: application/json` on `POST /admin/feeds` and return `{ feedId, email, feedUrl }`. Useful for automation (e.g. Tofu/OpenTofu provisioning).
 
-- [ ] **Project favicon** — serve a single bundled icon at `/favicon.ico` and add a `<link rel="icon">` in the shared `Layout` so the admin UI, status page, and entry views stop 404-ing. Doubles as the default/fallback icon for the per-feed favicon feature below.
+- [x] **Project favicon** — serve a single bundled icon at `/favicon.ico` and add a `<link rel="icon">` in the shared `Layout` so the admin UI, status page, and entry views stop 404-ing. Doubles as the default/fallback icon for the per-feed favicon feature below.
 
 ## Medium effort
 
