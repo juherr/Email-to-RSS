@@ -1,6 +1,7 @@
 import PostalMime from "postal-mime";
 import { Env } from "../types";
 import { processEmail, RawAttachment } from "./email-processor";
+import { normalizeCid } from "../utils/html-processor";
 
 export async function handleCloudflareEmail(
   message: ForwardableEmailMessage,
@@ -27,6 +28,7 @@ export async function handleCloudflareEmail(
         filename: a.filename || "attachment",
         contentType: a.mimeType || "application/octet-stream",
         content: a.content as ArrayBuffer,
+        contentId: normalizeCid(a.contentId),
       }));
 
     await processEmail(

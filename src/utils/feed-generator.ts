@@ -55,7 +55,11 @@ function buildFeed(
   for (const email of emails) {
     const entryUrl = `${baseUrl}/entries/${feedId}/${email.receivedAt}`;
     const firstAttachment = email.attachments?.[0];
-    const bodyContent = processEmailContent(email.content);
+    const bodyContent = processEmailContent(
+      email.content,
+      email.attachments,
+      baseUrl,
+    );
     feed.addItem({
       title: email.subject,
       id: entryUrl,

@@ -256,6 +256,47 @@ describe("POST /api/inbound — attachment upload", () => {
     expect(mockR2._has(attachmentId)).toBe(true);
   });
 
+  it("persists the attachment Content-ID and rewrites inline cid: images on the entry page", async () => {
+    await env.EMAIL_STORAGE.put(
+      `feed:${VALID_FEED_ID}:config`,
+      JSON.stringify({}),
+    );
+    const payload = makePayload({
+      html: '<p>hi</p><img src="cid:ii_mpi85rqy0" alt="pic"/>',
+      attachments: [
+        {
+          filename: "pic.png",
+          contentType: "image/png",
+          cid: "ii_mpi85rqy0",
+          content: { type: "Buffer", data: [137, 80, 78] },
+        },
+      ],
+    });
+    const res = await worker.fetch(makeRequest(payload), env);
+    expect(res.status).toBe(200);
+
+    const metadata = (await env.EMAIL_STORAGE.get(
+      `feed:${VALID_FEED_ID}:metadata`,
+      { type: "json" },
+    )) as any;
+    const emailData = (await env.EMAIL_STORAGE.get(metadata.emails[0].key, {
+      type: "json",
+    })) as any;
+    const attachmentId = emailData.attachments[0].id;
+    expect(emailData.attachments[0].contentId).toBe("ii_mpi85rqy0");
+
+    const entryRes = await worker.fetch(
+      new Request(
+        `https://${DOMAIN}/entries/${VALID_FEED_ID}/${metadata.emails[0].receivedAt}`,
+      ),
+      env,
+    );
+    expect(entryRes.status).toBe(200);
+    const html = await entryRes.text();
+    expect(html).toContain(`/files/${attachmentId}/pic.png`);
+    expect(html).not.toContain("cid:ii_mpi85rqy0");
+  });
+
   it("skips R2 when attachment content is null", async () => {
     await env.EMAIL_STORAGE.put(
       `feed:${VALID_FEED_ID}:config`,

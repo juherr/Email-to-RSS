@@ -140,7 +140,9 @@ export async function handle(c: Context<{ Bindings: Env }>): Promise<Response> {
             <dd>${new Date(emailData.receivedAt).toUTCString()}</dd>
           </dl>
           <div class="content">
-            ${raw(processEmailContent(emailData.content))}
+            ${raw(
+              processEmailContent(emailData.content, emailData.attachments),
+            )}
           </div>
           ${attachmentsSection}
         </body>

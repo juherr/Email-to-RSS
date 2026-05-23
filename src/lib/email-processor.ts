@@ -21,6 +21,7 @@ export interface RawAttachment {
   filename: string;
   contentType: string;
   content: ArrayBuffer;
+  contentId?: string;
 }
 
 export interface ProcessEmailInput {
@@ -88,6 +89,7 @@ async function uploadAttachments(
         filename: att.filename,
         contentType: att.contentType,
         size: att.content.byteLength,
+        ...(att.contentId ? { contentId: att.contentId } : {}),
       };
     }),
   );

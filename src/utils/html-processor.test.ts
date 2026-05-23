@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { processEmailContent } from "./html-processor";
+import type { AttachmentData } from "../types";
 
 describe("processEmailContent — body extraction", () => {
   it("extracts content inside <body> tags", () => {
@@ -121,5 +122,77 @@ describe("processEmailContent — mso style cleanup", () => {
     const result = processEmailContent(html);
     expect(result).toContain("font-weight");
     expect(result).not.toContain("mso-font-size");
+  });
+});
+
+describe("processEmailContent — inline cid: rewriting", () => {
+  const attachment = (
+    overrides: Partial<AttachmentData> = {},
+  ): AttachmentData => ({
+    id: "att-123",
+    filename: "chicken big.png",
+    contentType: "image/png",
+    size: 100,
+    contentId: "ii_mpi85rqy0",
+    ...overrides,
+  });
+
+  it("rewrites cid: src to a relative /files URL when no baseUrl", () => {
+    const html = '<body><img src="cid:ii_mpi85rqy0" alt="x"/></body>';
+    const result = processEmailContent(html, [attachment()]);
+    expect(result).toContain('src="/files/att-123/chicken%20big.png"');
+    expect(result).not.toContain("cid:");
+  });
+
+  it("rewrites cid: src to an absolute URL when baseUrl is given", () => {
+    const html = '<body><img src="cid:ii_mpi85rqy0"/></body>';
+    const result = processEmailContent(
+      html,
+      [attachment()],
+      "https://feed.example",
+    );
+    expect(result).toContain(
+      'src="https://feed.example/files/att-123/chicken%20big.png"',
+    );
+  });
+
+  it("matches a stored Content-ID that has angle brackets", () => {
+    const html = '<body><img src="cid:ii_mpi85rqy0"/></body>';
+    const result = processEmailContent(html, [
+      attachment({ contentId: "<ii_mpi85rqy0>" }),
+    ]);
+    expect(result).toContain('src="/files/att-123/chicken%20big.png"');
+  });
+
+  it("is case-insensitive on the cid: scheme", () => {
+    const html = '<body><img src="CID:ii_mpi85rqy0"/></body>';
+    const result = processEmailContent(html, [attachment()]);
+    expect(result).toContain('src="/files/att-123/chicken%20big.png"');
+  });
+
+  it("leaves unknown cid references unchanged", () => {
+    const html = '<body><img src="cid:unknown"/></body>';
+    const result = processEmailContent(html, [attachment()]);
+    expect(result).toContain('src="cid:unknown"');
+  });
+
+  it("leaves cid references unchanged when no attachments are provided", () => {
+    const html = '<body><img src="cid:ii_mpi85rqy0"/></body>';
+    const result = processEmailContent(html);
+    expect(result).toContain('src="cid:ii_mpi85rqy0"');
+  });
+
+  it("ignores attachments without a contentId", () => {
+    const html = '<body><img src="cid:ii_mpi85rqy0"/></body>';
+    const result = processEmailContent(html, [
+      attachment({ contentId: undefined }),
+    ]);
+    expect(result).toContain('src="cid:ii_mpi85rqy0"');
+  });
+
+  it("does not touch normal http image sources", () => {
+    const html = '<body><img src="https://example.com/a.png"/></body>';
+    const result = processEmailContent(html, [attachment()]);
+    expect(result).toContain('src="https://example.com/a.png"');
   });
 });

@@ -1,11 +1,14 @@
 import { EmailParser } from "../utils/email-parser";
 import { Env } from "../types";
 import { processEmail, RawAttachment } from "./email-processor";
+import { normalizeCid } from "../utils/html-processor";
 
 export interface ForwardEmailAttachment {
   filename?: string;
   contentType?: string;
   size?: number;
+  cid?: string;
+  contentId?: string;
   content?: { type: "Buffer"; data: number[] } | ArrayBuffer | ArrayBufferView;
 }
 
@@ -73,13 +76,14 @@ export async function handleForwardEmail(
   const emailData = EmailParser.parseForwardEmailPayload(payload);
 
   const rawAttachments: RawAttachment[] = (payload.attachments ?? [])
-    .map((a) => {
+    .map((a): RawAttachment | null => {
       const buffer = toArrayBuffer(a.content);
       if (!buffer) return null;
       return {
         filename: a.filename || "attachment",
         contentType: a.contentType || "application/octet-stream",
         content: buffer,
+        contentId: normalizeCid(a.cid ?? a.contentId),
       };
     })
     .filter((a): a is RawAttachment => a !== null);

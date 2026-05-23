@@ -18,6 +18,7 @@ export interface AttachmentData {
   filename: string;
   contentType: string;
   size: number;
+  contentId?: string; // Normalized Content-ID (no <>) used to resolve inline cid: refs
 }
 
 // Email interface for stored emails
