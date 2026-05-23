@@ -157,7 +157,7 @@ if [[ "$enable_r2" =~ ^[Yy]$ ]]; then
     echo "  ✅ R2 preview bucket: $R2_PREVIEW_BUCKET"
   else
     echo "  ⚠️  Could not create R2 buckets (is R2 enabled on your account?)."
-    echo "      Attachments will stay disabled — see README → 'Email attachments (R2)'."
+    echo "      Attachments will stay disabled — see INSTALL.md → 'Email attachments (R2)'."
     echo "$R2_OUT"
   fi
 fi
@@ -207,5 +207,5 @@ fi
 echo "✅ wrangler.toml has been created and configured successfully!"
 echo ""
 echo "✅ Setup complete! Next steps:"
-echo "1. Set up MX records for your domain with ForwardEmail.net (see README for details)"
+echo "1. Configure email ingestion — Cloudflare Email Workers or ForwardEmail (see INSTALL.md for details)"
 echo "2. Deploy with 'npm run deploy'"
