@@ -1,4 +1,5 @@
 import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
+import { cors } from "hono/cors";
 import { Scalar } from "@scalar/hono-api-reference";
 import { Env, FeedConfig } from "../../types";
 import { apiAuthMiddleware } from "../../lib/auth";
@@ -77,8 +78,12 @@ export const apiApp = new OpenAPIHono<AppEnv>({
   },
 });
 
-// Token auth on every /v1 route. The spec + docs stay public.
-apiApp.use("/v1/*", apiAuthMiddleware);
+// Token auth on the feed/email routes. The spec, docs, and /v1/stats stay public.
+apiApp.use("/v1/feeds", apiAuthMiddleware);
+apiApp.use("/v1/feeds/*", apiAuthMiddleware);
+
+// Public monitoring stats — readable from any origin (landing page, embeds).
+apiApp.use("/v1/stats", cors({ origin: "*" }));
 
 apiApp.openAPIRegistry.registerComponent("securitySchemes", "bearerAuth", {
   type: "http",
@@ -363,11 +368,9 @@ apiApp.openapi(
     method: "get",
     path: "/v1/stats",
     tags: ["Stats"],
-    summary: "Read monitoring counters",
-    security: bearer,
+    summary: "Read monitoring counters (public)",
     responses: {
       200: jsonContent(StatsSchema, "Monitoring counters"),
-      401: jsonContent(ErrorSchema, "Unauthorized"),
     },
   }),
   async (c) => {

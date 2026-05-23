@@ -61,7 +61,9 @@ Main routes:
 
 ### Monitoring
 
-`GET /api/stats` returns JSON counters (public, no auth) for uptime/monitoring tools:
+`GET /api/v1/stats` returns JSON counters (public, no auth, CORS-enabled) for
+uptime/monitoring tools and the landing page. `GET /api/stats` is a deprecated alias kept
+for backward compatibility — prefer the versioned path. Both expose the same fields:
 
 | Field                         | Meaning                                                  |
 | ----------------------------- | -------------------------------------------------------- |
@@ -84,23 +86,25 @@ A versioned REST API lets you automate feed and email management without scrapin
 admin UI. The OpenAPI 3.1 spec is served at `GET /api/openapi.json` and a rendered
 reference (Scalar) at `GET /api/docs` — both public.
 
-All `/api/v1/*` endpoints require authentication, using either:
+The feed and email endpoints require authentication, using either:
 
 - **Bearer token**: `Authorization: Bearer <ADMIN_PASSWORD>`, or
 - **Reverse-proxy auth**: the same trusted-IP + `X-Auth-Proxy-Secret` + `Remote-User`
   headers as the admin UI (see [INSTALL.md](INSTALL.md)).
 
-| Method   | Path                                 | Purpose                  |
-| -------- | ------------------------------------ | ------------------------ |
-| `GET`    | `/api/v1/feeds`                      | List feeds               |
-| `POST`   | `/api/v1/feeds`                      | Create a feed            |
-| `GET`    | `/api/v1/feeds/{feedId}`             | Get a feed               |
-| `PATCH`  | `/api/v1/feeds/{feedId}`             | Update a feed            |
-| `DELETE` | `/api/v1/feeds/{feedId}`             | Delete a feed            |
-| `GET`    | `/api/v1/feeds/{feedId}/emails`      | List a feed's emails     |
-| `GET`    | `/api/v1/feeds/{feedId}/emails/{id}` | Get a single email       |
-| `DELETE` | `/api/v1/feeds/{feedId}/emails/{id}` | Delete a single email    |
-| `GET`    | `/api/v1/stats`                      | Read monitoring counters |
+`GET /api/v1/stats`, the OpenAPI spec, and the docs page are public.
+
+| Method   | Path                                 | Auth   | Purpose                  |
+| -------- | ------------------------------------ | ------ | ------------------------ |
+| `GET`    | `/api/v1/feeds`                      | yes    | List feeds               |
+| `POST`   | `/api/v1/feeds`                      | yes    | Create a feed            |
+| `GET`    | `/api/v1/feeds/{feedId}`             | yes    | Get a feed               |
+| `PATCH`  | `/api/v1/feeds/{feedId}`             | yes    | Update a feed            |
+| `DELETE` | `/api/v1/feeds/{feedId}`             | yes    | Delete a feed            |
+| `GET`    | `/api/v1/feeds/{feedId}/emails`      | yes    | List a feed's emails     |
+| `GET`    | `/api/v1/feeds/{feedId}/emails/{id}` | yes    | Get a single email       |
+| `DELETE` | `/api/v1/feeds/{feedId}/emails/{id}` | yes    | Delete a single email    |
+| `GET`    | `/api/v1/stats`                      | public | Read monitoring counters |
 
 The email `{id}` is the email's `receivedAt` timestamp (as returned by the list endpoint).
 

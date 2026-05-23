@@ -1249,7 +1249,7 @@ bucket_name = "kill-the-news-attachments"</span></pre>
   const section = document.getElementById('stats');
   let data;
   try {
-    const res = await fetch('https://demo.kill-the.news/api/stats', { cache: 'no-store' });
+    const res = await fetch('https://demo.kill-the.news/api/v1/stats', { cache: 'no-store' });
     if (!res.ok) return;            // section stays hidden
     data = await res.json();
   } catch { return; }

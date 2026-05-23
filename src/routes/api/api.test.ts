@@ -252,10 +252,11 @@ describe("REST API (/api/v1)", () => {
   });
 
   describe("Stats", () => {
-    it("returns monitoring counters", async () => {
+    it("returns monitoring counters without a token (public)", async () => {
       await createFeed();
-      const res = await request("/api/v1/stats", { headers: authHeaders });
+      const res = await request("/api/v1/stats");
       expect(res.status).toBe(200);
+      expect(res.headers.get("Access-Control-Allow-Origin")).toBe("*");
       const stats = (await res.json()) as {
         feeds_created: number;
         active_feeds: number;
@@ -273,12 +274,15 @@ describe("REST API (/api/v1)", () => {
       expect(res.status).toBe(200);
       const doc = (await res.json()) as {
         openapi: string;
-        paths: Record<string, unknown>;
+        paths: Record<string, { get?: { security?: unknown[] } }>;
       };
       expect(doc.openapi).toBe("3.1.0");
       expect(doc.paths).toHaveProperty("/v1/feeds");
       expect(doc.paths).toHaveProperty("/v1/feeds/{feedId}");
       expect(doc.paths).toHaveProperty("/v1/stats");
+      // Feed routes are secured; stats is public.
+      expect(doc.paths["/v1/feeds"].get?.security).toBeTruthy();
+      expect(doc.paths["/v1/stats"].get?.security).toBeUndefined();
     });
   });
 });
