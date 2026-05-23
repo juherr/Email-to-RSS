@@ -2,12 +2,14 @@ import { Context, Hono } from "hono";
 import { deleteCookie, getSignedCookie, setSignedCookie } from "hono/cookie";
 import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
-import { Env, FeedConfig } from "../types";
+import { Env } from "../types";
 import { csrf } from "hono/csrf";
 import { ADMIN_COOKIE_MAX_AGE } from "../config/constants";
 import { logger } from "../lib/logger";
+import { timingSafeEqual, checkProxyAuth } from "../lib/auth";
 import { Layout, clampText } from "./admin/ui";
-import { listAllFeeds, updateFeedInList } from "./admin/helpers";
+import { listAllFeeds } from "./admin/helpers";
+import { updateFeedRecord } from "../lib/feed-service";
 import { feedRssUrl, feedAtomUrl, feedEmailAddress } from "../utils/urls";
 import { feedsRouter } from "./admin/feeds";
 import { emailsRouter } from "./admin/emails";
@@ -37,27 +39,6 @@ app.use("*", async (c, next) => {
   await next();
 });
 
-function timingSafeEqual(a: string, b: string): boolean {
-  const enc = new TextEncoder();
-  const aBytes = enc.encode(a);
-  const bBytes = enc.encode(b);
-  // Try native timing-safe implementation first (Cloudflare Workers runtime)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const subtle = crypto.subtle as any;
-  if (typeof subtle.timingSafeEqual === "function") {
-    if (aBytes.length !== bBytes.length) return false;
-    return subtle.timingSafeEqual(aBytes, bBytes);
-  }
-  // Constant-time fallback for Node (test environment): encode length
-  // mismatch into `diff` so the loop always runs over the full length.
-  const len = Math.max(aBytes.length, bBytes.length);
-  let diff = aBytes.length ^ bBytes.length;
-  for (let i = 0; i < len; i++) {
-    diff |= (aBytes[i] ?? 0) ^ (bBytes[i] ?? 0);
-  }
-  return diff === 0;
-}
-
 // Authentication middleware for admin routes
 async function authMiddleware(c: Context, next: () => Promise<void>) {
   const env = c.env;
@@ -69,22 +50,8 @@ async function authMiddleware(c: Context, next: () => Promise<void>) {
   }
 
   // Proxy auth: only active when both env vars are present
-  if (env.PROXY_AUTH_SECRET && env.PROXY_TRUSTED_IPS) {
-    const trustedIps = env.PROXY_TRUSTED_IPS.split(",")
-      .map((s: string) => s.trim())
-      .filter(Boolean);
-    const clientIp = c.req.header("CF-Connecting-IP") ?? "";
-    const providedSecret = c.req.header("X-Auth-Proxy-Secret") ?? "";
-    const remoteUser =
-      c.req.header("Remote-User") || c.req.header("X-Forwarded-User") || "";
-
-    if (
-      trustedIps.includes(clientIp) &&
-      timingSafeEqual(providedSecret, env.PROXY_AUTH_SECRET) &&
-      remoteUser.length > 0
-    ) {
-      return next();
-    }
+  if (checkProxyAuth(c, env)) {
+    return next();
   }
 
   // Fallback: signed cookie
@@ -1020,45 +987,24 @@ app.post(
     },
   ),
   async (c) => {
-    // Type assertion for environment variables
     const env = c.env;
-    const emailStorage = env.EMAIL_STORAGE;
     const feedId = c.req.param("feedId");
 
     try {
       const { title, description } = c.req.valid("json");
-      const parsedData = { title, description, language: "en" as const };
 
-      // Get existing feed config
-      const feedConfigKey = `feed:${feedId}:config`;
-      const existingConfig = (await emailStorage.get(feedConfigKey, {
-        type: "json",
-      })) as FeedConfig | null;
+      // In-place edit: only title/description, expiry untouched.
+      const result = await updateFeedRecord(
+        env,
+        feedId,
+        { title, description },
+        { inPlace: true },
+      );
 
-      if (!existingConfig) {
+      if (result.status === "not_found") {
         return c.json({ error: "Feed not found" }, 404);
       }
 
-      // Update feed configuration
-      await emailStorage.put(
-        feedConfigKey,
-        JSON.stringify({
-          ...existingConfig,
-          title: parsedData.title,
-          description: parsedData.description,
-          updated_at: Date.now(),
-        }),
-      );
-
-      // Update feed in the list of all feeds
-      await updateFeedInList(
-        emailStorage,
-        feedId,
-        parsedData.title,
-        parsedData.description,
-      );
-
-      // Return success response
       return c.json({ success: true });
     } catch (error) {
       logger.error("Error updating feed via API", { error: String(error) });

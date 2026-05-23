@@ -51,7 +51,9 @@
     "wrangler": "4.94.0"
   },
   "dependencies": {
+    "@hono/zod-openapi": "^1.4.0",
     "@hono/zod-validator": "^0.8.0",
+    "@scalar/hono-api-reference": "^0.10.19",
     "escape-html": "^1.0.3",
     "feed": "5.2.1",
     "hono": "4.12.22",

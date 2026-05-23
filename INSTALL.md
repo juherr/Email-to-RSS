@@ -184,6 +184,19 @@ Password login remains available as a fallback when the proxy check fails.
 
 > **Security note:** `CF-Connecting-IP` can be spoofed on direct `workers.dev` requests. Disable the `workers.dev` subdomain in production (`workers_dev = false` in `[env.production]`).
 
+### REST API authentication
+
+The versioned REST API (`/api/v1/*`) is authenticated independently of the cookie-based
+admin UI — there is no CSRF check, so it is suited to server-to-server automation. A
+request is authorized when **either**:
+
+- it carries `Authorization: Bearer <ADMIN_PASSWORD>` (the same admin password secret), **or**
+- it passes the reverse-proxy check above (`PROXY_TRUSTED_IPS` + `X-Auth-Proxy-Secret` + `Remote-User`).
+
+The OpenAPI 3.1 spec (`/api/openapi.json`) and the Scalar reference (`/api/docs`) are
+public. In the Scalar UI, click **Authorize** and paste the admin password as the bearer
+token to try requests. See the route table in [README.md](README.md#rest-api).
+
 ## Upgrading dependencies
 
 To refresh dependencies to latest:

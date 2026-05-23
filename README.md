@@ -27,6 +27,7 @@ kill-the-news keeps the same workflow while avoiding shared domains and shared d
 - Email attachments stored in Cloudflare R2 and exposed as RSS enclosures (optional)
 - Cloudflare KV storage for feed config + email metadata/content
 - Password-protected admin UI
+- Versioned REST API (`/api/v1/*`) with an OpenAPI 3.1 spec and Scalar docs for automation
 
 ## Architecture
 
@@ -52,7 +53,9 @@ Main routes:
 - `src/routes/rss.ts`: RSS rendering
 - `src/routes/atom.ts`: Atom feed rendering
 - `src/routes/files.ts`: attachment file serving from R2
-- `src/routes/admin.ts`: admin UI + feed CRUD
+- `src/routes/admin.tsx`: admin UI + feed CRUD
+- `src/routes/api/`: versioned REST API + OpenAPI spec/docs (`/api/v1/*`, `/api/openapi.json`, `/api/docs`)
+- `src/lib/feed-service.ts`: shared feed create/update/delete (used by the admin UI and the REST API)
 - `src/routes/home.tsx`: public status page (`GET /`)
 - `src/routes/stats.ts`: monitoring counters API (`GET /api/stats`)
 
@@ -74,6 +77,40 @@ Main routes:
 
 The same figures are rendered on the public status page at `GET /`. Cumulative counters
 are persisted in the `EMAIL_STORAGE` KV under the `stats:counters` key.
+
+### REST API
+
+A versioned REST API lets you automate feed and email management without scraping the
+admin UI. The OpenAPI 3.1 spec is served at `GET /api/openapi.json` and a rendered
+reference (Scalar) at `GET /api/docs` — both public.
+
+All `/api/v1/*` endpoints require authentication, using either:
+
+- **Bearer token**: `Authorization: Bearer <ADMIN_PASSWORD>`, or
+- **Reverse-proxy auth**: the same trusted-IP + `X-Auth-Proxy-Secret` + `Remote-User`
+  headers as the admin UI (see [INSTALL.md](INSTALL.md)).
+
+| Method   | Path                                 | Purpose                  |
+| -------- | ------------------------------------ | ------------------------ |
+| `GET`    | `/api/v1/feeds`                      | List feeds               |
+| `POST`   | `/api/v1/feeds`                      | Create a feed            |
+| `GET`    | `/api/v1/feeds/{feedId}`             | Get a feed               |
+| `PATCH`  | `/api/v1/feeds/{feedId}`             | Update a feed            |
+| `DELETE` | `/api/v1/feeds/{feedId}`             | Delete a feed            |
+| `GET`    | `/api/v1/feeds/{feedId}/emails`      | List a feed's emails     |
+| `GET`    | `/api/v1/feeds/{feedId}/emails/{id}` | Get a single email       |
+| `DELETE` | `/api/v1/feeds/{feedId}/emails/{id}` | Delete a single email    |
+| `GET`    | `/api/v1/stats`                      | Read monitoring counters |
+
+The email `{id}` is the email's `receivedAt` timestamp (as returned by the list endpoint).
+
+```bash
+# Create a feed
+curl -X POST https://yourdomain.com/api/v1/feeds \
+  -H "Authorization: Bearer $ADMIN_PASSWORD" \
+  -H 'Content-Type: application/json' \
+  -d '{"title":"Daily Digest","allowedSenders":["news@example.com"]}'
+```
 
 ## Installation
 

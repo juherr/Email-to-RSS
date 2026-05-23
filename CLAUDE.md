@@ -35,6 +35,9 @@ Single Cloudflare Worker built with Hono. Routes:
 | `GET /`                              | Public status page (monitoring counters + link to admin)               |
 | `POST /api/inbound`                  | Webhook from ForwardEmail; IP-allowlisted to their MX sources          |
 | `GET /api/stats`                     | Public monitoring counters (JSON)                                      |
+| `/api/v1/*`                          | Versioned REST API (Bearer/proxy auth) — feeds + emails CRUD, stats    |
+| `GET /api/openapi.json`              | OpenAPI 3.1 spec (public)                                              |
+| `GET /api/docs`                      | Rendered API reference (Scalar, public)                                |
 | `GET /rss/:feedId`                   | Public RSS 2.0 feed                                                    |
 | `GET /atom/:feedId`                  | Public Atom feed (with WebSub hub header)                              |
 | `GET /entries/:feedId/:entryId`      | Individual email HTML view                                             |
@@ -68,7 +71,12 @@ src/
       emails.tsx            # Emails list/delete UI
       ui.tsx                # Shared UI components
       helpers.ts            # Shared admin helpers
+    api/                    # Versioned REST API (@hono/zod-openapi)
+      index.ts             # OpenAPIHono app: /v1 routes + /openapi.json + /docs
+      schemas.ts           # Zod schemas (validation + OpenAPI source of truth)
   lib/
+    auth.ts                 # timingSafeEqual, proxy-auth check, API bearer middleware
+    feed-service.ts         # Shared feed create/update/delete (admin UI + REST API)
     cloudflare-email.ts     # Cloudflare Email routing handler
     email-parser.ts         # Email parsing (mailparser)
     email-processor.ts      # Core ingestion logic (parse → store)

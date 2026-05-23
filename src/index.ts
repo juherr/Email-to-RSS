@@ -10,6 +10,7 @@ import { handle as handleStats } from "./routes/stats";
 import { handle as handleHome } from "./routes/home";
 import { handle as handleFavicon, handleFeedFavicon } from "./routes/favicon";
 import { hubRouter } from "./routes/hub";
+import { apiApp } from "./routes/api";
 import { handleCloudflareEmail } from "./lib/cloudflare-email";
 import { Env } from "./types";
 import { logger } from "./lib/logger";
@@ -168,6 +169,8 @@ admin.route("/", handleAdmin);
 
 // Mount the route groups
 app.route("/api", api);
+// Versioned REST API + OpenAPI spec/docs (/api/v1/*, /api/openapi.json, /api/docs)
+app.route("/api", apiApp);
 app.route("/rss", rss);
 app.route("/atom", atom);
 app.route("/entries", entries);

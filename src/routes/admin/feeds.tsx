@@ -1,7 +1,6 @@
 import { Hono } from "hono";
 import { z } from "zod";
-import { Env, FeedConfig, FeedMetadata } from "../../types";
-import { generateFeedId } from "../../utils/id-generator";
+import { Env, FeedConfig } from "../../types";
 import { bumpCounters } from "../../utils/stats";
 import { waitUntilSafe } from "../../utils/worker";
 import { feedRssUrl, feedEmailAddress } from "../../utils/urls";
@@ -10,13 +9,16 @@ import { sendUnsubscribes } from "../../utils/unsubscribe";
 import { getAttachmentBucket } from "../../utils/attachments";
 import { Layout } from "./ui";
 import {
-  addFeedToList,
-  updateFeedInList,
-  removeFeedFromList,
   removeFeedsFromListBulk,
   purgeFeedKeysStep,
   collectUnsubscribeUrls,
 } from "./helpers";
+import {
+  createFeedRecord,
+  updateFeedRecord,
+  deleteFeedRecord,
+  deleteFeedFastDetailed,
+} from "../../lib/feed-service";
 
 type AppEnv = { Bindings: Env };
 
@@ -56,56 +58,10 @@ const senderFilterSchema = z.object({
   value: z.string().min(1),
 });
 
-// ── Delete helpers ────────────────────────────────────────────────────────────
-
-type DeleteFeedFastResult = {
-  ok: boolean;
-  configDeleted: boolean;
-  metadataDeleted: boolean;
-  errors: string[];
-};
-
-async function deleteFeedFastDetailed(
-  emailStorage: KVNamespace,
-  feedId: string,
-): Promise<DeleteFeedFastResult> {
-  const feedConfigKey = `feed:${feedId}:config`;
-  const feedMetadataKey = `feed:${feedId}:metadata`;
-
-  const errors: string[] = [];
-  let configDeleted = false;
-  let metadataDeleted = false;
-
-  try {
-    await emailStorage.delete(feedConfigKey);
-    configDeleted = true;
-  } catch (error) {
-    errors.push(`config delete failed: ${String(error)}`);
-  }
-
-  try {
-    await emailStorage.delete(feedMetadataKey);
-    metadataDeleted = true;
-  } catch (error) {
-    errors.push(`metadata delete failed: ${String(error)}`);
-  }
-
-  return { ok: configDeleted, configDeleted, metadataDeleted, errors };
-}
-
-async function deleteFeedFast(
-  emailStorage: KVNamespace,
-  feedId: string,
-): Promise<boolean> {
-  const result = await deleteFeedFastDetailed(emailStorage, feedId);
-  return result.ok;
-}
-
 // ── Routes ────────────────────────────────────────────────────────────────────
 
 feedsRouter.post("/create", async (c) => {
   const env = c.env;
-  const emailStorage = env.EMAIL_STORAGE;
   const isJson =
     c.req.header("Content-Type")?.includes("application/json") ?? false;
 
@@ -160,48 +116,17 @@ feedsRouter.post("/create", async (c) => {
       blockedSenders,
     });
 
-    // FEED_TTL_HOURS overrides any client-submitted value
-    const resolvedHours = env.FEED_TTL_HOURS
-      ? parseInt(env.FEED_TTL_HOURS, 10)
-      : lifetimeHoursRaw
-        ? parseInt(lifetimeHoursRaw, 10)
-        : NaN;
-    const expiresAt =
-      Number.isFinite(resolvedHours) && resolvedHours > 0
-        ? Date.now() + resolvedHours * 3_600_000
-        : undefined;
+    const lifetimeHours = lifetimeHoursRaw
+      ? parseInt(lifetimeHoursRaw, 10)
+      : undefined;
 
-    const feedId = generateFeedId();
-
-    const feedConfig: FeedConfig = {
+    const { feedId } = await createFeedRecord(env, {
       title: parsedData.title,
       description: parsedData.description,
       language: parsedData.language,
-      allowed_senders: parsedData.allowedSenders,
-      blocked_senders: parsedData.blockedSenders,
-      created_at: Date.now(),
-      updated_at: Date.now(),
-      ...(expiresAt !== undefined ? { expires_at: expiresAt } : {}),
-    };
-
-    const feedMetadata: FeedMetadata = { emails: [] };
-
-    await Promise.all([
-      emailStorage.put(`feed:${feedId}:config`, JSON.stringify(feedConfig)),
-      emailStorage.put(`feed:${feedId}:metadata`, JSON.stringify(feedMetadata)),
-    ]);
-
-    await addFeedToList(
-      emailStorage,
-      feedId,
-      parsedData.title,
-      parsedData.description,
-      expiresAt,
-    );
-
-    await bumpCounters(emailStorage, {
-      feeds_created: 1,
-      last_feed_created_at: new Date().toISOString(),
+      allowedSenders: parsedData.allowedSenders,
+      blockedSenders: parsedData.blockedSenders,
+      lifetimeHours,
     });
 
     if (isJson) {
@@ -387,7 +312,6 @@ feedsRouter.get("/:feedId/edit", async (c) => {
 
 feedsRouter.post("/:feedId/edit", async (c) => {
   const env = c.env;
-  const emailStorage = env.EMAIL_STORAGE;
   const feedId = c.req.param("feedId");
 
   try {
@@ -411,60 +335,23 @@ feedsRouter.post("/:feedId/edit", async (c) => {
       blockedSenders,
     });
 
-    const feedConfigKey = `feed:${feedId}:config`;
-    const existingConfig = (await emailStorage.get(feedConfigKey, {
-      type: "json",
-    })) as FeedConfig | null;
-
-    if (!existingConfig) {
-      return c.text("Feed not found", 404);
-    }
-
-    // Expired feeds cannot be edited
-    if (
-      existingConfig.expires_at !== undefined &&
-      existingConfig.expires_at <= Date.now()
-    ) {
-      return c.text("Feed has expired and cannot be modified.", 403);
-    }
-
-    // Resolve new expires_at:
-    // - FEED_TTL_HOURS set: always recompute from env (reset TTL from now)
-    // - Field submitted: set new expiry from now
-    // - Field empty: preserve existing expires_at (no silent removal)
-    let newExpiresAt: number | undefined;
-    if (env.FEED_TTL_HOURS) {
-      const h = parseInt(env.FEED_TTL_HOURS, 10);
-      newExpiresAt =
-        Number.isFinite(h) && h > 0 ? Date.now() + h * 3_600_000 : undefined;
-    } else if (lifetimeHoursRaw) {
-      const h = parseInt(lifetimeHoursRaw, 10);
-      newExpiresAt =
-        Number.isFinite(h) && h > 0 ? Date.now() + h * 3_600_000 : undefined;
-    } else {
-      newExpiresAt = existingConfig.expires_at;
-    }
-
-    const updatedConfig: FeedConfig = {
-      ...existingConfig,
+    const result = await updateFeedRecord(env, feedId, {
       title: parsedData.title,
       description: parsedData.description,
       language: parsedData.language,
-      allowed_senders: parsedData.allowedSenders,
-      blocked_senders: parsedData.blockedSenders,
-      updated_at: Date.now(),
-      expires_at: newExpiresAt,
-    };
+      allowedSenders: parsedData.allowedSenders,
+      blockedSenders: parsedData.blockedSenders,
+      lifetimeHours: lifetimeHoursRaw
+        ? parseInt(lifetimeHoursRaw, 10)
+        : undefined,
+    });
 
-    await emailStorage.put(feedConfigKey, JSON.stringify(updatedConfig));
-
-    await updateFeedInList(
-      emailStorage,
-      feedId,
-      parsedData.title,
-      parsedData.description,
-      newExpiresAt,
-    );
+    if (result.status === "not_found") {
+      return c.text("Feed not found", 404);
+    }
+    if (result.status === "expired") {
+      return c.text("Feed has expired and cannot be modified.", 403);
+    }
 
     return c.redirect("/admin");
   } catch (error) {
@@ -534,31 +421,12 @@ feedsRouter.post("/:feedId/sender-filter", async (c) => {
 
 feedsRouter.post("/:feedId/delete", async (c) => {
   const env = c.env;
-  const emailStorage = env.EMAIL_STORAGE;
   const feedId = c.req.param("feedId");
   const view = c.req.query("view") === "table" ? "table" : "list";
   const wantsJson = (c.req.header("Accept") || "").includes("application/json");
 
   try {
-    // Read unsubscribe URLs before the metadata is deleted below.
-    const unsubscribeUrls = await collectUnsubscribeUrls(emailStorage, feedId);
-
-    await deleteFeedFast(emailStorage, feedId);
-    const removed = await removeFeedFromList(emailStorage, feedId);
-    if (removed) {
-      await bumpCounters(emailStorage, { feeds_deleted: 1 });
-    }
-
-    if (unsubscribeUrls.length > 0) {
-      waitUntilSafe(c, sendUnsubscribes(unsubscribeUrls, env));
-    }
-
-    waitUntilSafe(
-      c,
-      purgeFeedKeysStep(emailStorage, feedId, {
-        bucket: getAttachmentBucket(env),
-      }),
-    );
+    await deleteFeedRecord(c, env, feedId);
 
     if (wantsJson) {
       return c.json({ ok: true, feedId });
