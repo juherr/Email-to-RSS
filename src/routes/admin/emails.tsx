@@ -349,6 +349,10 @@ emailsRouter.get("/feeds/:feedId/emails", async (c) => {
                   {feedMetadata.emails.map((email: EmailMetadata) => {
                     const subjectDisplay = clampText(email.subject, 180);
                     const subjectHover = clampText(email.subject, 1000);
+                    const attachmentCount = email.attachmentIds?.length ?? 0;
+                    const attachmentLabel = `${attachmentCount} attachment${
+                      attachmentCount > 1 ? "s" : ""
+                    }`;
                     const sortSubject = subjectHover.toLowerCase();
                     const sortReceivedAt = String(email.receivedAt);
                     const searchHaystack = clampText(
@@ -373,9 +377,32 @@ emailsRouter.get("/feeds/:feedId/emails", async (c) => {
                           />
                         </td>
                         <td>
-                          <span class="truncate" title={subjectHover}>
-                            {subjectDisplay}
-                          </span>
+                          <div class="subject-cell">
+                            {attachmentCount > 0 ? (
+                              <span
+                                class="attachment-indicator"
+                                title={attachmentLabel}
+                                aria-label={attachmentLabel}
+                              >
+                                <svg
+                                  width="14"
+                                  height="14"
+                                  viewBox="0 0 24 24"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  stroke-width="2"
+                                  stroke-linecap="round"
+                                  stroke-linejoin="round"
+                                  aria-hidden="true"
+                                >
+                                  <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
+                                </svg>
+                              </span>
+                            ) : null}
+                            <span class="truncate" title={subjectHover}>
+                              {subjectDisplay}
+                            </span>
+                          </div>
                         </td>
                         <td>{new Date(email.receivedAt).toLocaleString()}</td>
                         <td>
@@ -415,7 +442,11 @@ emailsRouter.get("/feeds/:feedId/emails", async (c) => {
       </div>
 
       {/* Config bootstrap — injects dynamic server-side data before the static compiled script */}
-      <script dangerouslySetInnerHTML={{ __html: `window.__APP_CONFIG__=${JSON.stringify({ feedId })}` }} />
+      <script
+        dangerouslySetInnerHTML={{
+          __html: `window.__APP_CONFIG__=${JSON.stringify({ feedId })}`,
+        }}
+      />
       {/* Emails page logic compiled from src/scripts/client/emails-page.ts */}
       <script dangerouslySetInnerHTML={{ __html: emailsPageScript }} />
     </Layout>,
@@ -445,9 +476,7 @@ emailsRouter.get("/emails/:emailKey", async (c) => {
     return btoa(String.fromCharCode(...new Uint8Array(bytes)));
   })();
 
-  const rawHtml = emailData.content
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;");
+  const rawHtml = emailData.content.replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
   const viewScript = `
         function showRendered() {
@@ -546,10 +575,7 @@ emailsRouter.get("/emails/:emailKey", async (c) => {
                 value={new Date(emailData.receivedAt).toLocaleString()}
               />
               <SenderField from={emailData.from} feedId={feedId} />
-              <CopyField
-                label="To:"
-                value={feedEmailAddress(feedId, env)}
-              />
+              <CopyField label="To:" value={feedEmailAddress(feedId, env)} />
             </div>
           </div>
 

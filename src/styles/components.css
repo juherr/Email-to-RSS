@@ -769,6 +769,24 @@ table.table code {
   max-width: 100%;
 }
 
+.subject-cell {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.subject-cell .truncate {
+  min-width: 0;
+}
+
+.attachment-indicator {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  color: var(--color-text-secondary);
+}
+
 /* Compact copy-to-clipboard for table cells */
 .copyable.copyable-inline {
   margin-bottom: 0;

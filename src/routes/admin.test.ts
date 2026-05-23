@@ -676,6 +676,58 @@ describe("Admin Routes", () => {
         } | null;
         expect(metadataAfter?.emails.length).toBe(0);
       });
+
+      it("should show a paperclip indicator only for emails with attachments", async () => {
+        const authCookie = await loginAndGetCookie();
+        const formData = new FormData();
+        formData.append("title", "Email Feed");
+
+        const createRes = await request("/admin/feeds/create", {
+          method: "POST",
+          headers: {
+            Cookie: authCookie,
+            Origin: "https://test.getmynews.app",
+          },
+          body: formData,
+        });
+        expect(createRes.status).toBe(302);
+
+        const feedList = (await mockEnv.EMAIL_STORAGE.get(
+          "feeds:list",
+          "json",
+        )) as { feeds: Array<{ id: string; title: string }> } | null;
+        const feedId = feedList?.feeds[0].id as string;
+
+        await mockEnv.EMAIL_STORAGE.put(
+          `feed:${feedId}:metadata`,
+          JSON.stringify({
+            emails: [
+              {
+                key: `feed:${feedId}:1`,
+                subject: "With attachments",
+                receivedAt: 2,
+                attachmentIds: ["att-1", "att-2"],
+              },
+              {
+                key: `feed:${feedId}:2`,
+                subject: "No attachments",
+                receivedAt: 1,
+              },
+            ],
+          }),
+        );
+
+        const res = await request(`/admin/feeds/${feedId}/emails`, {
+          headers: { Cookie: authCookie },
+        });
+        expect(res.status).toBe(200);
+        const body = await res.text();
+
+        expect(body).toContain("2 attachments");
+        const indicatorCount = (body.match(/attachment-indicator/g) || [])
+          .length;
+        expect(indicatorCount).toBe(1);
+      });
     });
   });
 
