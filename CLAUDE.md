@@ -56,6 +56,10 @@ src/
   index.ts                  # App entrypoint: CORS, IP middleware, route mounting, email handler export
   config/constants.ts       # Shared constants (TTLs, limits)
   types/index.ts            # Env, FeedConfig, EmailData, WebSubSubscription, etc.
+  domain/                   # Framework-agnostic core (no Hono/KV/R2 imports leak out)
+    feed-repository.ts      # Single KV access layer: owns the key schema + all get/put
+    feed.ts                 # Feed aggregate invariants (expiry, sender policy, size budget)
+    value-objects/          # FeedId, EmailAddress, Domain (immutable, self-validating)
   routes/
     inbound.ts              # ForwardEmail webhook handler
     rss.ts                  # RSS feed renderer
@@ -84,7 +88,6 @@ src/
     forwardemail.ts         # ForwardEmail webhook types/parsing
     id-generator.ts         # Feed/entry ID generation
     logger.ts               # JSON structured logger
-    storage.ts              # KV key helpers
     websub.ts               # WebSub subscription management
     worker.ts               # Typed worker export helper
   scripts/
@@ -105,16 +108,17 @@ src/
 
 All data lives in the `EMAIL_STORAGE` KV namespace:
 
-| Key                              | Value                                                                    |
-| -------------------------------- | ------------------------------------------------------------------------ |
-| `feeds:list`                     | `{ feeds: Array<{ id, title, description? }> }`                          |
-| `feed:<feedId>:config`           | `FeedConfig`                                                             |
-| `feed:<feedId>:metadata`         | `{ emails: Array<{ key, subject, receivedAt, size?, attachmentIds? }> }` |
-| `feed:<feedId>:<timestamp>`      | Full `EmailData`                                                         |
-| `websub:<feedId>:<callbackHash>` | `WebSubSubscription`                                                     |
-| `stats:counters`                 | `Counters` (cumulative monitoring counters singleton)                    |
+| Key                         | Value                                                                    |
+| --------------------------- | ------------------------------------------------------------------------ |
+| `feeds:list`                | `{ feeds: Array<{ id, title, description? }> }`                          |
+| `feed:<feedId>:config`      | `FeedConfig`                                                             |
+| `feed:<feedId>:metadata`    | `{ emails: Array<{ key, subject, receivedAt, size?, attachmentIds? }> }` |
+| `feed:<feedId>:<timestamp>` | Full `EmailData`                                                         |
+| `websub:subs:<feedId>`      | `WebSubSubscription[]` (per-feed subscriber list)                        |
+| `icon:<domain>`             | Cached favicon record (base64 + content type; negative entries allowed)  |
+| `stats:counters`            | `Counters` (cumulative monitoring counters singleton)                    |
 
-`src/lib/storage.ts` contains key-builder helpers — use them; don't inline key strings in routes.
+`src/domain/feed-repository.ts` (`FeedRepository`) owns the KV key schema and all get/put access — go through it; never inline `feed:`/`feeds:list`/`websub:`/`icon:`/`stats:counters` key strings elsewhere.
 
 ### Worker bindings (`Env`)
 
