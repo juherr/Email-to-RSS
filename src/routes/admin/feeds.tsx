@@ -12,7 +12,6 @@ import {
   updateFeedInList,
   removeFeedFromList,
   removeFeedsFromListBulk,
-  deleteKeysWithConcurrency,
   purgeFeedKeysStep,
 } from "./helpers";
 
@@ -45,7 +44,12 @@ const updateFeedSchema = z.object({
 });
 
 const senderFilterSchema = z.object({
-  action: z.enum(["allow_sender", "allow_domain", "block_sender", "block_domain"]),
+  action: z.enum([
+    "allow_sender",
+    "allow_domain",
+    "block_sender",
+    "block_domain",
+  ]),
   value: z.string().min(1),
 });
 
@@ -668,7 +672,9 @@ feedsRouter.post("/bulk-delete", async (c) => {
 
       const deletedFeedIds = await removeFeedsFromListBulk(emailStorage, okIds);
       if (deletedFeedIds.length > 0) {
-        await bumpCounters(emailStorage, { feeds_deleted: deletedFeedIds.length });
+        await bumpCounters(emailStorage, {
+          feeds_deleted: deletedFeedIds.length,
+        });
       }
 
       const removed = new Set(deletedFeedIds);
@@ -720,7 +726,9 @@ feedsRouter.post("/bulk-delete", async (c) => {
 
     const deletedFeedIds = await removeFeedsFromListBulk(emailStorage, okIds);
     if (deletedFeedIds.length > 0) {
-      await bumpCounters(emailStorage, { feeds_deleted: deletedFeedIds.length });
+      await bumpCounters(emailStorage, {
+        feeds_deleted: deletedFeedIds.length,
+      });
     }
 
     return c.redirect(

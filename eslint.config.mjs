@@ -2,7 +2,7 @@ import prettier from "eslint-config-prettier";
 import tseslint from "typescript-eslint";
 
 export default tseslint.config(
-  { ignores: ["dist/", "coverage/"] },
+  { ignores: ["dist/", "coverage/", "src/scripts/generated/"] },
   ...tseslint.configs.recommended,
   prettier,
   {

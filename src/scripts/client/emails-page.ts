@@ -321,21 +321,6 @@ function refreshEmailRowCache(): void {
   updateEmailSelectionState();
 }
 
-interface ToastHandle {
-  update?: (msg: string, opts?: Record<string, unknown>) => void;
-  dismiss?: () => void;
-}
-
-declare global {
-  interface Window {
-    showToast?: (msg: string, opts?: Record<string, unknown>) => ToastHandle;
-    parseJsonResponseOrThrow?: (
-      res: Response,
-      opts?: Record<string, unknown>,
-    ) => Promise<Record<string, unknown>>;
-  }
-}
-
 function setupEmailDeleteButtons(): void {
   Array.from(
     document.querySelectorAll<HTMLButtonElement>(

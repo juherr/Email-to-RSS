@@ -341,21 +341,6 @@ function refreshFeedRowCache(): void {
   updateFeedSelectionState();
 }
 
-interface ToastHandle {
-  update?: (msg: string, opts?: Record<string, unknown>) => void;
-  dismiss?: () => void;
-}
-
-declare global {
-  interface Window {
-    showToast?: (msg: string, opts?: Record<string, unknown>) => ToastHandle;
-    parseJsonResponseOrThrow?: (
-      res: Response,
-      opts?: Record<string, unknown>,
-    ) => Promise<Record<string, unknown>>;
-  }
-}
-
 function setupFeedDeleteButtons(): void {
   const buttons = Array.from(
     document.querySelectorAll<HTMLButtonElement>(
