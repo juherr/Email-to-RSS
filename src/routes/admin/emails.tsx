@@ -13,6 +13,7 @@ import {
   deleteKeysWithConcurrency,
 } from "./helpers";
 import { feedRssUrl, feedAtomUrl, feedEmailAddress } from "../../utils/urls";
+import { formatBytes } from "../../utils/format";
 import { emailsPageScript } from "../../scripts/generated/emails-page";
 
 type AppEnv = { Bindings: Env };
@@ -470,6 +471,7 @@ emailsRouter.get("/emails/:emailKey", async (c) => {
   if (!emailData) return c.text("Email not found", 404);
 
   const feedId = emailKey.split(":")[1];
+  const attachments = emailData.attachments ?? [];
 
   const htmlContent = `<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><style>body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','SF Pro Display','Helvetica Neue',Arial,sans-serif;line-height:1.5;padding:16px;margin:0;color:#333;box-sizing:border-box}img{max-width:100%;height:auto}a{color:#0070f3}@media(prefers-color-scheme:dark){body{background-color:#1c1c1e;color:#ffffff}a{color:#0a84ff}}</style></head><body>${emailData.content}</body></html>`;
 
@@ -606,6 +608,38 @@ emailsRouter.get("/emails/:emailKey", async (c) => {
               <pre dangerouslySetInnerHTML={{ __html: rawHtml }}></pre>
             </div>
           </div>
+
+          {attachments.length > 0 && (
+            <div class="attachments">
+              <h2>Attachments</h2>
+              <ul class="attachment-list">
+                {attachments.map((a) => (
+                  <li>
+                    <svg
+                      width="14"
+                      height="14"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      aria-hidden="true"
+                    >
+                      <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
+                    </svg>
+                    <a
+                      href={`/files/${a.id}/${encodeURIComponent(a.filename)}`}
+                      download
+                    >
+                      {a.filename}
+                    </a>
+                    <span class="attachment-size">{formatBytes(a.size)}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
         </div>
       </div>
 

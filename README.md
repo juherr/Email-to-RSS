@@ -199,7 +199,7 @@ FEED_MAX_SIZE_BYTES = "524288"   # 512 KB — adjust as needed
 
 ### Email attachments (R2)
 
-When an incoming email contains attachments, the Worker can store them in a Cloudflare R2 bucket and expose them as `<enclosure>` elements in the RSS feed (and `<link rel="enclosure">` in Atom). Each attachment is served at `/files/{id}/{filename}` with an immutable cache header.
+When an incoming email contains attachments, the Worker can store them in a Cloudflare R2 bucket and expose them as `<enclosure>` elements in the RSS feed (and `<link rel="enclosure">` in Atom). Each attachment is served at `/files/{id}/{filename}` with an immutable cache header. Attachments are also listed with download links on the admin email detail page and the public entry view.
 
 This feature is **optional**. If no R2 bucket is bound, attachments are silently ignored and nothing else changes.
 

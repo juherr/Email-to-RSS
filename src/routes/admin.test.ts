@@ -729,6 +729,67 @@ describe("Admin Routes", () => {
         expect(indicatorCount).toBe(1);
       });
 
+      it("lists attachments with download links on the email detail page", async () => {
+        const authCookie = await loginAndGetCookie();
+        const feedId = "detail-feed";
+        const emailKey = `feed:${feedId}:1`;
+        await mockEnv.EMAIL_STORAGE.put(
+          emailKey,
+          JSON.stringify({
+            subject: "With attachments",
+            from: "sender@example.com",
+            content: "<p>hello</p>",
+            receivedAt: 1,
+            headers: {},
+            attachments: [
+              {
+                id: "att-123",
+                filename: "report final.pdf",
+                contentType: "application/pdf",
+                size: 2048,
+              },
+            ],
+          }),
+        );
+
+        const res = await request(`/admin/emails/${emailKey}`, {
+          headers: { Cookie: authCookie },
+        });
+        expect(res.status).toBe(200);
+        const body = await res.text();
+
+        expect(body).toContain("Attachments");
+        expect(body).toContain(
+          `/files/att-123/${encodeURIComponent("report final.pdf")}`,
+        );
+        expect(body).toContain("report final.pdf");
+        expect(body).toContain("2.0 KB");
+      });
+
+      it("does not render an attachments section when the email has none", async () => {
+        const authCookie = await loginAndGetCookie();
+        const feedId = "detail-feed";
+        const emailKey = `feed:${feedId}:2`;
+        await mockEnv.EMAIL_STORAGE.put(
+          emailKey,
+          JSON.stringify({
+            subject: "No attachments",
+            from: "sender@example.com",
+            content: "<p>hello</p>",
+            receivedAt: 2,
+            headers: {},
+          }),
+        );
+
+        const res = await request(`/admin/emails/${emailKey}`, {
+          headers: { Cookie: authCookie },
+        });
+        expect(res.status).toBe(200);
+        const body = await res.text();
+
+        expect(body).not.toContain("Attachments");
+      });
+
       it("form-based bulk-delete also removes R2 attachments", async () => {
         const r2Env = createMockEnv({ withR2: true }) as unknown as Env;
         const bucket = r2Env.ATTACHMENT_BUCKET as unknown as {

@@ -787,6 +787,45 @@ table.table code {
   color: var(--color-text-secondary);
 }
 
+.attachments {
+  margin-top: var(--spacing-lg);
+  padding-top: var(--spacing-md);
+  border-top: 1px solid var(--color-border);
+}
+
+.attachments h2 {
+  font-size: var(--font-size-md);
+  margin: 0 0 var(--spacing-sm);
+}
+
+.attachment-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.attachment-list li {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-xs) 0;
+}
+
+.attachment-list svg {
+  flex: 0 0 auto;
+  color: var(--color-text-secondary);
+}
+
+.attachment-list a {
+  color: var(--color-primary);
+  word-break: break-all;
+}
+
+.attachment-size {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+}
+
 /* Compact copy-to-clipboard for table cells */
 .copyable.copyable-inline {
   margin-bottom: 0;
