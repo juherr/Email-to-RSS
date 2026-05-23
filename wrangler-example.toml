@@ -39,6 +39,10 @@ DOMAIN = "REPLACE_WITH_YOUR_DOMAIN" # Web domain (used for feed URLs and admin U
 # Optional: size-based feed trimming threshold in bytes (default: 524288 = 512 KB)
 # FEED_MAX_SIZE_BYTES = "524288"
 
+# Optional: turn email attachments off even when an R2 bucket is bound.
+# Unset (or any value other than "false") keeps attachments on whenever R2 is configured.
+# ATTACHMENTS_ENABLED = "false"
+
 # Optional: lock feed lifetime for all users (hours). When set, the TTL field in
 # the admin UI is pre-filled and read-only. Remove to allow per-feed configuration.
 # FEED_TTL_HOURS = "24"
@@ -87,6 +91,11 @@ workers_dev = false
 
 kv_namespaces = [
   { binding = "EMAIL_STORAGE", id = "REPLACE_WITH_DEMO_KV_NAMESPACE_ID" }
+]
+
+# R2 bucket for storing email attachment enclosures (demo)
+r2_buckets = [
+  { binding = "ATTACHMENT_BUCKET", bucket_name = "ktn-attachment-bucket-demo" }
 ]
 
 routes = [

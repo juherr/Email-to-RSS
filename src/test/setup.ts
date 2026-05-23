@@ -237,6 +237,14 @@ export class MockR2 {
     }
   }
 
+  async list(_options?: { cursor?: string }) {
+    const objects = Array.from(this.store.entries()).map(([key, entry]) => ({
+      key,
+      size: entry.body.byteLength,
+    }));
+    return { objects, truncated: false as const, cursor: undefined };
+  }
+
   _has(key: string) {
     return this.store.has(key);
   }

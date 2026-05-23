@@ -18,7 +18,13 @@ import {
   purgeExpiredFeeds,
   removeFeedsFromListBulk,
 } from "./routes/admin/helpers";
-import { bumpCounters } from "./utils/stats";
+import {
+  bumpCounters,
+  scanR2Usage,
+  scanKvUsage,
+  setStorageSnapshot,
+} from "./utils/stats";
+import { getAttachmentBucket } from "./utils/attachments";
 import { FORWARD_EMAIL_IPS_CACHE_TTL_MS } from "./config/constants";
 
 type AppEnv = { Bindings: Env };
@@ -196,6 +202,7 @@ export default {
     await handleCloudflareEmail(message, env, ctx);
   },
   async scheduled(_event: ScheduledEvent, env: Env, _ctx: ExecutionContext) {
+    const attachmentBucket = getAttachmentBucket(env);
     const feeds = await listAllFeeds(env.EMAIL_STORAGE);
     const now = Date.now();
     const expiredIds = feeds
@@ -203,7 +210,7 @@ export default {
       .map((f) => f.id);
 
     for (const feedId of expiredIds) {
-      await purgeExpiredFeeds(env.EMAIL_STORAGE, feedId, env.ATTACHMENT_BUCKET);
+      await purgeExpiredFeeds(env.EMAIL_STORAGE, feedId, attachmentBucket);
     }
     if (expiredIds.length > 0) {
       await removeFeedsFromListBulk(env.EMAIL_STORAGE, expiredIds);
@@ -211,6 +218,23 @@ export default {
         feeds_deleted: expiredIds.length,
       });
       logger.info("Feed TTL cleanup", { deleted: expiredIds.length });
+    }
+
+    // Refresh the cached storage-usage snapshot for the status page / /api/stats.
+    try {
+      const r2 = attachmentBucket
+        ? await scanR2Usage(attachmentBucket)
+        : { bytes: 0, count: 0 };
+      const kv = await scanKvUsage(env.EMAIL_STORAGE);
+      await setStorageSnapshot(env.EMAIL_STORAGE, {
+        attachments_bytes: r2.bytes,
+        attachments_count: r2.count,
+        kv_bytes_estimated: kv.bytes,
+      });
+    } catch (error) {
+      logger.error("Error refreshing storage snapshot", {
+        error: String(error),
+      });
     }
   },
 };

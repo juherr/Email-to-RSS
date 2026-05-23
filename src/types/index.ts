@@ -5,6 +5,7 @@ export interface Env {
   DOMAIN: string;
   EMAIL_DOMAIN?: string;
   ATTACHMENT_BUCKET?: R2Bucket;
+  ATTACHMENTS_ENABLED?: string; // "false" disables attachments even when R2 is bound
   FEED_MAX_SIZE_BYTES?: string;
   PROXY_TRUSTED_IPS?: string;
   PROXY_AUTH_SECRET?: string;
@@ -83,12 +84,18 @@ export interface Counters {
   last_email_at?: string; // ISO 8601
   last_feed_created_at?: string; // ISO 8601
   first_seen?: string; // ISO 8601 — first time counters were written (instance start)
+  // Storage usage snapshot, refreshed by the hourly cron (overwritten, not incremented).
+  attachments_bytes?: number; // Total R2 bytes used by attachments
+  attachments_count?: number; // Number of R2 objects
+  kv_bytes_estimated?: number; // Estimated KV bytes (sum of stored email sizes)
+  storage_scanned_at?: string; // ISO 8601 — last storage scan
 }
 
 // Monitoring API response: persisted counters + live-computed values
 export interface StatsResponse extends Counters {
   active_feeds: number;
   websub_subscriptions_active: number;
+  attachments_enabled: boolean;
 }
 
 // WebSub (PubSubHubbub) subscription configuration

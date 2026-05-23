@@ -1180,6 +1180,10 @@ bucket_name = "kill-the-news-attachments"</span></pre>
       <summary>How do I delete a feed?</summary>
       <p>From the password-protected admin UI — open the Feeds tab and delete it there. Its entries and attachments are removed along with it.</p>
     </details>
+    <details class="faq-item">
+      <summary>Does it handle attachments?</summary>
+      <p>Yes — optionally. When an R2 bucket is configured, email attachments are stored there and exposed as RSS/Atom enclosures, downloadable from each entry. It's off by default: if no R2 bucket is bound (or you set <code>ATTACHMENTS_ENABLED = "false"</code>), attachments are simply skipped and everything else works as usual. R2 usage is shown on the status page so you can stay within the 10 GB free tier.</p>
+    </details>
   </div>
 </section>
 

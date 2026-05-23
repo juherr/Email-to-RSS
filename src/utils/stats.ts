@@ -2,6 +2,8 @@ import { Counters, Env, StatsResponse } from "../types";
 import { STATS_KEY } from "../config/constants";
 import { logger } from "../lib/logger";
 import { listAllFeeds } from "../routes/admin/helpers";
+import { getFeedMetadata } from "./storage";
+import { getAttachmentBucket } from "./attachments";
 
 const EMPTY_COUNTERS: Counters = {
   feeds_created: 0,
@@ -82,5 +84,76 @@ export async function getStats(env: Env): Promise<StatsResponse> {
     ...counters,
     active_feeds: feeds.length,
     websub_subscriptions_active: websubCount,
+    attachments_enabled: !!getAttachmentBucket(env),
   };
+}
+
+/** Sum the byte size and object count of every attachment stored in R2. */
+export async function scanR2Usage(
+  bucket: R2Bucket,
+): Promise<{ bytes: number; count: number }> {
+  let bytes = 0;
+  let count = 0;
+  let cursor: string | undefined;
+  try {
+    do {
+      const listed = await bucket.list({ cursor });
+      for (const obj of listed.objects) {
+        bytes += obj.size;
+        count += 1;
+      }
+      cursor = listed.truncated ? listed.cursor : undefined;
+    } while (cursor);
+  } catch (error) {
+    logger.error("Error scanning R2 usage", { error: String(error) });
+  }
+  return { bytes, count };
+}
+
+/**
+ * Estimate KV storage used. KV exposes no size API, so we sum the per-email
+ * sizes already recorded in each feed's metadata — email bodies dominate KV
+ * usage. Feed config/websub/stats keys are excluded, so this is a lower-bound
+ * estimate.
+ */
+export async function scanKvUsage(kv: KVNamespace): Promise<{ bytes: number }> {
+  let bytes = 0;
+  try {
+    const feeds = await listAllFeeds(kv);
+    for (const feed of feeds) {
+      const metadata = await getFeedMetadata(kv, feed.id);
+      if (!metadata) continue;
+      for (const email of metadata.emails) {
+        bytes += email.size ?? 0;
+      }
+    }
+  } catch (error) {
+    logger.error("Error estimating KV usage", { error: String(error) });
+  }
+  return { bytes };
+}
+
+/**
+ * Overwrite the storage-usage snapshot fields on the counters singleton.
+ * Unlike bumpCounters these are set (not incremented). Never throws.
+ */
+export async function setStorageSnapshot(
+  kv: KVNamespace,
+  snapshot: {
+    attachments_bytes: number;
+    attachments_count: number;
+    kv_bytes_estimated: number;
+  },
+): Promise<void> {
+  try {
+    const current = await getCounters(kv);
+    current.attachments_bytes = snapshot.attachments_bytes;
+    current.attachments_count = snapshot.attachments_count;
+    current.kv_bytes_estimated = snapshot.kv_bytes_estimated;
+    current.storage_scanned_at = new Date().toISOString();
+    if (!current.first_seen) current.first_seen = new Date().toISOString();
+    await kv.put(STATS_KEY, JSON.stringify(current));
+  } catch (error) {
+    logger.error("Error writing storage snapshot", { error: String(error) });
+  }
 }

@@ -179,7 +179,9 @@ When an incoming email contains attachments, the Worker can store them in a Clou
 
 This feature is **optional**. If no R2 bucket is bound, attachments are silently ignored and nothing else changes.
 
-**Setup:**
+**Setup (automated):** `setup.sh` now asks _"Enable email attachments stored in R2?"_. Answer yes and it creates the buckets (`<worker>-attachments` and `<worker>-attachments-preview`) and wires the binding into the generated `wrangler.toml` for you.
+
+**Setup (manual):**
 
 1. Create an R2 bucket in the Cloudflare dashboard (_R2 Object Storage → Create bucket_), or with Wrangler:
    ```bash
@@ -191,13 +193,17 @@ This feature is **optional**. If no R2 bucket is bound, attachments are silently
      { binding = "ATTACHMENT_BUCKET", bucket_name = "your-bucket-name", preview_bucket_name = "your-bucket-name-preview" }
    ]
    ```
-   Do the same under `[env.production]` (without `preview_bucket_name`).
+   The binding is **per environment**: add it under every env you deploy (`[env.production]`, `[env.demo]`, …), each pointing at its own bucket.
 3. Redeploy:
    ```bash
    npm run deploy
    ```
 
+**Turning it off:** set `ATTACHMENTS_ENABLED = "false"` in `[vars]` to disable attachments even while the R2 bucket stays bound (useful to cap usage on a demo). Any other value (or leaving it unset) keeps the feature on whenever R2 is configured.
+
 Attachments are deleted from R2 automatically when the corresponding email is deleted from the admin UI, or when an email is dropped during feed size trimming.
+
+**Monitoring storage / free tier:** the status page (`/`) and `/api/stats` report R2 space used (against the **10 GB** R2 free tier) and an estimate of KV space used (against the **1 GB** KV free tier). The figures are refreshed hourly by the cron trigger. KV usage is an estimate based on stored email sizes, so treat it as a lower bound.
 
 ### External auth provider (Authelia / Authentik / reverse proxy)
 

@@ -1,6 +1,12 @@
 /** Maximum total size of emails stored per feed (bytes). */
 export const FEED_MAX_BYTES = 524288; // 512 KB
 
+/** Cloudflare R2 free tier storage allowance (bytes). */
+export const R2_FREE_TIER_BYTES = 10 * 1024 ** 3; // 10 GB
+
+/** Cloudflare KV free tier storage allowance (bytes). */
+export const KV_FREE_TIER_BYTES = 1 * 1024 ** 3; // 1 GB
+
 /** Cache TTL for ForwardEmail.net IP list (milliseconds). */
 export const FORWARD_EMAIL_IPS_CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
 

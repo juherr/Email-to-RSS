@@ -7,6 +7,7 @@ import { waitUntilSafe } from "../../utils/worker";
 import { feedRssUrl, feedEmailAddress } from "../../utils/urls";
 import { logger } from "../../lib/logger";
 import { sendUnsubscribes } from "../../utils/unsubscribe";
+import { getAttachmentBucket } from "../../utils/attachments";
 import { Layout } from "./ui";
 import {
   addFeedToList,
@@ -555,7 +556,7 @@ feedsRouter.post("/:feedId/delete", async (c) => {
     waitUntilSafe(
       c,
       purgeFeedKeysStep(emailStorage, feedId, {
-        bucket: env.ATTACHMENT_BUCKET,
+        bucket: getAttachmentBucket(env),
       }),
     );
 
@@ -594,7 +595,7 @@ feedsRouter.post("/:feedId/purge", async (c) => {
     const step = await purgeFeedKeysStep(emailStorage, feedId, {
       cursor,
       limit,
-      bucket: env.ATTACHMENT_BUCKET,
+      bucket: getAttachmentBucket(env),
     });
 
     return c.json({

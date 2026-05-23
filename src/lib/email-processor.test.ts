@@ -363,6 +363,32 @@ describe("processEmail — attachments", () => {
     expect(emailData.attachments).toBeUndefined();
   });
 
+  it("skips R2 upload when ATTACHMENTS_ENABLED is 'false' even with R2 bound", async () => {
+    const env = createMockEnv({ withR2: true });
+    (env as any).ATTACHMENTS_ENABLED = "false";
+    const mockR2 = (env as any).ATTACHMENT_BUCKET as unknown as MockR2;
+    await env.EMAIL_STORAGE.put(
+      `feed:${VALID_FEED_ID}:config`,
+      JSON.stringify({}),
+    );
+    const res = await processEmail(
+      makeInput({ attachments: [pdfAttachment] }),
+      env as any,
+    );
+    expect(res.status).toBe(200);
+
+    const metadata = await env.EMAIL_STORAGE.get(
+      `feed:${VALID_FEED_ID}:metadata`,
+      "json",
+    );
+    const emailData = await env.EMAIL_STORAGE.get(
+      metadata.emails[0].key,
+      "json",
+    );
+    expect(emailData.attachments).toBeUndefined();
+    expect((await mockR2.list()).objects).toHaveLength(0);
+  });
+
   it("uploads attachments to R2 and stores AttachmentData in emailData", async () => {
     const env = createMockEnv({ withR2: true });
     const mockR2 = (env as any).ATTACHMENT_BUCKET as unknown as MockR2;

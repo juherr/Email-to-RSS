@@ -1,6 +1,8 @@
 import { Context } from "hono";
 import { Env } from "../types";
 import { getStats } from "../utils/stats";
+import { formatBytes } from "../utils/format";
+import { R2_FREE_TIER_BYTES, KV_FREE_TIER_BYTES } from "../config/constants";
 import { Layout } from "./admin/ui";
 
 function formatDateTime(iso?: string): string {
@@ -43,6 +45,11 @@ function formatUptime(iso?: string): string {
   return `${days} ${days === 1 ? "day" : "days"}`;
 }
 
+function tierPercent(used: number, total: number): number {
+  if (total <= 0) return 0;
+  return Math.round((used / total) * 100);
+}
+
 type Tone = "success" | "danger";
 
 type StatProps = {
@@ -82,6 +89,11 @@ export async function handle(c: Context<{ Bindings: Env }>): Promise<Response> {
     stats.feeds_created > 0
       ? (stats.emails_received / stats.feeds_created).toFixed(1)
       : "—";
+
+  const kvBytes = stats.kv_bytes_estimated;
+  const kvPercent = tierPercent(kvBytes ?? 0, KV_FREE_TIER_BYTES);
+  const r2Bytes = stats.attachments_bytes;
+  const r2Percent = tierPercent(r2Bytes ?? 0, R2_FREE_TIER_BYTES);
 
   return c.html(
     <Layout title="Status" label="status">
@@ -164,6 +176,34 @@ export async function handle(c: Context<{ Bindings: Env }>): Promise<Response> {
               label="WebSub subscribers"
               value={stats.websub_subscriptions_active}
             />
+          </div>
+        </section>
+
+        <section class="stat-section">
+          <h2 class="stat-section-title">Storage</h2>
+          <div class="stats-grid">
+            <Stat
+              label="KV space used (est.)"
+              value={kvBytes === undefined ? "—" : formatBytes(kvBytes)}
+              title={`${kvPercent}% of 1 GB free tier — estimate`}
+              tone={kvPercent >= 80 ? "danger" : undefined}
+            />
+            {stats.attachments_enabled ? (
+              <>
+                <Stat
+                  label="Attachments stored"
+                  value={stats.attachments_count ?? "—"}
+                />
+                <Stat
+                  label="R2 space used"
+                  value={r2Bytes === undefined ? "—" : formatBytes(r2Bytes)}
+                  title={`${r2Percent}% of 10 GB free tier`}
+                  tone={r2Percent >= 80 ? "danger" : undefined}
+                />
+              </>
+            ) : (
+              <Stat label="Attachments (R2)" value="Off" />
+            )}
           </div>
         </section>
 

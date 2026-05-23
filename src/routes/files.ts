@@ -1,8 +1,10 @@
 import { Context } from "hono";
 import { Env } from "../types";
+import { getAttachmentBucket } from "../utils/attachments";
 
 export async function handle(c: Context<{ Bindings: Env }>): Promise<Response> {
-  if (!c.env.ATTACHMENT_BUCKET) {
+  const bucket = getAttachmentBucket(c.env);
+  if (!bucket) {
     return new Response("Attachment storage not configured", { status: 404 });
   }
 
@@ -13,7 +15,7 @@ export async function handle(c: Context<{ Bindings: Env }>): Promise<Response> {
     return new Response("Not found", { status: 404 });
   }
 
-  const object = await c.env.ATTACHMENT_BUCKET.get(attachmentId);
+  const object = await bucket.get(attachmentId);
 
   if (!object) {
     return new Response("Not found", { status: 404 });

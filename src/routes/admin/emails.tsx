@@ -10,6 +10,7 @@ import { logger } from "../../lib/logger";
 import { Layout, clampText } from "./ui";
 import { deleteKeysWithConcurrency } from "./helpers";
 import { feedRssUrl, feedAtomUrl, feedEmailAddress } from "../../utils/urls";
+import { getAttachmentBucket } from "../../utils/attachments";
 import { emailsPageScript } from "../../scripts/generated/emails-page";
 
 type AppEnv = { Bindings: Env };
@@ -643,9 +644,10 @@ emailsRouter.post("/emails/:emailKey/delete", async (c) => {
       await emailStorage.put(feedMetadataKey, JSON.stringify(feedMetadata));
     }
 
-    if (env.ATTACHMENT_BUCKET && attachmentIds.length > 0) {
+    const attachmentBucket = getAttachmentBucket(env);
+    if (attachmentBucket && attachmentIds.length > 0) {
       await Promise.allSettled(
-        attachmentIds.map((id) => env.ATTACHMENT_BUCKET!.delete(id)),
+        attachmentIds.map((id) => attachmentBucket.delete(id)),
       );
     }
 
@@ -726,9 +728,10 @@ emailsRouter.post("/feeds/:feedId/emails/bulk-delete", async (c) => {
       );
       await emailStorage.put(feedMetadataKey, JSON.stringify(feedMetadata));
 
-      if (env.ATTACHMENT_BUCKET && r2AttachmentIds.length > 0) {
+      const attachmentBucket = getAttachmentBucket(env);
+      if (attachmentBucket && r2AttachmentIds.length > 0) {
         await Promise.allSettled(
-          r2AttachmentIds.map((id) => env.ATTACHMENT_BUCKET!.delete(id)),
+          r2AttachmentIds.map((id) => attachmentBucket.delete(id)),
         );
       }
 

@@ -13,6 +13,7 @@ import {
   extractEmailDomain,
 } from "../utils/favicon-fetcher";
 import { parseOneClickUnsubscribe } from "../utils/unsubscribe";
+import { getAttachmentBucket } from "../utils/attachments";
 import { logger } from "./logger";
 import { FEED_MAX_BYTES } from "../config/constants";
 
@@ -170,9 +171,10 @@ export async function storeEmail(
   env: Env,
   ctx?: ExecutionContext,
 ): Promise<void> {
+  const attachmentBucket = getAttachmentBucket(env);
   const storedAttachments: AttachmentData[] =
-    env.ATTACHMENT_BUCKET && input.attachments?.length
-      ? await uploadAttachments(input.attachments, env.ATTACHMENT_BUCKET)
+    attachmentBucket && input.attachments?.length
+      ? await uploadAttachments(input.attachments, attachmentBucket)
       : [];
 
   const emailData = {
@@ -249,10 +251,10 @@ export async function storeEmail(
   }
 
   const r2Deletions =
-    env.ATTACHMENT_BUCKET && toDelete.length > 0
+    attachmentBucket && toDelete.length > 0
       ? toDelete
           .flatMap((e) => e.attachmentIds ?? [])
-          .map((id) => env.ATTACHMENT_BUCKET!.delete(id))
+          .map((id) => attachmentBucket.delete(id))
       : [];
 
   await Promise.all([
