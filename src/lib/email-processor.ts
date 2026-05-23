@@ -9,6 +9,7 @@ import {
 import { parseOneClickUnsubscribe } from "../utils/unsubscribe";
 import { getAttachmentBucket } from "../utils/attachments";
 import { FeedRepository } from "../domain/feed-repository";
+import { isExpired, applySenderPolicy, trimToByteBudget } from "../domain/feed";
 import { logger } from "./logger";
 import { FEED_MAX_BYTES } from "../config/constants";
 
@@ -33,38 +34,6 @@ export interface ProcessEmailInput {
 type ValidationSuccess = { ok: true; feedId: string; feedConfig: FeedConfig };
 type ValidationFailure = { ok: false; response: Response };
 type ValidationResult = ValidationSuccess | ValidationFailure;
-
-function normalizeEmail(value: string): string {
-  return value.trim().toLowerCase();
-}
-
-type SenderDecision = "blocked" | "allowed" | "neutral";
-
-function evaluateSender(
-  sender: string,
-  allowedSenders: string[],
-  blockedSenders: string[],
-): SenderDecision {
-  const normalized = normalizeEmail(sender);
-  const domain = normalized.split("@")[1] || "";
-
-  const normalizeDomain = (e: string) => (e.startsWith("@") ? e.slice(1) : e);
-
-  const exactBlocked = blockedSenders.filter((e) => e.includes("@"));
-  const exactAllowed = allowedSenders.filter((e) => e.includes("@"));
-  const domainBlocked = blockedSenders
-    .filter((e) => !e.includes("@"))
-    .map(normalizeDomain);
-  const domainAllowed = allowedSenders
-    .filter((e) => !e.includes("@"))
-    .map(normalizeDomain);
-
-  if (exactBlocked.includes(normalized)) return "blocked";
-  if (exactAllowed.includes(normalized)) return "allowed";
-  if (domain && domainBlocked.includes(domain)) return "blocked";
-  if (domain && domainAllowed.includes(domain)) return "allowed";
-  return "neutral";
-}
 
 async function uploadAttachments(
   attachments: RawAttachment[],
@@ -113,10 +82,7 @@ export async function validateEmail(
       response: new Response("Feed does not exist", { status: 404 }),
     };
   }
-  if (
-    feedConfig.expires_at !== undefined &&
-    feedConfig.expires_at <= Date.now()
-  ) {
+  if (isExpired(feedConfig)) {
     logger.warn("Rejected email: feed expired", { feedId });
     return {
       ok: false,
@@ -124,36 +90,19 @@ export async function validateEmail(
     };
   }
 
-  const allowedSenders = (feedConfig.allowed_senders || [])
-    .map(normalizeEmail)
-    .filter(Boolean);
-  const blockedSenders = (feedConfig.blocked_senders || [])
-    .map(normalizeEmail)
-    .filter(Boolean);
-
-  if (allowedSenders.length > 0 || blockedSenders.length > 0) {
-    const hasAllowlist = allowedSenders.length > 0;
-    const accepted = input.senders.some((sender) => {
-      const decision = evaluateSender(sender, allowedSenders, blockedSenders);
-      if (decision === "allowed") return true;
-      if (decision === "blocked") return false;
-      return !hasAllowlist;
+  if (applySenderPolicy(feedConfig, input.senders) === "blocked") {
+    logger.warn("Rejected email: sender filter", {
+      feedId,
+      senders: input.senders,
+      allowedSenders: feedConfig.allowed_senders,
+      blockedSenders: feedConfig.blocked_senders,
     });
-
-    if (!accepted) {
-      logger.warn("Rejected email: sender filter", {
-        feedId,
-        senders: input.senders,
-        allowedSenders,
-        blockedSenders,
-      });
-      return {
-        ok: false,
-        response: new Response("Sender not allowed for this feed", {
-          status: 403,
-        }),
-      };
-    }
+    return {
+      ok: false,
+      response: new Response("Sender not allowed for this feed", {
+        status: 403,
+      }),
+    };
   }
 
   return { ok: true, feedId, feedConfig };
@@ -231,16 +180,7 @@ export async function storeEmail(
     };
   }
 
-  let totalSize = feedMetadata.emails.reduce(
-    (sum, e) => sum + (e.size ?? 0),
-    0,
-  );
-  const toDelete: EmailMetadata[] = [];
-  while (totalSize > maxBytes && feedMetadata.emails.length > 1) {
-    const dropped = feedMetadata.emails.pop()!;
-    totalSize -= dropped.size ?? 0;
-    toDelete.push(dropped);
-  }
+  const { dropped: toDelete } = trimToByteBudget(feedMetadata, maxBytes);
 
   const r2Deletions =
     attachmentBucket && toDelete.length > 0

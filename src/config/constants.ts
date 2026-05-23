@@ -16,9 +16,6 @@ export const ADMIN_COOKIE_MAX_AGE = 60 * 60 * 24 * 7; // 1 week
 /** Maximum number of feed items exposed in RSS/Atom responses. */
 export const MAX_FEED_ITEMS = 20;
 
-/** Maximum number of email entries kept in feed metadata. */
-export const MAX_METADATA_EMAILS = 50;
-
 /** Default WebSub lease duration (seconds). */
 export const DEFAULT_LEASE_SECONDS = 86400; // 24 hours
 

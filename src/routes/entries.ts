@@ -4,6 +4,7 @@ import { Env } from "../types";
 import { processEmailContent } from "../utils/html-processor";
 import { formatBytes } from "../utils/format";
 import { FeedRepository } from "../domain/feed-repository";
+import { isExpired } from "../domain/feed";
 
 export async function handle(c: Context<{ Bindings: Env }>): Promise<Response> {
   const feedId = c.req.param("feedId");
@@ -22,10 +23,7 @@ export async function handle(c: Context<{ Bindings: Env }>): Promise<Response> {
   if (!feedMetadata) {
     return new Response("Feed not found", { status: 404 });
   }
-  if (
-    feedConfig?.expires_at !== undefined &&
-    feedConfig.expires_at <= Date.now()
-  ) {
+  if (feedConfig && isExpired(feedConfig)) {
     return new Response("Feed has expired", { status: 410 });
   }
 

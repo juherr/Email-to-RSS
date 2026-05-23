@@ -6,29 +6,11 @@ import { waitUntilSafe } from "../utils/worker";
 import { sendUnsubscribes } from "../utils/unsubscribe";
 import { getAttachmentBucket } from "../utils/attachments";
 import { FeedRepository } from "../domain/feed-repository";
+import { resolveExpiresAt, isExpired } from "../domain/feed";
 import {
   purgeFeedKeysStep,
   collectUnsubscribeUrls,
 } from "../routes/admin/helpers";
-
-const HOUR_MS = 3_600_000;
-
-/**
- * Resolve a feed's `expires_at` from a requested lifetime (hours). A server-side
- * `FEED_TTL_HOURS` always overrides the client-supplied value. Returns undefined
- * when no positive lifetime applies (i.e. the feed never expires).
- */
-function resolveExpiresAt(
-  env: Env,
-  lifetimeHours?: number,
-): number | undefined {
-  const hours = env.FEED_TTL_HOURS
-    ? parseInt(env.FEED_TTL_HOURS, 10)
-    : (lifetimeHours ?? NaN);
-  return Number.isFinite(hours) && hours > 0
-    ? Date.now() + hours * HOUR_MS
-    : undefined;
-}
 
 export interface CreateFeedInput {
   title: string;
@@ -113,11 +95,7 @@ export async function updateFeedRecord(
 
   if (!existing) return { status: "not_found" };
 
-  if (
-    !options.inPlace &&
-    existing.expires_at !== undefined &&
-    existing.expires_at <= Date.now()
-  ) {
+  if (!options.inPlace && isExpired(existing)) {
     return { status: "expired" };
   }
 

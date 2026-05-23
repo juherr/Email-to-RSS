@@ -3,6 +3,7 @@ import { Env } from "../types";
 import { generateRssFeed } from "../utils/feed-generator";
 import { fetchFeedData } from "../utils/feed-fetcher";
 import { baseUrl, feedRssUrl } from "../utils/urls";
+import { isExpired } from "../domain/feed";
 
 export async function handle(c: Context<{ Bindings: Env }>): Promise<Response> {
   try {
@@ -15,10 +16,7 @@ export async function handle(c: Context<{ Bindings: Env }>): Promise<Response> {
     if (!feedData) {
       return new Response("Feed not found", { status: 404 });
     }
-    if (
-      feedData.feedConfig.expires_at !== undefined &&
-      feedData.feedConfig.expires_at <= Date.now()
-    ) {
+    if (isExpired(feedData.feedConfig)) {
       return new Response("Feed has expired", { status: 410 });
     }
 
