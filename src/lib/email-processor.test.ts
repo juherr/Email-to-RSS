@@ -6,6 +6,7 @@ import {
   ProcessEmailInput,
   RawAttachment,
 } from "./email-processor";
+import { getCounters } from "../utils/stats";
 
 const VALID_FEED_ID = "apple.mountain.42";
 const VALID_TO = `${VALID_FEED_ID}@test.getmynews.app`;
@@ -465,5 +466,33 @@ describe("processEmail — attachments", () => {
 
     // Old attachment should be deleted from R2
     expect(mockR2._has(oldAttachmentId)).toBe(false);
+  });
+});
+
+describe("processEmail — monitoring counters", () => {
+  it("increments emails_received and sets last_email_at on success", async () => {
+    const env = createMockEnv();
+    await env.EMAIL_STORAGE.put(
+      `feed:${VALID_FEED_ID}:config`,
+      JSON.stringify({}),
+    );
+
+    await processEmail(makeInput(), env as any);
+
+    const counters = await getCounters(env.EMAIL_STORAGE as any);
+    expect(counters.emails_received).toBe(1);
+    expect(counters.emails_rejected).toBe(0);
+    expect(counters.last_email_at).toBeDefined();
+  });
+
+  it("increments emails_rejected when validation fails", async () => {
+    const env = createMockEnv();
+
+    // No feed config → 404 rejection
+    await processEmail(makeInput(), env as any);
+
+    const counters = await getCounters(env.EMAIL_STORAGE as any);
+    expect(counters.emails_rejected).toBe(1);
+    expect(counters.emails_received).toBe(0);
   });
 });

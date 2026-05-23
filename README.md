@@ -41,6 +41,7 @@ Common path:
 2. The Worker resolves the feed from the recipient address and stores the email in KV.
 3. `https://yourdomain.com/rss/:feedId` renders RSS from stored items.
 4. `/admin` provides feed management and email deletion.
+5. `https://yourdomain.com/` shows a public status page with monitoring counters and a link to the admin.
 
 Main routes:
 
@@ -50,6 +51,27 @@ Main routes:
 - `src/routes/atom.ts`: Atom feed rendering
 - `src/routes/files.ts`: attachment file serving from R2
 - `src/routes/admin.ts`: admin UI + feed CRUD
+- `src/routes/home.tsx`: public status page (`GET /`)
+- `src/routes/stats.ts`: monitoring counters API (`GET /api/stats`)
+
+### Monitoring
+
+`GET /api/stats` returns JSON counters (public, no auth) for uptime/monitoring tools:
+
+| Field                         | Meaning                                                  |
+| ----------------------------- | -------------------------------------------------------- |
+| `active_feeds`                | Feeds currently configured (live)                        |
+| `feeds_created`               | Total feeds ever created (cumulative)                    |
+| `feeds_deleted`               | Total feeds ever deleted (cumulative)                    |
+| `emails_received`             | Total emails ingested successfully (cumulative)          |
+| `emails_rejected`             | Total emails rejected during validation (cumulative)     |
+| `websub_subscriptions_active` | Active WebSub subscriptions (live)                       |
+| `last_email_at`               | ISO 8601 date-time of the last ingested email            |
+| `last_feed_created_at`        | ISO 8601 date-time of the last feed creation             |
+| `first_seen`                  | ISO 8601 date-time the instance first recorded a counter |
+
+The same figures are rendered on the public status page at `GET /`. Cumulative counters
+are persisted in the `EMAIL_STORAGE` KV under the `stats:counters` key.
 
 ## Requirements
 

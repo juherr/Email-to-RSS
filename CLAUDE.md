@@ -32,7 +32,9 @@ Single Cloudflare Worker built with Hono. Routes:
 
 | Method                               | Path                                                                   | Purpose |
 | ------------------------------------ | ---------------------------------------------------------------------- | ------- |
+| `GET /`                              | Public status page (monitoring counters + link to admin)               |
 | `POST /api/inbound`                  | Webhook from ForwardEmail; IP-allowlisted to their MX sources          |
+| `GET /api/stats`                     | Public monitoring counters (JSON)                                      |
 | `GET /rss/:feedId`                   | Public RSS 2.0 feed                                                    |
 | `GET /atom/:feedId`                  | Public Atom feed (with WebSub hub header)                              |
 | `GET /entries/:feedId/:entryId`      | Individual email HTML view                                             |
@@ -56,6 +58,8 @@ src/
     entries.ts              # Single email HTML view
     files.ts                # R2 attachment serving
     hub.ts                  # WebSub hub
+    home.tsx                # Public status page (GET /)
+    stats.ts                # Monitoring counters API (GET /api/stats)
     admin.tsx               # Admin UI entrypoint (hono/jsx)
     admin/                  # Admin sub-modules
       feeds.tsx             # Feeds CRUD UI
@@ -99,6 +103,7 @@ All data lives in the `EMAIL_STORAGE` KV namespace:
 | `feed:<feedId>:metadata`         | `{ emails: Array<{ key, subject, receivedAt, size?, attachmentIds? }> }` |
 | `feed:<feedId>:<timestamp>`      | Full `EmailData`                                                         |
 | `websub:<feedId>:<callbackHash>` | `WebSubSubscription`                                                     |
+| `stats:counters`                 | `Counters` (cumulative monitoring counters singleton)                    |
 
 `src/lib/storage.ts` contains key-builder helpers — use them; don't inline key strings in routes.
 

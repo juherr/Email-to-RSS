@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import { z } from "zod";
 import { Env, FeedConfig, FeedMetadata } from "../../types";
 import { generateFeedId } from "../../utils/id-generator";
+import { bumpCounters } from "../../utils/stats";
 import { waitUntilSafe } from "../../utils/worker";
 import { feedRssUrl, feedEmailAddress } from "../../utils/urls";
 import { logger } from "../../lib/logger";
@@ -190,6 +191,11 @@ feedsRouter.post("/create", async (c) => {
       parsedData.description,
       expiresAt,
     );
+
+    await bumpCounters(emailStorage, {
+      feeds_created: 1,
+      last_feed_created_at: new Date().toISOString(),
+    });
 
     if (isJson) {
       return c.json({
@@ -528,7 +534,10 @@ feedsRouter.post("/:feedId/delete", async (c) => {
 
   try {
     await deleteFeedFast(emailStorage, feedId);
-    await removeFeedFromList(emailStorage, feedId);
+    const removed = await removeFeedFromList(emailStorage, feedId);
+    if (removed) {
+      await bumpCounters(emailStorage, { feeds_deleted: 1 });
+    }
 
     waitUntilSafe(
       c,
@@ -658,6 +667,9 @@ feedsRouter.post("/bulk-delete", async (c) => {
       }
 
       const deletedFeedIds = await removeFeedsFromListBulk(emailStorage, okIds);
+      if (deletedFeedIds.length > 0) {
+        await bumpCounters(emailStorage, { feeds_deleted: deletedFeedIds.length });
+      }
 
       const removed = new Set(deletedFeedIds);
       okIds.forEach((feedId) => {
@@ -707,6 +719,9 @@ feedsRouter.post("/bulk-delete", async (c) => {
     }
 
     const deletedFeedIds = await removeFeedsFromListBulk(emailStorage, okIds);
+    if (deletedFeedIds.length > 0) {
+      await bumpCounters(emailStorage, { feeds_deleted: deletedFeedIds.length });
+    }
 
     return c.redirect(
       `${redirectBase}&message=bulkDeleted&count=${deletedFeedIds.length}`,

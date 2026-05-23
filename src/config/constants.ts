@@ -21,3 +21,6 @@ export const MAX_LEASE_SECONDS = 30 * 24 * 3600; // 30 days
 
 /** KV key for the global feed list. */
 export const FEEDS_LIST_KEY = "feeds:list";
+
+/** KV key for the monitoring counters singleton. */
+export const STATS_KEY = "stats:counters";

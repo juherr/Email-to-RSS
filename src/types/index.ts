@@ -69,6 +69,23 @@ export interface FeedListItem {
   expires_at?: number; // Cached from FeedConfig to avoid per-feed KV reads
 }
 
+// Cumulative monitoring counters (persisted as a KV singleton)
+export interface Counters {
+  feeds_created: number;
+  feeds_deleted: number;
+  emails_received: number;
+  emails_rejected: number;
+  last_email_at?: string; // ISO 8601
+  last_feed_created_at?: string; // ISO 8601
+  first_seen?: string; // ISO 8601 — first time counters were written (instance start)
+}
+
+// Monitoring API response: persisted counters + live-computed values
+export interface StatsResponse extends Counters {
+  active_feeds: number;
+  websub_subscriptions_active: number;
+}
+
 // WebSub (PubSubHubbub) subscription configuration
 export interface WebSubSubscription {
   callbackUrl: string;

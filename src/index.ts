@@ -6,6 +6,8 @@ import { handle as handleAtom } from "./routes/atom";
 import { handle as handleAdmin } from "./routes/admin";
 import { handle as handleEntry } from "./routes/entries";
 import { handle as handleFiles } from "./routes/files";
+import { handle as handleStats } from "./routes/stats";
+import { handle as handleHome } from "./routes/home";
 import { hubRouter } from "./routes/hub";
 import { handleCloudflareEmail } from "./lib/cloudflare-email";
 import { Env } from "./types";
@@ -15,6 +17,7 @@ import {
   purgeExpiredFeeds,
   removeFeedsFromListBulk,
 } from "./routes/admin/helpers";
+import { bumpCounters } from "./utils/stats";
 import { FORWARD_EMAIL_IPS_CACHE_TTL_MS } from "./config/constants";
 
 type AppEnv = { Bindings: Env };
@@ -137,6 +140,9 @@ api.use("/inbound", async (c, next) => {
 // API routes (inbound webhook)
 api.post("/inbound", handleInbound);
 
+// Public monitoring stats (JSON)
+api.get("/stats", handleStats);
+
 // RSS feed routes (public)
 rss.get("/:feedId", handleRSS);
 
@@ -164,8 +170,8 @@ app.route("/hub", hubRouter);
 // Health check endpoint for monitoring
 app.get("/health", (c) => c.json({ status: "ok", timestamp: Date.now() }));
 
-// Root path redirects to admin dashboard
-app.get("/", (c) => c.redirect("/admin"));
+// Public status page (counters + link to admin)
+app.get("/", handleHome);
 
 // Catch-all for 404s
 app.all("*", (c) => c.text("Not Found", 404));
@@ -192,6 +198,9 @@ export default {
     }
     if (expiredIds.length > 0) {
       await removeFeedsFromListBulk(env.EMAIL_STORAGE, expiredIds);
+      await bumpCounters(env.EMAIL_STORAGE, {
+        feeds_deleted: expiredIds.length,
+      });
       logger.info("Feed TTL cleanup", { deleted: expiredIds.length });
     }
   },

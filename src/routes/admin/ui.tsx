@@ -8,10 +8,11 @@ const designSystem = [variablesCss, layoutCss, componentsCss, utilitiesCss].join
 
 type LayoutProps = {
   title: string;
+  label?: string;
   children: import("hono/jsx").Child;
 };
 
-export const Layout = ({ title, children }: LayoutProps) => {
+export const Layout = ({ title, label = "admin", children }: LayoutProps) => {
   return (
     <html>
       <head>
@@ -38,7 +39,7 @@ export const Layout = ({ title, children }: LayoutProps) => {
           <a href="https://kill-the.news/" class="site-header-logo" target="_blank" rel="noopener">
             kill-the-news
           </a>
-          <span class="site-header-label">admin</span>
+          <span class="site-header-label">{label}</span>
         </header>
         {children}
         <footer class="site-footer">

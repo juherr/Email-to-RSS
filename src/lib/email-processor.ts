@@ -7,6 +7,7 @@ import {
   FeedMetadata,
 } from "../types";
 import { notifySubscribers } from "../utils/websub";
+import { bumpCounters } from "../utils/stats";
 import { logger } from "./logger";
 import { FEED_MAX_BYTES } from "../config/constants";
 
@@ -248,8 +249,15 @@ export async function processEmail(
   ctx?: ExecutionContext,
 ): Promise<Response> {
   const validation = await validateEmail(input, env);
-  if (!validation.ok) return validation.response;
+  if (!validation.ok) {
+    await bumpCounters(env.EMAIL_STORAGE, { emails_rejected: 1 });
+    return validation.response;
+  }
 
   await storeEmail(validation.feedId, input, env, ctx);
+  await bumpCounters(env.EMAIL_STORAGE, {
+    emails_received: 1,
+    last_email_at: new Date().toISOString(),
+  });
   return new Response("Email processed successfully", { status: 200 });
 }
