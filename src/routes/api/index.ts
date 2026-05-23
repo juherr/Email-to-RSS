@@ -8,12 +8,8 @@ import {
   updateFeedRecord,
   deleteFeedRecord,
 } from "../../lib/feed-service";
-import { listAllFeeds, deleteAttachmentsForEmails } from "../admin/helpers";
-import {
-  getFeedConfig,
-  getFeedMetadata,
-  getEmailData,
-} from "../../utils/storage";
+import { deleteAttachmentsForEmails } from "../admin/helpers";
+import { FeedRepository } from "../../domain/feed-repository";
 import { getStats } from "../../utils/stats";
 import { feedEmailAddress, feedRssUrl, feedAtomUrl } from "../../utils/urls";
 import {
@@ -107,7 +103,7 @@ apiApp.openapi(
   }),
   async (c) => {
     const env = c.env;
-    const feeds = await listAllFeeds(env.EMAIL_STORAGE);
+    const feeds = await FeedRepository.from(env).listFeeds();
     return c.json(
       {
         feeds: feeds.map((f) => ({
@@ -173,9 +169,10 @@ apiApp.openapi(
   async (c) => {
     const env = c.env;
     const { feedId } = c.req.valid("param");
-    const config = await getFeedConfig(env.EMAIL_STORAGE, feedId);
+    const repo = FeedRepository.from(env);
+    const config = await repo.getConfig(feedId);
     if (!config) return c.json({ error: "Feed not found" }, 404);
-    const metadata = await getFeedMetadata(env.EMAIL_STORAGE, feedId);
+    const metadata = await repo.getMetadata(feedId);
     return c.json(
       toFeed(feedId, config, metadata?.emails.length ?? 0, env),
       200,
@@ -218,7 +215,7 @@ apiApp.openapi(
       return c.json({ error: "Feed not found" }, 404);
     if (result.status === "expired")
       return c.json({ error: "Feed has expired and cannot be modified" }, 409);
-    const metadata = await getFeedMetadata(env.EMAIL_STORAGE, feedId);
+    const metadata = await FeedRepository.from(env).getMetadata(feedId);
     return c.json(
       toFeed(feedId, result.config, metadata?.emails.length ?? 0, env),
       200,
@@ -268,7 +265,7 @@ apiApp.openapi(
   async (c) => {
     const env = c.env;
     const { feedId } = c.req.valid("param");
-    const metadata = await getFeedMetadata(env.EMAIL_STORAGE, feedId);
+    const metadata = await FeedRepository.from(env).getMetadata(feedId);
     if (!metadata) return c.json({ error: "Feed not found" }, 404);
     return c.json(
       {
@@ -303,10 +300,11 @@ apiApp.openapi(
     const env = c.env;
     const { feedId, entryId } = c.req.valid("param");
     const receivedAt = parseInt(entryId, 10);
-    const metadata = await getFeedMetadata(env.EMAIL_STORAGE, feedId);
+    const repo = FeedRepository.from(env);
+    const metadata = await repo.getMetadata(feedId);
     const metaEntry = metadata?.emails.find((e) => e.receivedAt === receivedAt);
     if (!metaEntry) return c.json({ error: "Email not found" }, 404);
-    const data = await getEmailData(env.EMAIL_STORAGE, metaEntry.key);
+    const data = await repo.getEmail(metaEntry.key);
     if (!data) return c.json({ error: "Email not found" }, 404);
     return c.json(
       {
@@ -344,18 +342,18 @@ apiApp.openapi(
   }),
   async (c) => {
     const env = c.env;
-    const emailStorage = env.EMAIL_STORAGE;
+    const repo = FeedRepository.from(env);
     const { feedId, entryId } = c.req.valid("param");
     const receivedAt = parseInt(entryId, 10);
-    const metadata = await getFeedMetadata(emailStorage, feedId);
+    const metadata = await repo.getMetadata(feedId);
     const metaEntry = metadata?.emails.find((e) => e.receivedAt === receivedAt);
     if (!metadata || !metaEntry)
       return c.json({ error: "Email not found" }, 404);
 
-    await emailStorage.delete(metaEntry.key);
+    await repo.deleteEmail(metaEntry.key);
     await deleteAttachmentsForEmails(env, metadata.emails, [metaEntry.key]);
     metadata.emails = metadata.emails.filter((e) => e.key !== metaEntry.key);
-    await emailStorage.put(`feed:${feedId}:metadata`, JSON.stringify(metadata));
+    await repo.putMetadata(feedId, metadata);
 
     return c.json({ ok: true }, 200);
   },

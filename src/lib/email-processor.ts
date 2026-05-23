@@ -1,11 +1,5 @@
 import { EmailParser } from "../utils/email-parser";
-import {
-  AttachmentData,
-  EmailMetadata,
-  Env,
-  FeedConfig,
-  FeedMetadata,
-} from "../types";
+import { AttachmentData, EmailMetadata, Env, FeedConfig } from "../types";
 import { notifySubscribers } from "../utils/websub";
 import { bumpCounters } from "../utils/stats";
 import {
@@ -14,6 +8,7 @@ import {
 } from "../utils/favicon-fetcher";
 import { parseOneClickUnsubscribe } from "../utils/unsubscribe";
 import { getAttachmentBucket } from "../utils/attachments";
+import { FeedRepository } from "../domain/feed-repository";
 import { logger } from "./logger";
 import { FEED_MAX_BYTES } from "../config/constants";
 
@@ -110,10 +105,7 @@ export async function validateEmail(
     };
   }
 
-  const feedConfig = (await env.EMAIL_STORAGE.get(
-    `feed:${feedId}:config`,
-    "json",
-  )) as FeedConfig | null;
+  const feedConfig = await FeedRepository.from(env).getConfig(feedId);
   if (!feedConfig) {
     logger.error("Feed not found", { feedId });
     return {
@@ -188,12 +180,12 @@ export async function storeEmail(
     ...(storedAttachments.length > 0 ? { attachments: storedAttachments } : {}),
   };
 
-  const emailKey = `feed:${feedId}:${Date.now()}`;
-  const feedMetadataKey = `feed:${feedId}:metadata`;
+  const repo = FeedRepository.from(env);
+  const emailKey = repo.newEmailKey(feedId);
 
   const [, rawMetadata] = await Promise.all([
-    env.EMAIL_STORAGE.put(emailKey, JSON.stringify(emailData)),
-    env.EMAIL_STORAGE.get(feedMetadataKey, "json"),
+    repo.putEmail(emailKey, emailData),
+    repo.getMetadata(feedId),
   ]);
 
   // Note: KV has no atomic compare-and-swap. Concurrent invocations for the
@@ -202,9 +194,7 @@ export async function storeEmail(
   // KV's eventual-consistency model.
   // TODO: Migrate feed metadata writes to Cloudflare Durable Objects to serialise
   // concurrent writes and eliminate this race condition.
-  const feedMetadata = ((rawMetadata as FeedMetadata | null) || {
-    emails: [],
-  }) as FeedMetadata;
+  const feedMetadata = rawMetadata || { emails: [] };
 
   const maxBytes =
     parseInt(env.FEED_MAX_SIZE_BYTES ?? "", 10) || FEED_MAX_BYTES;
@@ -260,8 +250,8 @@ export async function storeEmail(
       : [];
 
   await Promise.all([
-    env.EMAIL_STORAGE.put(feedMetadataKey, JSON.stringify(feedMetadata)),
-    ...toDelete.map((e) => env.EMAIL_STORAGE.delete(e.key)),
+    repo.putMetadata(feedId, feedMetadata),
+    ...toDelete.map((e) => repo.deleteEmail(e.key)),
     ...r2Deletions,
   ]);
 

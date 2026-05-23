@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { z } from "zod";
-import { Env, FeedConfig } from "../../types";
+import { Env } from "../../types";
 import { bumpCounters } from "../../utils/stats";
 import { waitUntilSafe } from "../../utils/worker";
 import { feedRssUrl, feedEmailAddress } from "../../utils/urls";
@@ -8,11 +8,8 @@ import { logger } from "../../lib/logger";
 import { sendUnsubscribes } from "../../utils/unsubscribe";
 import { getAttachmentBucket } from "../../utils/attachments";
 import { Layout } from "./ui";
-import {
-  removeFeedsFromListBulk,
-  purgeFeedKeysStep,
-  collectUnsubscribeUrls,
-} from "./helpers";
+import { purgeFeedKeysStep, collectUnsubscribeUrls } from "./helpers";
+import { FeedRepository } from "../../domain/feed-repository";
 import {
   createFeedRecord,
   updateFeedRecord,
@@ -149,12 +146,9 @@ feedsRouter.post("/create", async (c) => {
 
 feedsRouter.get("/:feedId/edit", async (c) => {
   const env = c.env;
-  const emailStorage = env.EMAIL_STORAGE;
   const feedId = c.req.param("feedId");
 
-  const feedConfig = (await emailStorage.get(`feed:${feedId}:config`, {
-    type: "json",
-  })) as FeedConfig | null;
+  const feedConfig = await FeedRepository.from(env).getConfig(feedId);
 
   if (!feedConfig) {
     return c.text("Feed not found", 404);
@@ -365,7 +359,7 @@ feedsRouter.post("/:feedId/edit", async (c) => {
 feedsRouter.post("/:feedId/sender-filter", async (c) => {
   const env = c.env;
   const feedId = c.req.param("feedId");
-  const feedConfigKey = `feed:${feedId}:config`;
+  const repo = FeedRepository.from(env);
 
   const body = await c.req.json().catch(() => null);
   const parsed = senderFilterSchema.safeParse(body);
@@ -376,9 +370,7 @@ feedsRouter.post("/:feedId/sender-filter", async (c) => {
   const { action, value } = parsed.data;
   const normalized = value.trim().toLowerCase();
 
-  const feedConfig = (await env.EMAIL_STORAGE.get(feedConfigKey, {
-    type: "json",
-  })) as FeedConfig | null;
+  const feedConfig = await repo.getConfig(feedId);
   if (!feedConfig) return c.json({ ok: false, error: "Feed not found" }, 404);
 
   const allowedSenders = (feedConfig.allowed_senders || []).map((s) =>
@@ -405,15 +397,12 @@ feedsRouter.post("/:feedId/sender-filter", async (c) => {
 
   if (!targetList.includes(normalized)) {
     targetList.push(normalized);
-    await env.EMAIL_STORAGE.put(
-      feedConfigKey,
-      JSON.stringify({
-        ...feedConfig,
-        allowed_senders: allowedSenders,
-        blocked_senders: blockedSenders,
-        updated_at: Date.now(),
-      }),
-    );
+    await repo.putConfig(feedId, {
+      ...feedConfig,
+      allowed_senders: allowedSenders,
+      blocked_senders: blockedSenders,
+      updated_at: Date.now(),
+    });
   }
 
   return c.json({ ok: true });
@@ -552,7 +541,9 @@ feedsRouter.post("/bulk-delete", async (c) => {
         }
       }
 
-      const deletedFeedIds = await removeFeedsFromListBulk(emailStorage, okIds);
+      const deletedFeedIds = await new FeedRepository(
+        emailStorage,
+      ).removeFromListBulk(okIds);
       if (deletedFeedIds.length > 0) {
         await bumpCounters(emailStorage, {
           feeds_deleted: deletedFeedIds.length,
@@ -616,7 +607,9 @@ feedsRouter.post("/bulk-delete", async (c) => {
       }
     }
 
-    const deletedFeedIds = await removeFeedsFromListBulk(emailStorage, okIds);
+    const deletedFeedIds = await new FeedRepository(
+      emailStorage,
+    ).removeFromListBulk(okIds);
     if (deletedFeedIds.length > 0) {
       await bumpCounters(emailStorage, {
         feeds_deleted: deletedFeedIds.length,

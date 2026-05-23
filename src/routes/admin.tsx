@@ -8,7 +8,7 @@ import { ADMIN_COOKIE_MAX_AGE } from "../config/constants";
 import { logger } from "../lib/logger";
 import { timingSafeEqual, checkProxyAuth } from "../lib/auth";
 import { Layout, clampText } from "./admin/ui";
-import { listAllFeeds } from "./admin/helpers";
+import { FeedRepository } from "../domain/feed-repository";
 import { updateFeedRecord } from "../lib/feed-service";
 import { feedRssUrl, feedAtomUrl, feedEmailAddress } from "../utils/urls";
 import { feedsRouter } from "./admin/feeds";
@@ -282,14 +282,13 @@ const ExpiryBadge = ({ expiresAt }: { expiresAt: number }) => {
 app.get("/", async (c) => {
   // Type assertion for environment variables
   const env = c.env;
-  const emailStorage = env.EMAIL_STORAGE;
   const url = new URL(c.req.url);
   const view = url.searchParams.get("view") === "table" ? "table" : "list";
   const message = url.searchParams.get("message");
   const count = Number(url.searchParams.get("count") || "0");
 
   // List all feeds
-  const feedList = await listAllFeeds(emailStorage);
+  const feedList = await FeedRepository.from(env).listFeeds();
 
   // Keep the dashboard fast: avoid N KV reads for N feeds.
   // We store title/description in `feeds:list` (description is optional for older data).

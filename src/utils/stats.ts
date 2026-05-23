@@ -1,8 +1,6 @@
 import { Counters, Env, StatsResponse } from "../types";
-import { STATS_KEY } from "../config/constants";
 import { logger } from "../lib/logger";
-import { listAllFeeds } from "../routes/admin/helpers";
-import { getFeedMetadata } from "./storage";
+import { FeedRepository } from "../domain/feed-repository";
 import { getAttachmentBucket } from "./attachments";
 
 const EMPTY_COUNTERS: Counters = {
@@ -15,9 +13,7 @@ const EMPTY_COUNTERS: Counters = {
 
 export async function getCounters(kv: KVNamespace): Promise<Counters> {
   try {
-    const stored = (await kv.get(STATS_KEY, {
-      type: "json",
-    })) as Counters | null;
+    const stored = await new FeedRepository(kv).getCountersRaw();
     return { ...EMPTY_COUNTERS, ...(stored || {}) };
   } catch (error) {
     logger.error("Error reading counters", { error: String(error) });
@@ -48,7 +44,7 @@ export async function bumpCounters(
       current.last_feed_created_at = changes.last_feed_created_at;
     if (!current.first_seen) current.first_seen = new Date().toISOString();
 
-    await kv.put(STATS_KEY, JSON.stringify(current));
+    await new FeedRepository(kv).putCounters(current);
   } catch (error) {
     logger.error("Error updating counters", { error: String(error) });
   }
@@ -58,26 +54,15 @@ export async function countKeysByPrefix(
   kv: KVNamespace,
   prefix: string,
 ): Promise<number> {
-  let total = 0;
-  let cursor: string | undefined;
-  try {
-    do {
-      const listed = await kv.list({ prefix, cursor, limit: 1000 });
-      total += listed.keys.length;
-      cursor = listed.list_complete ? undefined : listed.cursor;
-    } while (cursor);
-  } catch (error) {
-    logger.error("Error counting keys", { prefix, error: String(error) });
-  }
-  return total;
+  return new FeedRepository(kv).countKeysByPrefix(prefix);
 }
 
 export async function getStats(env: Env): Promise<StatsResponse> {
-  const kv = env.EMAIL_STORAGE;
+  const repo = FeedRepository.from(env);
   const [counters, feeds, websubCount] = await Promise.all([
-    getCounters(kv),
-    listAllFeeds(kv),
-    countKeysByPrefix(kv, "websub:"),
+    getCounters(env.EMAIL_STORAGE),
+    repo.listFeeds(),
+    repo.countSubscriptionKeys(),
   ]);
 
   return {
@@ -119,9 +104,10 @@ export async function scanR2Usage(
 export async function scanKvUsage(kv: KVNamespace): Promise<{ bytes: number }> {
   let bytes = 0;
   try {
-    const feeds = await listAllFeeds(kv);
+    const repo = new FeedRepository(kv);
+    const feeds = await repo.listFeeds();
     for (const feed of feeds) {
-      const metadata = await getFeedMetadata(kv, feed.id);
+      const metadata = await repo.getMetadata(feed.id);
       if (!metadata) continue;
       for (const email of metadata.emails) {
         bytes += email.size ?? 0;
@@ -152,7 +138,7 @@ export async function setStorageSnapshot(
     current.kv_bytes_estimated = snapshot.kv_bytes_estimated;
     current.storage_scanned_at = new Date().toISOString();
     if (!current.first_seen) current.first_seen = new Date().toISOString();
-    await kv.put(STATS_KEY, JSON.stringify(current));
+    await new FeedRepository(kv).putCounters(current);
   } catch (error) {
     logger.error("Error writing storage snapshot", { error: String(error) });
   }

@@ -1,14 +1,7 @@
-import {
-  EmailData,
-  EmailMetadata,
-  Env,
-  FeedList,
-  FeedListItem,
-  FeedMetadata,
-} from "../../types";
-import { FEEDS_LIST_KEY } from "../../config/constants";
+import { EmailData, EmailMetadata, Env } from "../../types";
 import { logger } from "../../lib/logger";
 import { getAttachmentBucket } from "../../utils/attachments";
+import { FeedRepository } from "../../domain/feed-repository";
 
 // Delete the R2 attachments belonging to the given email keys. Call before the
 // emails are removed from feed metadata, while `emails` still carries their
@@ -58,108 +51,6 @@ export async function deleteKeysWithConcurrency(
   return { ok, failed };
 }
 
-export async function listAllFeeds(
-  emailStorage: KVNamespace,
-): Promise<FeedListItem[]> {
-  try {
-    const feedList = (await emailStorage.get(FEEDS_LIST_KEY, {
-      type: "json",
-    })) as FeedList | null;
-    return feedList?.feeds || [];
-  } catch (error) {
-    logger.error("Error listing feeds", { error: String(error) });
-    return [];
-  }
-}
-
-export async function addFeedToList(
-  emailStorage: KVNamespace,
-  feedId: string,
-  title: string,
-  description?: string,
-  expires_at?: number,
-): Promise<void> {
-  try {
-    const feedList = ((await emailStorage.get(FEEDS_LIST_KEY, {
-      type: "json",
-    })) as FeedList | null) || { feeds: [] };
-
-    feedList.feeds.push({ id: feedId, title, description, expires_at });
-    await emailStorage.put(FEEDS_LIST_KEY, JSON.stringify(feedList));
-  } catch (error) {
-    logger.error("Error adding feed to list", { feedId, error: String(error) });
-  }
-}
-
-export async function updateFeedInList(
-  emailStorage: KVNamespace,
-  feedId: string,
-  title: string,
-  description?: string,
-  expires_at?: number,
-): Promise<void> {
-  try {
-    const feedList = ((await emailStorage.get(FEEDS_LIST_KEY, {
-      type: "json",
-    })) as FeedList | null) || { feeds: [] };
-
-    const feedIndex = feedList.feeds.findIndex((feed) => feed.id === feedId);
-    if (feedIndex !== -1) {
-      feedList.feeds[feedIndex].title = title;
-      feedList.feeds[feedIndex].description = description;
-      feedList.feeds[feedIndex].expires_at = expires_at;
-      await emailStorage.put(FEEDS_LIST_KEY, JSON.stringify(feedList));
-    }
-  } catch (error) {
-    logger.error("Error updating feed in list", {
-      feedId,
-      error: String(error),
-    });
-  }
-}
-
-export async function removeFeedsFromListBulk(
-  emailStorage: KVNamespace,
-  feedIds: string[],
-): Promise<string[]> {
-  try {
-    const feedList = ((await emailStorage.get(FEEDS_LIST_KEY, {
-      type: "json",
-    })) as FeedList | null) || { feeds: [] };
-
-    const toRemove = new Set(feedIds.filter(Boolean));
-    if (toRemove.size === 0) return [];
-
-    const removed: string[] = [];
-    const nextFeeds: FeedListItem[] = [];
-
-    for (const feed of feedList.feeds) {
-      if (toRemove.has(feed.id)) {
-        removed.push(feed.id);
-        continue;
-      }
-      nextFeeds.push(feed);
-    }
-
-    if (removed.length === 0) return [];
-
-    feedList.feeds = nextFeeds;
-    await emailStorage.put(FEEDS_LIST_KEY, JSON.stringify(feedList));
-    return removed;
-  } catch (error) {
-    logger.error("Error removing feeds from list", { error: String(error) });
-    return [];
-  }
-}
-
-export async function removeFeedFromList(
-  emailStorage: KVNamespace,
-  feedId: string,
-): Promise<boolean> {
-  const removed = await removeFeedsFromListBulk(emailStorage, [feedId]);
-  return removed.includes(feedId);
-}
-
 /**
  * Read a feed's stored RFC 8058 one-click unsubscribe URLs (one per sender).
  * Must be called before the feed metadata is deleted. Never throws.
@@ -169,9 +60,7 @@ export async function collectUnsubscribeUrls(
   feedId: string,
 ): Promise<string[]> {
   try {
-    const metadata = (await emailStorage.get(`feed:${feedId}:metadata`, {
-      type: "json",
-    })) as FeedMetadata | null;
+    const metadata = await new FeedRepository(emailStorage).getMetadata(feedId);
     return Object.values(metadata?.unsubscribe ?? {});
   } catch (error) {
     logger.error("Error reading unsubscribe URLs", {
@@ -192,24 +81,18 @@ export async function purgeFeedKeysStep(
   cursor: string;
   listComplete: boolean;
 }> {
-  const prefix = `feed:${feedId}:`;
-  const limit = Math.min(1000, Math.max(1, Math.floor(options.limit || 100)));
-  const cursor = options.cursor || undefined;
-
-  const listed = await emailStorage.list({ prefix, cursor, limit });
-  const keys = (listed.keys || []).map((k) => k.name);
+  const repo = new FeedRepository(emailStorage);
+  const listed = await repo.listFeedKeys(feedId, {
+    cursor: options.cursor,
+    limit: options.limit,
+  });
+  const keys = listed.names;
 
   if (options.bucket && keys.length > 0) {
-    const emailKeys = keys.filter((k) => {
-      const suffix = k.slice(prefix.length);
-      return suffix !== "config" && suffix !== "metadata";
-    });
+    const emailKeys = keys.filter((k) => repo.isEmailKey(feedId, k));
     if (emailKeys.length > 0) {
       const emailDataResults = await Promise.allSettled(
-        emailKeys.map(
-          (k) =>
-            emailStorage.get(k, { type: "json" }) as Promise<EmailData | null>,
-        ),
+        emailKeys.map((k) => repo.getEmail(k)),
       );
       const attachmentIds = emailDataResults
         .filter(
@@ -234,8 +117,8 @@ export async function purgeFeedKeysStep(
   return {
     deletedKeys: ok,
     failedKeys: failed,
-    cursor: listed.cursor || "",
-    listComplete: !!listed.list_complete,
+    cursor: listed.cursor,
+    listComplete: listed.listComplete,
   };
 }
 

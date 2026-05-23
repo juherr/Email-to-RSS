@@ -1,17 +1,12 @@
 import { Hono } from "hono";
-import {
-  Env,
-  FeedConfig,
-  FeedMetadata,
-  EmailData,
-  EmailMetadata,
-} from "../../types";
+import { Env, EmailMetadata } from "../../types";
 import { logger } from "../../lib/logger";
 import { Layout, clampText } from "./ui";
 import {
   deleteAttachmentsForEmails,
   deleteKeysWithConcurrency,
 } from "./helpers";
+import { FeedRepository } from "../../domain/feed-repository";
 import { feedRssUrl, feedAtomUrl, feedEmailAddress } from "../../utils/urls";
 import { formatBytes } from "../../utils/format";
 import { emailsPageScript } from "../../scripts/generated/emails-page";
@@ -156,17 +151,13 @@ const SenderField = ({ from, feedId }: SenderFieldProps) => {
 
 emailsRouter.get("/feeds/:feedId/emails", async (c) => {
   const env = c.env;
-  const emailStorage = env.EMAIL_STORAGE;
+  const repo = FeedRepository.from(env);
   const feedId = c.req.param("feedId");
   const message = c.req.query("message");
   const count = Number(c.req.query("count") || "0");
 
-  const feedConfig = (await emailStorage.get(`feed:${feedId}:config`, {
-    type: "json",
-  })) as FeedConfig | null;
-  const feedMetadata = (await emailStorage.get(`feed:${feedId}:metadata`, {
-    type: "json",
-  })) as FeedMetadata | null;
+  const feedConfig = await repo.getConfig(feedId);
+  const feedMetadata = await repo.getMetadata(feedId);
 
   if (!feedConfig || !feedMetadata) {
     return c.text("Feed not found", 404);
@@ -461,16 +452,14 @@ emailsRouter.get("/feeds/:feedId/emails", async (c) => {
 
 emailsRouter.get("/emails/:emailKey", async (c) => {
   const env = c.env;
-  const emailStorage = env.EMAIL_STORAGE;
+  const repo = FeedRepository.from(env);
   const emailKey = c.req.param("emailKey");
 
-  const emailData = (await emailStorage.get(emailKey, {
-    type: "json",
-  })) as EmailData | null;
+  const emailData = await repo.getEmail(emailKey);
 
   if (!emailData) return c.text("Email not found", 404);
 
-  const feedId = emailKey.split(":")[1];
+  const feedId = repo.feedIdFromEmailKey(emailKey);
   const attachments = emailData.attachments ?? [];
 
   const htmlContent = `<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><style>body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','SF Pro Display','Helvetica Neue',Arial,sans-serif;line-height:1.5;padding:16px;margin:0;color:#333;box-sizing:border-box}img{max-width:100%;height:auto}a{color:#0070f3}@media(prefers-color-scheme:dark){body{background-color:#1c1c1e;color:#ffffff}a{color:#0a84ff}}</style></head><body>${emailData.content}</body></html>`;
@@ -652,7 +641,7 @@ emailsRouter.get("/emails/:emailKey", async (c) => {
 
 emailsRouter.post("/emails/:emailKey/delete", async (c) => {
   const env = c.env;
-  const emailStorage = env.EMAIL_STORAGE;
+  const repo = FeedRepository.from(env);
   const emailKey = c.req.param("emailKey");
   const wantsJson = (c.req.header("Accept") || "").includes("application/json");
 
@@ -664,12 +653,9 @@ emailsRouter.post("/emails/:emailKey/delete", async (c) => {
       return c.text("Feed ID is required", 400);
     }
 
-    const feedMetadataKey = `feed:${feedId}:metadata`;
-    const feedMetadata = (await emailStorage.get(feedMetadataKey, {
-      type: "json",
-    })) as FeedMetadata | null;
+    const feedMetadata = await repo.getMetadata(feedId);
 
-    await emailStorage.delete(emailKey);
+    await repo.deleteEmail(emailKey);
     await deleteAttachmentsForEmails(env, feedMetadata?.emails ?? [], [
       emailKey,
     ]);
@@ -678,7 +664,7 @@ emailsRouter.post("/emails/:emailKey/delete", async (c) => {
       feedMetadata.emails = feedMetadata.emails.filter(
         (email) => email.key !== emailKey,
       );
-      await emailStorage.put(feedMetadataKey, JSON.stringify(feedMetadata));
+      await repo.putMetadata(feedId, feedMetadata);
     }
 
     if (wantsJson) return c.json({ ok: true, emailKey, feedId });
@@ -699,6 +685,7 @@ emailsRouter.post("/emails/:emailKey/delete", async (c) => {
 emailsRouter.post("/feeds/:feedId/emails/bulk-delete", async (c) => {
   const env = c.env;
   const emailStorage = env.EMAIL_STORAGE;
+  const repo = new FeedRepository(emailStorage);
   const feedId = c.req.param("feedId");
   const contentType = c.req.header("Content-Type") || "";
   const wantsJson =
@@ -706,10 +693,7 @@ emailsRouter.post("/feeds/:feedId/emails/bulk-delete", async (c) => {
     (c.req.header("Accept") || "").includes("application/json");
 
   try {
-    const feedMetadataKey = `feed:${feedId}:metadata`;
-    const feedMetadata = (await emailStorage.get(feedMetadataKey, {
-      type: "json",
-    })) as FeedMetadata | null;
+    const feedMetadata = await repo.getMetadata(feedId);
 
     if (!feedMetadata) {
       return wantsJson
@@ -753,7 +737,7 @@ emailsRouter.post("/feeds/:feedId/emails/bulk-delete", async (c) => {
       feedMetadata.emails = feedMetadata.emails.filter(
         (email) => !deletedSet.has(email.key),
       );
-      await emailStorage.put(feedMetadataKey, JSON.stringify(feedMetadata));
+      await repo.putMetadata(feedId, feedMetadata);
 
       return c.json({
         ok: failedEmailKeys.length === 0,
@@ -784,7 +768,7 @@ emailsRouter.post("/feeds/:feedId/emails/bulk-delete", async (c) => {
     feedMetadata.emails = feedMetadata.emails.filter(
       (email) => !deletedSet.has(email.key),
     );
-    await emailStorage.put(feedMetadataKey, JSON.stringify(feedMetadata));
+    await repo.putMetadata(feedId, feedMetadata);
 
     return c.redirect(
       `/admin/feeds/${feedId}/emails?message=bulkDeleted&count=${deletedOk.length}`,

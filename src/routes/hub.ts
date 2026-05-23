@@ -7,6 +7,7 @@ import {
 import { waitUntilSafe } from "../utils/worker";
 import { DEFAULT_LEASE_SECONDS, MAX_LEASE_SECONDS } from "../config/constants";
 import { feedTopicPattern } from "../utils/urls";
+import { FeedRepository } from "../domain/feed-repository";
 
 type AppEnv = { Bindings: Env };
 
@@ -73,10 +74,7 @@ hubRouter.post("/", async (c) => {
   const feedId = match[2];
 
   // Verify the feed exists before accepting any subscription
-  const feedConfig = await env.EMAIL_STORAGE.get(
-    `feed:${feedId}:config`,
-    "json",
-  );
+  const feedConfig = await FeedRepository.from(env).getConfig(feedId);
   if (!feedConfig) {
     return c.text("Not Found: feed does not exist", 404);
   }

@@ -1,8 +1,9 @@
 import { describe, it, expect } from "vitest";
 import worker from "../index";
 import { createMockEnv } from "../test/setup";
-import { iconKey } from "../utils/storage";
 import type { Env } from "../types";
+
+const iconKey = (domain: string) => `icon:${domain}`;
 
 function req(path: string): Request {
   return new Request(`https://test.getmynews.app${path}`);

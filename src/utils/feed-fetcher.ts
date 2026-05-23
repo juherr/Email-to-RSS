@@ -1,5 +1,6 @@
-import { Env, FeedConfig, FeedMetadata, EmailData } from "../types";
+import { Env, FeedConfig, EmailData } from "../types";
 import { MAX_FEED_ITEMS } from "../config/constants";
+import { FeedRepository } from "../domain/feed-repository";
 
 export interface FeedData {
   feedConfig: FeedConfig;
@@ -10,19 +11,12 @@ export async function fetchFeedData(
   feedId: string,
   env: Env,
 ): Promise<FeedData | null> {
-  const storage = env.EMAIL_STORAGE;
+  const repo = FeedRepository.from(env);
 
-  const feedMetadata = (await storage.get(
-    `feed:${feedId}:metadata`,
-    "json",
-  )) as FeedMetadata | null;
-
+  const feedMetadata = await repo.getMetadata(feedId);
   if (!feedMetadata) return null;
 
-  const feedConfig = ((await storage.get(
-    `feed:${feedId}:config`,
-    "json",
-  )) as FeedConfig | null) ?? {
+  const feedConfig = (await repo.getConfig(feedId)) ?? {
     title: `Newsletter Feed ${feedId}`,
     description: "Converted email newsletter",
     language: "en",
@@ -32,7 +26,7 @@ export async function fetchFeedData(
   const emailRefs = feedMetadata.emails.slice(0, MAX_FEED_ITEMS);
   const emails: EmailData[] = [];
   for (const ref of emailRefs) {
-    const data = (await storage.get(ref.key, "json")) as EmailData | null;
+    const data = await repo.getEmail(ref.key);
     if (data) emails.push(data);
   }
 

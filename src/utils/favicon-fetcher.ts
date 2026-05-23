@@ -4,7 +4,7 @@ import {
   ICON_TTL_SECONDS,
   MAX_ICON_BYTES,
 } from "../config/constants";
-import { iconKey } from "./storage";
+import { FeedRepository } from "../domain/feed-repository";
 import { logger } from "../lib/logger";
 
 interface IconRecord {
@@ -92,8 +92,8 @@ export async function cacheFaviconForDomain(
   env: Env,
 ): Promise<void> {
   try {
-    const key = iconKey(domain);
-    const existing = await env.EMAIL_STORAGE.get(key, "text");
+    const repo = FeedRepository.from(env);
+    const existing = await repo.getIconText(domain);
     if (existing !== null) return; // present (incl. negative) → nothing to do
 
     const icon = await resolveIcon(domain);
@@ -104,9 +104,7 @@ export async function cacheFaviconForDomain(
         }
       : { data: null, contentType: "" };
 
-    await env.EMAIL_STORAGE.put(key, JSON.stringify(record), {
-      expirationTtl: ICON_TTL_SECONDS,
-    });
+    await repo.putIcon(domain, JSON.stringify(record), ICON_TTL_SECONDS);
   } catch (error) {
     logger.warn("Favicon cache failed", { domain, error: String(error) });
   }
@@ -119,10 +117,7 @@ export async function getCachedIcon(
   domain: string,
   env: Env,
 ): Promise<{ bytes: ArrayBuffer; contentType: string } | null> {
-  const record = (await env.EMAIL_STORAGE.get(
-    iconKey(domain),
-    "json",
-  )) as IconRecord | null;
+  const record = await FeedRepository.from(env).getIconJson<IconRecord>(domain);
   if (!record || record.data === null) return null;
   return {
     bytes: base64ToArrayBuffer(record.data),

@@ -6,8 +6,9 @@ import {
   extractEmailDomain,
   getCachedIcon,
 } from "./favicon-fetcher";
-import { iconKey } from "./storage";
 import { MAX_ICON_BYTES } from "../config/constants";
+
+const iconKey = (domain: string) => `icon:${domain}`;
 import type { Env } from "../types";
 
 const PNG = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 1, 2, 3, 4]);

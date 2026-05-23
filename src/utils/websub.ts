@@ -1,25 +1,13 @@
-import {
-  Env,
-  FeedConfig,
-  FeedMetadata,
-  EmailData,
-  WebSubSubscription,
-} from "../types";
+import { Env, FeedConfig, EmailData, WebSubSubscription } from "../types";
 import { generateRssFeed, generateAtomFeed } from "./feed-generator";
 import { baseUrl, feedRssUrl, feedAtomUrl, feedUrl } from "./urls";
-
-const KV_PREFIX = "websub:subs:";
-
-export function subscriptionKey(feedId: string): string {
-  return `${KV_PREFIX}${feedId}`;
-}
+import { FeedRepository } from "../domain/feed-repository";
 
 export async function getSubscriptions(
   feedId: string,
   env: Env,
 ): Promise<WebSubSubscription[]> {
-  const raw = await env.EMAIL_STORAGE.get(subscriptionKey(feedId), "json");
-  return (raw as WebSubSubscription[] | null) ?? [];
+  return FeedRepository.from(env).getSubscriptions(feedId);
 }
 
 export async function saveSubscriptions(
@@ -27,10 +15,7 @@ export async function saveSubscriptions(
   subscriptions: WebSubSubscription[],
   env: Env,
 ): Promise<void> {
-  await env.EMAIL_STORAGE.put(
-    subscriptionKey(feedId),
-    JSON.stringify(subscriptions),
-  );
+  await FeedRepository.from(env).saveSubscriptions(feedId, subscriptions);
 }
 
 export async function buildHmacSignature(
@@ -60,16 +45,16 @@ async function buildFeedXml(
   env: Env,
   format: "rss" | "atom" = "rss",
 ): Promise<string | null> {
-  const [rawMetadata, rawConfig] = await Promise.all([
-    env.EMAIL_STORAGE.get(`feed:${feedId}:metadata`, "json"),
-    env.EMAIL_STORAGE.get(`feed:${feedId}:config`, "json"),
+  const repo = FeedRepository.from(env);
+  const [feedMetadata, rawConfig] = await Promise.all([
+    repo.getMetadata(feedId),
+    repo.getConfig(feedId),
   ]);
 
-  const feedMetadata = rawMetadata as FeedMetadata | null;
   if (!feedMetadata) return null;
 
   const base = baseUrl(env);
-  const feedConfig = (rawConfig as FeedConfig | null) ?? {
+  const feedConfig: FeedConfig = rawConfig ?? {
     title: `Newsletter Feed ${feedId}`,
     description: "Converted email newsletter",
     language: "en",
@@ -78,12 +63,7 @@ async function buildFeedXml(
 
   const emails = feedMetadata.emails.slice(0, 20);
   const emailsData = (
-    await Promise.all(
-      emails.map(
-        (m) =>
-          env.EMAIL_STORAGE.get(m.key, "json") as Promise<EmailData | null>,
-      ),
-    )
+    await Promise.all(emails.map((m) => repo.getEmail(m.key)))
   ).filter((d): d is EmailData => d !== null);
 
   if (format === "atom") {

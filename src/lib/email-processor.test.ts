@@ -7,7 +7,8 @@ import {
   RawAttachment,
 } from "./email-processor";
 import { getCounters } from "../utils/stats";
-import { iconKey } from "../utils/storage";
+
+const iconKey = (domain: string) => `icon:${domain}`;
 
 const VALID_FEED_ID = "apple.mountain.42";
 const VALID_TO = `${VALID_FEED_ID}@test.getmynews.app`;

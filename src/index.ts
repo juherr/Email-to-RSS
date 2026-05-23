@@ -13,11 +13,8 @@ import { apiApp } from "./routes/api";
 import { handleCloudflareEmail } from "./lib/cloudflare-email";
 import { Env } from "./types";
 import { logger } from "./lib/logger";
-import {
-  listAllFeeds,
-  purgeExpiredFeeds,
-  removeFeedsFromListBulk,
-} from "./routes/admin/helpers";
+import { FeedRepository } from "./domain/feed-repository";
+import { purgeExpiredFeeds } from "./routes/admin/helpers";
 import {
   bumpCounters,
   scanR2Usage,
@@ -201,7 +198,8 @@ export default {
   },
   async scheduled(_event: ScheduledEvent, env: Env, _ctx: ExecutionContext) {
     const attachmentBucket = getAttachmentBucket(env);
-    const feeds = await listAllFeeds(env.EMAIL_STORAGE);
+    const repo = FeedRepository.from(env);
+    const feeds = await repo.listFeeds();
     const now = Date.now();
     const expiredIds = feeds
       .filter((f) => f.expires_at !== undefined && f.expires_at <= now)
@@ -211,7 +209,7 @@ export default {
       await purgeExpiredFeeds(env.EMAIL_STORAGE, feedId, attachmentBucket);
     }
     if (expiredIds.length > 0) {
-      await removeFeedsFromListBulk(env.EMAIL_STORAGE, expiredIds);
+      await repo.removeFromListBulk(expiredIds);
       await bumpCounters(env.EMAIL_STORAGE, {
         feeds_deleted: expiredIds.length,
       });

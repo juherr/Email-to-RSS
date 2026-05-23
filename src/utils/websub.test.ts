@@ -8,7 +8,6 @@ import {
   notifySubscribers,
   verifyAndStoreSubscription,
   verifyAndDeleteSubscription,
-  subscriptionKey,
 } from "./websub";
 import type { Env, WebSubSubscription } from "../types";
 
@@ -51,8 +50,12 @@ describe("getSubscriptions / saveSubscriptions", () => {
     expect(await getSubscriptions("feed1", env)).toEqual(subs);
   });
 
-  it("uses the correct KV key", () => {
-    expect(subscriptionKey("abc")).toBe("websub:subs:abc");
+  it("uses the correct KV key", async () => {
+    const env = mockEnv();
+    await saveSubscriptions("abc", [], env);
+    expect(
+      await env.EMAIL_STORAGE.get("websub:subs:abc", { type: "json" }),
+    ).toEqual([]);
   });
 });
 

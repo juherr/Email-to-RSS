@@ -1,8 +1,9 @@
 import { Context } from "hono";
 import { html, raw } from "hono/html";
-import { Env, FeedConfig, FeedMetadata, EmailData } from "../types";
+import { Env } from "../types";
 import { processEmailContent } from "../utils/html-processor";
 import { formatBytes } from "../utils/format";
+import { FeedRepository } from "../domain/feed-repository";
 
 export async function handle(c: Context<{ Bindings: Env }>): Promise<Response> {
   const feedId = c.req.param("feedId");
@@ -12,17 +13,11 @@ export async function handle(c: Context<{ Bindings: Env }>): Promise<Response> {
     return new Response("Not Found", { status: 404 });
   }
 
-  const emailStorage = c.env.EMAIL_STORAGE;
+  const repo = FeedRepository.from(c.env);
 
   const [feedMetadata, feedConfig] = await Promise.all([
-    emailStorage.get(
-      `feed:${feedId}:metadata`,
-      "json",
-    ) as Promise<FeedMetadata | null>,
-    emailStorage.get(
-      `feed:${feedId}:config`,
-      "json",
-    ) as Promise<FeedConfig | null>,
+    repo.getMetadata(feedId),
+    repo.getConfig(feedId),
   ]);
   if (!feedMetadata) {
     return new Response("Feed not found", { status: 404 });
@@ -41,10 +36,7 @@ export async function handle(c: Context<{ Bindings: Env }>): Promise<Response> {
     return new Response("Entry not found", { status: 404 });
   }
 
-  const emailData = (await emailStorage.get(
-    metaEntry.key,
-    "json",
-  )) as EmailData | null;
+  const emailData = await repo.getEmail(metaEntry.key);
   if (!emailData) {
     return new Response("Entry not found", { status: 404 });
   }

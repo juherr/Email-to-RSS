@@ -5,10 +5,8 @@ import { bumpCounters } from "../utils/stats";
 import { waitUntilSafe } from "../utils/worker";
 import { sendUnsubscribes } from "../utils/unsubscribe";
 import { getAttachmentBucket } from "../utils/attachments";
+import { FeedRepository } from "../domain/feed-repository";
 import {
-  addFeedToList,
-  updateFeedInList,
-  removeFeedFromList,
   purgeFeedKeysStep,
   collectUnsubscribeUrls,
 } from "../routes/admin/helpers";
@@ -49,7 +47,7 @@ export async function createFeedRecord(
   env: Env,
   input: CreateFeedInput,
 ): Promise<{ feedId: string; config: FeedConfig }> {
-  const emailStorage = env.EMAIL_STORAGE;
+  const repo = FeedRepository.from(env);
   const expiresAt = resolveExpiresAt(env, input.lifetimeHours);
   const feedId = generateFeedId();
 
@@ -67,19 +65,13 @@ export async function createFeedRecord(
   const metadata: FeedMetadata = { emails: [] };
 
   await Promise.all([
-    emailStorage.put(`feed:${feedId}:config`, JSON.stringify(config)),
-    emailStorage.put(`feed:${feedId}:metadata`, JSON.stringify(metadata)),
+    repo.putConfig(feedId, config),
+    repo.putMetadata(feedId, metadata),
   ]);
 
-  await addFeedToList(
-    emailStorage,
-    feedId,
-    input.title,
-    input.description,
-    expiresAt,
-  );
+  await repo.addToList(feedId, input.title, input.description, expiresAt);
 
-  await bumpCounters(emailStorage, {
+  await bumpCounters(env.EMAIL_STORAGE, {
     feeds_created: 1,
     last_feed_created_at: new Date().toISOString(),
   });
@@ -115,12 +107,9 @@ export async function updateFeedRecord(
   input: UpdateFeedInput,
   options: { inPlace?: boolean } = {},
 ): Promise<UpdateFeedResult> {
-  const emailStorage = env.EMAIL_STORAGE;
-  const feedConfigKey = `feed:${feedId}:config`;
+  const repo = FeedRepository.from(env);
 
-  const existing = (await emailStorage.get(feedConfigKey, {
-    type: "json",
-  })) as FeedConfig | null;
+  const existing = await repo.getConfig(feedId);
 
   if (!existing) return { status: "not_found" };
 
@@ -157,14 +146,8 @@ export async function updateFeedRecord(
     expires_at: expiresAt,
   };
 
-  await emailStorage.put(feedConfigKey, JSON.stringify(config));
-  await updateFeedInList(
-    emailStorage,
-    feedId,
-    config.title,
-    config.description,
-    expiresAt,
-  );
+  await repo.putConfig(feedId, config);
+  await repo.updateInList(feedId, config.title, config.description, expiresAt);
 
   return { status: "ok", config };
 }
@@ -184,22 +167,21 @@ export async function deleteFeedFastDetailed(
   emailStorage: KVNamespace,
   feedId: string,
 ): Promise<DeleteFeedFastResult> {
-  const feedConfigKey = `feed:${feedId}:config`;
-  const feedMetadataKey = `feed:${feedId}:metadata`;
+  const repo = new FeedRepository(emailStorage);
 
   const errors: string[] = [];
   let configDeleted = false;
   let metadataDeleted = false;
 
   try {
-    await emailStorage.delete(feedConfigKey);
+    await repo.deleteConfig(feedId);
     configDeleted = true;
   } catch (error) {
     errors.push(`config delete failed: ${String(error)}`);
   }
 
   try {
-    await emailStorage.delete(feedMetadataKey);
+    await repo.deleteMetadata(feedId);
     metadataDeleted = true;
   } catch (error) {
     errors.push(`metadata delete failed: ${String(error)}`);
@@ -220,12 +202,13 @@ export async function deleteFeedRecord(
   feedId: string,
 ): Promise<boolean> {
   const emailStorage = env.EMAIL_STORAGE;
+  const repo = new FeedRepository(emailStorage);
 
   // Read unsubscribe URLs before the metadata is deleted below.
   const unsubscribeUrls = await collectUnsubscribeUrls(emailStorage, feedId);
 
   await deleteFeedFastDetailed(emailStorage, feedId);
-  const removed = await removeFeedFromList(emailStorage, feedId);
+  const removed = await repo.removeFromList(feedId);
   if (removed) {
     await bumpCounters(emailStorage, { feeds_deleted: 1 });
   }
