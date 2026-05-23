@@ -1,10 +1,10 @@
 import { EmailData } from "../types";
+import { FeedId } from "../domain/value-objects/feed-id";
 
 export class EmailParser {
   // Matches noun1.noun2.XY (the feed ID format) before the @ symbol
   static extractFeedId(emailAddress: string): string | null {
-    const match = emailAddress.match(/^([a-z]+\.[a-z]+\.\d{2})@/i);
-    return match ? match[1] : null;
+    return FeedId.parse(emailAddress)?.value ?? null;
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

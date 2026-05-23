@@ -5,6 +5,7 @@ import {
   MAX_ICON_BYTES,
 } from "../config/constants";
 import { FeedRepository } from "../domain/feed-repository";
+import { EmailAddress } from "../domain/value-objects/email-address";
 import { logger } from "../lib/logger";
 
 interface IconRecord {
@@ -18,10 +19,7 @@ interface IconRecord {
  * no plausible address can be parsed.
  */
 export function extractEmailDomain(from: string): string | null {
-  const match = from.match(/[^\s<>@]+@([^\s<>@]+\.[^\s<>@]+)/);
-  if (!match) return null;
-  const domain = match[1].trim().toLowerCase().replace(/\.+$/, "");
-  return domain || null;
+  return EmailAddress.parse(from)?.domain.value ?? null;
 }
 
 function arrayBufferToBase64(buffer: ArrayBuffer): string {

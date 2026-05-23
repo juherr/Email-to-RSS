@@ -1,4 +1,6 @@
 import { Env, FeedConfig, FeedMetadata, EmailMetadata } from "../types";
+import { EmailAddress } from "./value-objects/email-address";
+import { Domain } from "./value-objects/domain";
 
 const HOUR_MS = 3_600_000;
 
@@ -41,29 +43,36 @@ function normalizeEmail(value: string): string {
 
 type SenderMatch = "blocked" | "allowed" | "neutral";
 
+function toDomains(entries: string[]): Domain[] {
+  return entries
+    .map((e) => Domain.parse(e))
+    .filter((d): d is Domain => d !== null);
+}
+
 function evaluateSender(
   sender: string,
   allowedSenders: string[],
   blockedSenders: string[],
 ): SenderMatch {
-  const normalized = normalizeEmail(sender);
-  const domain = normalized.split("@")[1] || "";
-
-  const normalizeDomain = (e: string) => (e.startsWith("@") ? e.slice(1) : e);
+  const parsed = EmailAddress.parse(sender);
+  const normalized = parsed ? parsed.normalized : normalizeEmail(sender);
+  const senderDomain = parsed?.domain ?? null;
 
   const exactBlocked = blockedSenders.filter((e) => e.includes("@"));
   const exactAllowed = allowedSenders.filter((e) => e.includes("@"));
-  const domainBlocked = blockedSenders
-    .filter((e) => !e.includes("@"))
-    .map(normalizeDomain);
-  const domainAllowed = allowedSenders
-    .filter((e) => !e.includes("@"))
-    .map(normalizeDomain);
+  const domainBlocked = toDomains(
+    blockedSenders.filter((e) => !e.includes("@")),
+  );
+  const domainAllowed = toDomains(
+    allowedSenders.filter((e) => !e.includes("@")),
+  );
 
   if (exactBlocked.includes(normalized)) return "blocked";
   if (exactAllowed.includes(normalized)) return "allowed";
-  if (domain && domainBlocked.includes(domain)) return "blocked";
-  if (domain && domainAllowed.includes(domain)) return "allowed";
+  if (senderDomain && domainBlocked.some((d) => d.matches(senderDomain)))
+    return "blocked";
+  if (senderDomain && domainAllowed.some((d) => d.matches(senderDomain)))
+    return "allowed";
   return "neutral";
 }
 

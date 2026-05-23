@@ -9,6 +9,7 @@ import {
 import { FeedRepository } from "../../domain/feed-repository";
 import { feedRssUrl, feedAtomUrl, feedEmailAddress } from "../../utils/urls";
 import { formatBytes } from "../../utils/format";
+import { EmailAddress } from "../../domain/value-objects/email-address";
 import { emailsPageScript } from "../../scripts/generated/emails-page";
 
 type AppEnv = { Bindings: Env };
@@ -71,19 +72,15 @@ const CopyField = ({ label, value, display }: CopyFieldProps) => (
   </div>
 );
 
-function extractSenderEmail(from: string): string {
-  const match = from.match(/<([^>]+@[^>]+)>/);
-  return match ? match[1].trim().toLowerCase() : from.trim().toLowerCase();
-}
-
 type SenderFieldProps = {
   from: string;
   feedId: string;
 };
 
 const SenderField = ({ from, feedId }: SenderFieldProps) => {
-  const senderEmail = extractSenderEmail(from);
-  const senderDomain = senderEmail.split("@")[1] || "";
+  const parsed = EmailAddress.parse(from);
+  const senderEmail = parsed?.normalized ?? from.trim().toLowerCase();
+  const senderDomain = parsed?.domain.value ?? "";
 
   return (
     <div class="copyable">
