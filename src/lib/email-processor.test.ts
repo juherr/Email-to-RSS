@@ -39,12 +39,12 @@ describe("processEmail", () => {
       makeInput({ toAddress: "invalid@domain.com" }),
       env as any,
     );
-    expect(res.status).toBe(400);
+    expect(res).toMatchObject({ ok: false, reason: "invalid_address" });
   });
 
   it("returns 404 when feed does not exist", async () => {
     const res = await processEmail(makeInput(), env as any);
-    expect(res.status).toBe(404);
+    expect(res).toMatchObject({ ok: false, reason: "feed_not_found" });
   });
 
   it("returns 403 when sender is not in allowlist", async () => {
@@ -56,7 +56,7 @@ describe("processEmail", () => {
       makeInput({ senders: ["other@example.com"] }),
       env as any,
     );
-    expect(res.status).toBe(403);
+    expect(res).toMatchObject({ ok: false, reason: "sender_blocked" });
   });
 
   it("returns 200 and stores email when sender is allowed by exact match", async () => {
@@ -65,7 +65,7 @@ describe("processEmail", () => {
       JSON.stringify({ allowed_senders: ["sender@example.com"] }),
     );
     const res = await processEmail(makeInput(), env as any);
-    expect(res.status).toBe(200);
+    expect(res.ok).toBe(true);
   });
 
   it("returns 200 and stores email when sender matches by domain", async () => {
@@ -77,7 +77,7 @@ describe("processEmail", () => {
       makeInput({ senders: ["anyone@example.com"] }),
       env as any,
     );
-    expect(res.status).toBe(200);
+    expect(res.ok).toBe(true);
   });
 
   it("returns 200 when no allowlist is set", async () => {
@@ -86,7 +86,7 @@ describe("processEmail", () => {
       JSON.stringify({ allowed_senders: [] }),
     );
     const res = await processEmail(makeInput(), env as any);
-    expect(res.status).toBe(200);
+    expect(res.ok).toBe(true);
   });
 
   it("returns 403 when sender is in blocklist by exact address", async () => {
@@ -95,7 +95,7 @@ describe("processEmail", () => {
       JSON.stringify({ blocked_senders: ["sender@example.com"] }),
     );
     const res = await processEmail(makeInput(), env as any);
-    expect(res.status).toBe(403);
+    expect(res).toMatchObject({ ok: false, reason: "sender_blocked" });
   });
 
   it("returns 403 when sender is in blocklist by domain", async () => {
@@ -104,7 +104,7 @@ describe("processEmail", () => {
       JSON.stringify({ blocked_senders: ["example.com"] }),
     );
     const res = await processEmail(makeInput(), env as any);
-    expect(res.status).toBe(403);
+    expect(res).toMatchObject({ ok: false, reason: "sender_blocked" });
   });
 
   it("returns 200 when sender is not in blocklist", async () => {
@@ -113,7 +113,7 @@ describe("processEmail", () => {
       JSON.stringify({ blocked_senders: ["other@example.com"] }),
     );
     const res = await processEmail(makeInput(), env as any);
-    expect(res.status).toBe(200);
+    expect(res.ok).toBe(true);
   });
 
   it("exact block takes precedence over domain allow", async () => {
@@ -125,7 +125,7 @@ describe("processEmail", () => {
       }),
     );
     const res = await processEmail(makeInput(), env as any);
-    expect(res.status).toBe(403);
+    expect(res).toMatchObject({ ok: false, reason: "sender_blocked" });
   });
 
   it("exact allow overrides domain block (exception use case)", async () => {
@@ -137,7 +137,7 @@ describe("processEmail", () => {
       }),
     );
     const res = await processEmail(makeInput(), env as any);
-    expect(res.status).toBe(200);
+    expect(res.ok).toBe(true);
   });
 
   it("exact block takes precedence over exact allow", async () => {
@@ -149,7 +149,7 @@ describe("processEmail", () => {
       }),
     );
     const res = await processEmail(makeInput(), env as any);
-    expect(res.status).toBe(403);
+    expect(res).toMatchObject({ ok: false, reason: "sender_blocked" });
   });
 
   it("stores email data and updates metadata in KV", async () => {
@@ -250,7 +250,7 @@ describe("processEmail", () => {
       makeInput({ subject: "New" }),
       tinyEnv as any,
     );
-    expect(res.status).toBe(200);
+    expect(res.ok).toBe(true);
 
     const metadata = await env.EMAIL_STORAGE.get(
       `feed:${VALID_FEED_ID}:metadata`,
@@ -305,7 +305,7 @@ describe("processEmail", () => {
 
     const res = await processEmail(makeInput(), env as any, ctx);
 
-    expect(res.status).toBe(200);
+    expect(res.ok).toBe(true);
     expect(waitUntilCalled).toBe(true);
   });
 
@@ -326,7 +326,7 @@ describe("processEmail", () => {
       ctx,
     );
 
-    expect(res.status).toBe(404);
+    expect(res).toMatchObject({ ok: false, reason: "feed_not_found" });
     expect(waitUntilCalled).toBe(false);
   });
 });
@@ -351,7 +351,7 @@ describe("processEmail — attachments", () => {
       makeInput({ attachments: [pdfAttachment] }),
       env as any,
     );
-    expect(res.status).toBe(200);
+    expect(res.ok).toBe(true);
 
     const metadata = await env.EMAIL_STORAGE.get(
       `feed:${VALID_FEED_ID}:metadata`,
@@ -376,7 +376,7 @@ describe("processEmail — attachments", () => {
       makeInput({ attachments: [pdfAttachment] }),
       env as any,
     );
-    expect(res.status).toBe(200);
+    expect(res.ok).toBe(true);
 
     const metadata = await env.EMAIL_STORAGE.get(
       `feed:${VALID_FEED_ID}:metadata`,
@@ -401,7 +401,7 @@ describe("processEmail — attachments", () => {
       makeInput({ attachments: [pdfAttachment] }),
       env as any,
     );
-    expect(res.status).toBe(200);
+    expect(res.ok).toBe(true);
 
     const metadata = await env.EMAIL_STORAGE.get(
       `feed:${VALID_FEED_ID}:metadata`,
@@ -490,7 +490,7 @@ describe("processEmail — attachments", () => {
       makeInput({ subject: "New" }),
       tinyEnv as any,
     );
-    expect(res.status).toBe(200);
+    expect(res.ok).toBe(true);
 
     // Old attachment should be deleted from R2
     expect(mockR2._has(oldAttachmentId)).toBe(false);

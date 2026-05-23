@@ -2,6 +2,7 @@ import PostalMime from "postal-mime";
 import { Env } from "../types";
 import { processEmail, RawAttachment } from "./email-processor";
 import { normalizeCid } from "../utils/html-processor";
+import { logger } from "./logger";
 
 export async function handleCloudflareEmail(
   message: ForwardableEmailMessage,
@@ -31,7 +32,7 @@ export async function handleCloudflareEmail(
         contentId: normalizeCid(a.contentId),
       }));
 
-    await processEmail(
+    const result = await processEmail(
       {
         toAddress: message.to,
         from,
@@ -45,6 +46,12 @@ export async function handleCloudflareEmail(
       env,
       ctx,
     );
+    if (!result.ok) {
+      logger.warn("Inbound email rejected", {
+        to: message.to,
+        reason: result.reason,
+      });
+    }
   } catch (error) {
     console.error("Error processing Cloudflare email:", error);
   }

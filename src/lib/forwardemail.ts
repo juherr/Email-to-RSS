@@ -1,7 +1,24 @@
 import { EmailParser } from "../utils/email-parser";
 import { Env } from "../types";
-import { processEmail, RawAttachment } from "./email-processor";
+import { processEmail, IngestResult, RawAttachment } from "./email-processor";
 import { normalizeCid } from "../utils/html-processor";
+
+/** Map an ingestion result to the HTTP response ForwardEmail expects. */
+export function ingestResultToResponse(result: IngestResult): Response {
+  if (result.ok) {
+    return new Response("Email processed successfully", { status: 200 });
+  }
+  switch (result.reason) {
+    case "invalid_address":
+      return new Response("Invalid email address format", { status: 400 });
+    case "feed_not_found":
+      return new Response("Feed does not exist", { status: 404 });
+    case "feed_expired":
+      return new Response("Feed has expired", { status: 410 });
+    case "sender_blocked":
+      return new Response("Sender not allowed for this feed", { status: 403 });
+  }
+}
 
 export interface ForwardEmailAttachment {
   filename?: string;
@@ -88,7 +105,7 @@ export async function handleForwardEmail(
     })
     .filter((a): a is RawAttachment => a !== null);
 
-  return processEmail(
+  const result = await processEmail(
     {
       toAddress: payload.recipients?.[0] || "",
       from: emailData.from,
@@ -102,4 +119,5 @@ export async function handleForwardEmail(
     env,
     ctx,
   );
+  return ingestResultToResponse(result);
 }

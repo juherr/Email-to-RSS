@@ -1,5 +1,5 @@
 import { EmailParser } from "../utils/email-parser";
-import { AttachmentData, EmailMetadata, Env, FeedConfig } from "../types";
+import { AttachmentData, EmailMetadata, Env } from "../types";
 import { notifySubscribers } from "../utils/websub";
 import { bumpCounters } from "../utils/stats";
 import {
@@ -31,9 +31,20 @@ export interface ProcessEmailInput {
   attachments?: RawAttachment[];
 }
 
-type ValidationSuccess = { ok: true; feedId: string; feedConfig: FeedConfig };
-type ValidationFailure = { ok: false; response: Response };
-type ValidationResult = ValidationSuccess | ValidationFailure;
+export type IngestRejectionReason =
+  | "invalid_address"
+  | "feed_not_found"
+  | "feed_expired"
+  | "sender_blocked";
+
+/**
+ * Outcome of ingesting an email — a domain result, not an HTTP concern. The edge
+ * (forwardemail.ts) maps this to a status code; the Cloudflare email handler
+ * logs the reason. Keeping HTTP out of the core keeps ingestion transport-agnostic.
+ */
+export type IngestResult =
+  | { ok: true; feedId: string }
+  | { ok: false; reason: IngestRejectionReason };
 
 async function uploadAttachments(
   attachments: RawAttachment[],
@@ -62,32 +73,23 @@ async function uploadAttachments(
 export async function validateEmail(
   input: ProcessEmailInput,
   env: Env,
-): Promise<ValidationResult> {
+): Promise<IngestResult> {
   const feedId = EmailParser.extractFeedId(input.toAddress);
   if (!feedId) {
     logger.error("Invalid email address format", {
       toAddress: input.toAddress,
     });
-    return {
-      ok: false,
-      response: new Response("Invalid email address format", { status: 400 }),
-    };
+    return { ok: false, reason: "invalid_address" };
   }
 
   const feedConfig = await FeedRepository.from(env).getConfig(feedId);
   if (!feedConfig) {
     logger.error("Feed not found", { feedId });
-    return {
-      ok: false,
-      response: new Response("Feed does not exist", { status: 404 }),
-    };
+    return { ok: false, reason: "feed_not_found" };
   }
   if (isExpired(feedConfig)) {
     logger.warn("Rejected email: feed expired", { feedId });
-    return {
-      ok: false,
-      response: new Response("Feed has expired", { status: 410 }),
-    };
+    return { ok: false, reason: "feed_expired" };
   }
 
   if (applySenderPolicy(feedConfig, input.senders) === "blocked") {
@@ -97,15 +99,10 @@ export async function validateEmail(
       allowedSenders: feedConfig.allowed_senders,
       blockedSenders: feedConfig.blocked_senders,
     });
-    return {
-      ok: false,
-      response: new Response("Sender not allowed for this feed", {
-        status: 403,
-      }),
-    };
+    return { ok: false, reason: "sender_blocked" };
   }
 
-  return { ok: true, feedId, feedConfig };
+  return { ok: true, feedId };
 }
 
 export async function storeEmail(
@@ -208,11 +205,11 @@ export async function processEmail(
   input: ProcessEmailInput,
   env: Env,
   ctx?: ExecutionContext,
-): Promise<Response> {
+): Promise<IngestResult> {
   const validation = await validateEmail(input, env);
   if (!validation.ok) {
     await bumpCounters(env.EMAIL_STORAGE, { emails_rejected: 1 });
-    return validation.response;
+    return validation;
   }
 
   await storeEmail(validation.feedId, input, env, ctx);
@@ -220,5 +217,5 @@ export async function processEmail(
     emails_received: 1,
     last_email_at: new Date().toISOString(),
   });
-  return new Response("Email processed successfully", { status: 200 });
+  return validation;
 }

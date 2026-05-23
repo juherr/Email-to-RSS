@@ -135,6 +135,15 @@ describe("POST /api/inbound — handler logic", () => {
     expect(res.status).toBe(403);
   });
 
+  it("returns 410 when the feed has expired", async () => {
+    await env.EMAIL_STORAGE.put(
+      `feed:${VALID_FEED_ID}:config`,
+      JSON.stringify({ expires_at: Date.now() - 1000 }),
+    );
+    const res = await worker.fetch(makeRequest(makePayload()), env);
+    expect(res.status).toBe(410);
+  });
+
   it("returns 200 when sender matches allowlist by exact address", async () => {
     await env.EMAIL_STORAGE.put(
       `feed:${VALID_FEED_ID}:config`,
