@@ -12,11 +12,11 @@ function req(path: string, init: RequestInit = {}): Request {
 describe("CORS middleware", () => {
   it("adds CORS headers for an allowed origin", async () => {
     const res = await worker.fetch(
-      req("/rss/some-feed", { headers: { Origin: "https://getmynews.app" } }),
+      req("/rss/some-feed", { headers: { Origin: "https://kill-the.news" } }),
       env as unknown as Env,
     );
     expect(res.headers.get("Access-Control-Allow-Origin")).toBe(
-      "https://getmynews.app",
+      "https://kill-the.news",
     );
   });
 
@@ -33,7 +33,7 @@ describe("CORS middleware", () => {
       req("/rss/some-feed", {
         method: "OPTIONS",
         headers: {
-          Origin: "https://getmynews.app",
+          Origin: "https://kill-the.news",
           "Access-Control-Request-Method": "GET",
         },
       }),
@@ -41,7 +41,16 @@ describe("CORS middleware", () => {
     );
     expect(res.status).toBe(204);
     expect(res.headers.get("Access-Control-Allow-Origin")).toBe(
-      "https://getmynews.app",
+      "https://kill-the.news",
     );
+  });
+
+  it("makes /api/stats readable from any origin", async () => {
+    const res = await worker.fetch(
+      req("/api/stats", { headers: { Origin: "https://example.com" } }),
+      env as unknown as Env,
+    );
+    expect(res.status).toBe(200);
+    expect(res.headers.get("Access-Control-Allow-Origin")).toBe("*");
   });
 });

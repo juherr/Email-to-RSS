@@ -446,6 +446,35 @@
       .demo-note { text-align: left; }
     }
 
+    /* ── Live stats ── */
+    .stats-section { padding: 4rem 2rem; }
+    .stats-inner { max-width: 1100px; margin: 0 auto; text-align: center; }
+    .stats-live {
+      display: inline-flex; align-items: center; gap: 0.5rem;
+      font-size: 0.78rem; color: var(--muted);
+      text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 2rem;
+    }
+    .stats-dot {
+      width: 8px; height: 8px; border-radius: 50%; background: var(--accent);
+      animation: stats-pulse 2s infinite;
+    }
+    @keyframes stats-pulse {
+      0%   { box-shadow: 0 0 0 0 rgba(246,130,31,0.5); }
+      70%  { box-shadow: 0 0 0 8px rgba(246,130,31,0); }
+      100% { box-shadow: 0 0 0 0 rgba(246,130,31,0); }
+    }
+    .stats-grid {
+      display: grid; grid-template-columns: repeat(2, 1fr);
+      gap: 2rem; max-width: 600px; margin: 0 auto;
+    }
+    .stat-num {
+      font-size: clamp(2.5rem, 6vw, 4rem); font-weight: 700;
+      color: var(--accent); letter-spacing: -0.03em;
+      font-variant-numeric: tabular-nums; line-height: 1;
+    }
+    .stat-label { font-size: 0.9rem; color: var(--muted); margin-top: 0.6rem; }
+    @media (max-width: 600px) { .stats-grid { gap: 1.5rem; } }
+
     /* ── Nav links ── */
     nav-links {
       display: flex;
@@ -660,6 +689,23 @@
     </div>
   </div>
 </div>
+
+<!-- Live stats (demo instance) -->
+<section id="stats" class="stats-section" hidden>
+  <div class="stats-inner">
+    <div class="stats-live"><span class="stats-dot"></span> Live from the demo instance</div>
+    <div class="stats-grid">
+      <div class="stat">
+        <div class="stat-num" data-stat="feeds_created">0</div>
+        <div class="stat-label">Feeds created</div>
+      </div>
+      <div class="stat">
+        <div class="stat-num" data-stat="emails_received">0</div>
+        <div class="stat-label">Emails received</div>
+      </div>
+    </div>
+  </div>
+</section>
 
 <!-- Features -->
 <section id="features">
@@ -1063,6 +1109,42 @@ bucket_name = "kill-the-news-attachments"</span></pre>
     <a href="https://github.com/sponsors/juherr" target="_blank" rel="noopener">♥ Sponsor</a>
   </p>
 </footer>
+
+<script>
+(async function () {
+  const section = document.getElementById('stats');
+  let data;
+  try {
+    const res = await fetch('https://demo.kill-the.news/api/stats', { cache: 'no-store' });
+    if (!res.ok) return;            // section stays hidden
+    data = await res.json();
+  } catch { return; }
+
+  const nums = section.querySelectorAll('.stat-num');
+  nums.forEach(el => { el.dataset.value = data[el.dataset.stat] ?? 0; });
+  section.hidden = false;
+
+  const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const fmt = n => n.toLocaleString('en-US');
+  const ease = t => 1 - Math.pow(1 - t, 3);
+
+  function animate(el) {
+    const target = Number(el.dataset.value) || 0;
+    if (reduce || target === 0) { el.textContent = fmt(target); return; }
+    const dur = 1400, start = performance.now();
+    (function step(now) {
+      const t = Math.min((now - start) / dur, 1);
+      el.textContent = fmt(Math.round(ease(t) * target));
+      if (t < 1) requestAnimationFrame(step);
+    })(performance.now());
+  }
+
+  const io = new IntersectionObserver((entries) => {
+    entries.forEach(e => { if (e.isIntersecting) { animate(e.target); io.unobserve(e.target); } });
+  }, { threshold: 0.4 });
+  nums.forEach(el => io.observe(el));
+})();
+</script>
 
 </body>
 </html>
