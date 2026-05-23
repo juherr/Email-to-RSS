@@ -9,14 +9,14 @@ import {
   WebSubSubscription,
 } from "../types";
 import { FEEDS_LIST_KEY, STATS_KEY } from "../config/constants";
+import { feedKeys } from "./feed-keys";
 import { logger } from "../lib/logger";
 
-const WEBSUB_PREFIX = "websub:subs:";
-
 /**
- * Single source of truth for the KV key schema and all KV access. No other
- * module should build a `feed:`/`feeds:list`/`websub:`/`icon:`/`stats:counters`
- * key string — go through a repository method instead.
+ * Single source of truth for KV access to the Feed aggregate. The key schema
+ * itself lives in `feed-keys.ts`; this repository owns the get/put operations.
+ * No other module should build a `feed:`/`feeds:list`/`websub:`/`icon:`/
+ * `stats:counters` key string — go through `feed-keys` or a repository method.
  *
  * Wraps one `KVNamespace`; construct per request via `FeedRepository.from(env)`.
  */
@@ -27,44 +27,43 @@ export class FeedRepository {
     return new FeedRepository(env.EMAIL_STORAGE);
   }
 
-  // ── Key schema ────────────────────────────────────────────────────────────
+  // ── Key schema (delegates to feed-keys) ───────────────────────────────────
 
   private configKey(feedId: string): string {
-    return `feed:${feedId}:config`;
+    return feedKeys.config(feedId);
   }
 
   private metadataKey(feedId: string): string {
-    return `feed:${feedId}:metadata`;
+    return feedKeys.metadata(feedId);
   }
 
   /** KV key for a domain's cached favicon (shared across feeds). */
   iconKey(domain: string): string {
-    return `icon:${domain}`;
+    return feedKeys.icon(domain);
   }
 
   private websubKey(feedId: string): string {
-    return `${WEBSUB_PREFIX}${feedId}`;
+    return feedKeys.websub(feedId);
   }
 
   /** Prefix covering every key owned by a feed (config, metadata, emails). */
   feedKeyPrefix(feedId: string): string {
-    return `feed:${feedId}:`;
+    return feedKeys.feedPrefix(feedId);
   }
 
   /** Mint a fresh, time-ordered email key. Call once and reuse the result. */
   newEmailKey(feedId: string): string {
-    return `feed:${feedId}:${Date.now()}`;
+    return feedKeys.newEmail(feedId);
   }
 
   /** True when `key` is an email entry (not the feed's config/metadata key). */
   isEmailKey(feedId: string, key: string): boolean {
-    const suffix = key.slice(this.feedKeyPrefix(feedId).length);
-    return suffix !== "config" && suffix !== "metadata";
+    return feedKeys.isEmail(feedId, key);
   }
 
   /** Recover the feed id embedded in an email key (`feed:<id>:<ts>`). */
   feedIdFromEmailKey(key: string): string {
-    return key.split(":")[1];
+    return feedKeys.feedIdFromEmail(key);
   }
 
   // ── Feed config ───────────────────────────────────────────────────────────
