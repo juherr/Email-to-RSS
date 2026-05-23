@@ -13,7 +13,15 @@ function makeApp() {
   return app;
 }
 
-async function seedFeed(env: ReturnType<typeof createMockEnv>) {
+async function seedFeed(
+  env: ReturnType<typeof createMockEnv>,
+  attachments?: {
+    id: string;
+    filename: string;
+    contentType: string;
+    size: number;
+  }[],
+) {
   await env.EMAIL_STORAGE.put(
     EMAIL_KEY,
     JSON.stringify({
@@ -22,6 +30,7 @@ async function seedFeed(env: ReturnType<typeof createMockEnv>) {
       content: "<p>Email body</p>",
       receivedAt: RECEIVED_AT,
       headers: {},
+      ...(attachments ? { attachments } : {}),
     }),
   );
   await env.EMAIL_STORAGE.put(
@@ -95,6 +104,34 @@ describe("GET /entries/:feedId/:entryId", () => {
     const res = await app.request(`/${FEED_ID}/${RECEIVED_AT}`, {}, env as any);
     const body = await res.text();
     expect(body).toContain("sender@example.com");
+  });
+
+  it("lists attachments with download links when present", async () => {
+    await seedFeed(env, [
+      {
+        id: "att-123",
+        filename: "report final.pdf",
+        contentType: "application/pdf",
+        size: 2048,
+      },
+    ]);
+    const app = makeApp();
+    const res = await app.request(`/${FEED_ID}/${RECEIVED_AT}`, {}, env as any);
+    const body = await res.text();
+    expect(body).toContain("Attachments");
+    expect(body).toContain("report final.pdf");
+    expect(body).toContain(
+      `/files/att-123/${encodeURIComponent("report final.pdf")}`,
+    );
+    expect(body).toContain("2.0 KB");
+  });
+
+  it("does not render an attachments section when there are none", async () => {
+    await seedFeed(env);
+    const app = makeApp();
+    const res = await app.request(`/${FEED_ID}/${RECEIVED_AT}`, {}, env as any);
+    const body = await res.text();
+    expect(body).not.toContain("Attachments");
   });
 
   it("sets Content-Security-Policy header", async () => {

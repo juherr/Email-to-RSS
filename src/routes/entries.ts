@@ -3,6 +3,12 @@ import { html, raw } from "hono/html";
 import { Env, FeedConfig, FeedMetadata, EmailData } from "../types";
 import { processEmailContent } from "../utils/html-processor";
 
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
 export async function handle(c: Context<{ Bindings: Env }>): Promise<Response> {
   const feedId = c.req.param("feedId");
   const receivedAt = parseInt(c.req.param("entryId") ?? "", 10);
@@ -53,6 +59,26 @@ export async function handle(c: Context<{ Bindings: Env }>): Promise<Response> {
     "default-src 'none'; style-src 'unsafe-inline'; img-src *; frame-src 'none'",
   );
 
+  const attachments = emailData.attachments ?? [];
+  const attachmentsSection = attachments.length
+    ? html`<section class="attachments">
+        <h2>Attachments</h2>
+        <ul>
+          ${attachments.map(
+            (a) =>
+              html`<li>
+                <a
+                  href="/files/${a.id}/${encodeURIComponent(a.filename)}"
+                  download
+                  >${a.filename}</a
+                >
+                <span class="size">${formatBytes(a.size)}</span>
+              </li>`,
+          )}
+        </ul>
+      </section>`
+    : "";
+
   return c.html(
     html`<!DOCTYPE html>
       <html>
@@ -86,6 +112,28 @@ export async function handle(c: Context<{ Bindings: Env }>): Promise<Response> {
               display: inline;
               margin: 0 1rem 0 0.25rem;
             }
+            .attachments {
+              margin-top: 2rem;
+              border-top: 1px solid #eee;
+              padding-top: 1rem;
+            }
+            .attachments h2 {
+              font-size: 1rem;
+              margin: 0 0 0.5rem;
+            }
+            .attachments ul {
+              list-style: none;
+              padding: 0;
+              margin: 0;
+            }
+            .attachments li {
+              margin: 0.25rem 0;
+            }
+            .attachments .size {
+              color: #666;
+              font-size: 0.875rem;
+              margin-left: 0.5rem;
+            }
           </style>
         </head>
         <body>
@@ -99,6 +147,7 @@ export async function handle(c: Context<{ Bindings: Env }>): Promise<Response> {
           <div class="content">
             ${raw(processEmailContent(emailData.content))}
           </div>
+          ${attachmentsSection}
         </body>
       </html>`,
   );
