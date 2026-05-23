@@ -157,6 +157,30 @@ npm test
 npm run build
 ```
 
+## Continuous deployment (GitHub Actions)
+
+The repo ships a [`Deploy Demo`](.github/workflows/demo.yml) workflow that generates `wrangler.toml` from `wrangler-example.toml` and runs `wrangler deploy --env demo` after CI passes on `main`. To wire up your own automated deploys, set these repository secrets (_Settings → Secrets and variables → Actions_):
+
+| Secret                  | Purpose                                                             |
+| ----------------------- | ------------------------------------------------------------------- |
+| `CLOUDFLARE_API_TOKEN`  | Scoped API token used by Wrangler to deploy (see permissions below) |
+| `CLOUDFLARE_ACCOUNT_ID` | Target Cloudflare account ID                                        |
+| `DEMO_KV_NAMESPACE_ID`  | KV namespace ID substituted into the generated `wrangler.toml`      |
+| `DEMO_ADMIN_PASSWORD`   | Admin password set via `wrangler secret put`                        |
+
+### Deploy token permissions
+
+Local `npx wrangler login` uses OAuth and already has every permission, so the gaps below only bite **scoped API tokens** (i.e. CI). Create the token at <https://dash.cloudflare.com/profile/api-tokens> — the **"Edit Cloudflare Workers"** template is the easiest base — and make sure it carries the permissions matching the bindings you actually deploy:
+
+| Permission                                        | Needed for                                                                 |
+| ------------------------------------------------- | -------------------------------------------------------------------------- |
+| Account · **Workers Scripts** · Edit              | Deploying the Worker and running `wrangler secret put`                     |
+| Account · **Workers KV Storage** · Edit           | The `EMAIL_STORAGE` KV binding                                             |
+| Account · **Workers R2 Storage** · Edit           | The `ATTACHMENT_BUCKET` R2 binding (only when attachments are enabled)     |
+| Zone · **Workers Routes** · Edit + **DNS** · Edit | The `custom_domain` routes (e.g. `demo.kill-the.news`), scoped to its zone |
+
+Scope the token to the relevant **account** and, for custom domains, the relevant **zone**. A missing R2 permission fails with `Authentication error [code: 10000]` on `/r2/buckets/...`; a missing routes/DNS permission fails while provisioning the custom domain. The `User Details`/`Memberships` warnings Wrangler prints are only for `whoami` display and are not fatal.
+
 ## Configuration notes
 
 - `wrangler-example.toml` is the template; `wrangler.toml` is generated locally.
@@ -199,7 +223,7 @@ This feature is **optional**. If no R2 bucket is bound, attachments are silently
    npm run deploy
    ```
 
-> **Deploy token permission:** with an R2 binding, `wrangler deploy` verifies the bucket exists, so the deploy credentials need **Account → Workers R2 Storage** (Read or Edit) on top of the usual Workers Scripts permission. Local `npx wrangler login` already grants this; a **scoped API token** (e.g. the `CLOUDFLARE_API_TOKEN` used in GitHub Actions) does not by default — add the R2 permission at <https://dash.cloudflare.com/profile/api-tokens>, otherwise the deploy fails with `Authentication error [code: 10000]` on `/r2/buckets/...`.
+> **Deploy token permission:** with an R2 binding, `wrangler deploy` verifies the bucket exists, so a scoped CI token also needs **Account → Workers R2 Storage** — see [Continuous deployment](#continuous-deployment-github-actions). Local `npx wrangler login` already has it.
 
 **Turning it off:** set `ATTACHMENTS_ENABLED = "false"` in `[vars]` to disable attachments even while the R2 bucket stays bound (useful to cap usage on a demo). Any other value (or leaving it unset) keeps the feature on whenever R2 is configured.
 
