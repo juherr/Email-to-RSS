@@ -8,9 +8,11 @@ import {
 } from "../../types";
 import { logger } from "../../lib/logger";
 import { Layout, clampText } from "./ui";
-import { deleteKeysWithConcurrency } from "./helpers";
+import {
+  deleteAttachmentsForEmails,
+  deleteKeysWithConcurrency,
+} from "./helpers";
 import { feedRssUrl, feedAtomUrl, feedEmailAddress } from "../../utils/urls";
-import { getAttachmentBucket } from "../../utils/attachments";
 import { emailsPageScript } from "../../scripts/generated/emails-page";
 
 type AppEnv = { Bindings: Env };
@@ -632,23 +634,17 @@ emailsRouter.post("/emails/:emailKey/delete", async (c) => {
     const feedMetadata = (await emailStorage.get(feedMetadataKey, {
       type: "json",
     })) as FeedMetadata | null;
-    const attachmentIds =
-      feedMetadata?.emails.find((e) => e.key === emailKey)?.attachmentIds ?? [];
 
     await emailStorage.delete(emailKey);
+    await deleteAttachmentsForEmails(env, feedMetadata?.emails ?? [], [
+      emailKey,
+    ]);
 
     if (feedMetadata) {
       feedMetadata.emails = feedMetadata.emails.filter(
         (email) => email.key !== emailKey,
       );
       await emailStorage.put(feedMetadataKey, JSON.stringify(feedMetadata));
-    }
-
-    const attachmentBucket = getAttachmentBucket(env);
-    if (attachmentBucket && attachmentIds.length > 0) {
-      await Promise.allSettled(
-        attachmentIds.map((id) => attachmentBucket.delete(id)),
-      );
     }
 
     if (wantsJson) return c.json({ ok: true, emailKey, feedId });
@@ -714,26 +710,16 @@ emailsRouter.post("/feeds/:feedId/emails/bulk-delete", async (c) => {
       }
 
       const candidates = emailKeys.filter((key) => allowedKeys.has(key));
-      const candidateSet = new Set(candidates);
-      const r2AttachmentIds = feedMetadata.emails
-        .filter((e) => candidateSet.has(e.key))
-        .flatMap((e) => e.attachmentIds ?? []);
 
       const { ok: deletedOk, failed: failedEmailKeys } =
         await deleteKeysWithConcurrency(emailStorage, candidates, 35);
+      await deleteAttachmentsForEmails(env, feedMetadata.emails, candidates);
 
       const deletedSet = new Set(deletedOk);
       feedMetadata.emails = feedMetadata.emails.filter(
         (email) => !deletedSet.has(email.key),
       );
       await emailStorage.put(feedMetadataKey, JSON.stringify(feedMetadata));
-
-      const attachmentBucket = getAttachmentBucket(env);
-      if (attachmentBucket && r2AttachmentIds.length > 0) {
-        await Promise.allSettled(
-          r2AttachmentIds.map((id) => attachmentBucket.delete(id)),
-        );
-      }
 
       return c.json({
         ok: failedEmailKeys.length === 0,
@@ -752,11 +738,13 @@ emailsRouter.post("/feeds/:feedId/emails/bulk-delete", async (c) => {
       return c.redirect(`/admin/feeds/${feedId}/emails?message=bulkDeleteNoop`);
 
     const candidates = emailKeys.filter((key) => allowedKeys.has(key));
+
     const { ok: deletedOk } = await deleteKeysWithConcurrency(
       emailStorage,
       candidates,
       35,
     );
+    await deleteAttachmentsForEmails(env, feedMetadata.emails, candidates);
 
     const deletedSet = new Set(deletedOk);
     feedMetadata.emails = feedMetadata.emails.filter(

@@ -728,6 +728,79 @@ describe("Admin Routes", () => {
           .length;
         expect(indicatorCount).toBe(1);
       });
+
+      it("form-based bulk-delete also removes R2 attachments", async () => {
+        const r2Env = createMockEnv({ withR2: true }) as unknown as Env;
+        const bucket = r2Env.ATTACHMENT_BUCKET as unknown as {
+          put: (k: string, v: string) => Promise<void>;
+          _has: (k: string) => boolean;
+        };
+        await bucket.put("att-1", "data1");
+        await bucket.put("att-2", "data2");
+
+        const loginForm = new FormData();
+        loginForm.append("password", "test-password");
+        const loginRes = await testApp.request(
+          "/admin/login",
+          { method: "POST", body: loginForm },
+          r2Env,
+        );
+        const authCookie = (loginRes.headers.get("Set-Cookie") as string).split(
+          ";",
+        )[0];
+
+        const feedId = "bulk-r2-feed";
+        await r2Env.EMAIL_STORAGE.put(
+          "feeds:list",
+          JSON.stringify({ feeds: [{ id: feedId, title: "F" }] }),
+        );
+        const emailKey = `feed:${feedId}:1`;
+        await r2Env.EMAIL_STORAGE.put(
+          emailKey,
+          JSON.stringify({
+            subject: "x",
+            from: "a@b.c",
+            content: "<p>x</p>",
+            receivedAt: 1,
+            headers: {},
+            attachments: [{ id: "att-1" }, { id: "att-2" }],
+          }),
+        );
+        await r2Env.EMAIL_STORAGE.put(
+          `feed:${feedId}:metadata`,
+          JSON.stringify({
+            emails: [
+              {
+                key: emailKey,
+                subject: "x",
+                receivedAt: 1,
+                attachmentIds: ["att-1", "att-2"],
+              },
+            ],
+          }),
+        );
+
+        const form = new FormData();
+        form.append("emailKeys", emailKey);
+        const res = await testApp.request(
+          `/admin/feeds/${feedId}/emails/bulk-delete`,
+          {
+            method: "POST",
+            headers: {
+              Cookie: authCookie,
+              Origin: "https://test.getmynews.app",
+            },
+            body: form,
+          },
+          r2Env,
+        );
+
+        expect(res.status).toBe(302);
+        expect(res.headers.get("Location")).toContain("bulkDeleted");
+        expect(await r2Env.EMAIL_STORAGE.get(emailKey, "json")).toBeNull();
+        expect(bucket._has("att-1")).toBe(false);
+        expect(bucket._has("att-2")).toBe(false);
+      });
     });
   });
 

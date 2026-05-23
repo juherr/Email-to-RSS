@@ -1,6 +1,34 @@
-import { EmailData, FeedList, FeedListItem, FeedMetadata } from "../../types";
+import {
+  EmailData,
+  EmailMetadata,
+  Env,
+  FeedList,
+  FeedListItem,
+  FeedMetadata,
+} from "../../types";
 import { FEEDS_LIST_KEY } from "../../config/constants";
 import { logger } from "../../lib/logger";
+import { getAttachmentBucket } from "../../utils/attachments";
+
+// Delete the R2 attachments belonging to the given email keys. Call before the
+// emails are removed from feed metadata, while `emails` still carries their
+// attachmentIds.
+export async function deleteAttachmentsForEmails(
+  env: Env,
+  emails: EmailMetadata[],
+  keys: Iterable<string>,
+): Promise<void> {
+  const keySet = new Set(keys);
+  const attachmentIds = emails
+    .filter((e) => keySet.has(e.key))
+    .flatMap((e) => e.attachmentIds ?? []);
+  if (attachmentIds.length === 0) return;
+
+  const bucket = getAttachmentBucket(env);
+  if (!bucket) return;
+
+  await Promise.allSettled(attachmentIds.map((id) => bucket.delete(id)));
+}
 
 export async function deleteKeysWithConcurrency(
   emailStorage: KVNamespace,
