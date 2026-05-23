@@ -56,10 +56,35 @@ src/
   index.ts                  # App entrypoint: CORS, IP middleware, route mounting, email handler export
   config/constants.ts       # Shared constants (TTLs, limits)
   types/index.ts            # Env, FeedConfig, EmailData, WebSubSubscription, etc.
-  domain/                   # Framework-agnostic core (no Hono/KV/R2 imports leak out)
-    feed-repository.ts      # Single KV access layer: owns the key schema + all get/put
-    feed.ts                 # Feed aggregate invariants (expiry, sender policy, size budget)
+  domain/                   # Framework-agnostic core (no Hono imports leak out)
+    feed.aggregate.ts       # Feed aggregate: consistency boundary; all config/metadata mutations go through it
+    feed.ts                 # Pure invariant functions (expiry, sender policy, byte budget) the aggregate delegates to
+    feed-keys.ts            # The KV key schema (pure string builders), shared by every repository
+    feed-repository.ts      # KV access for the Feed aggregate + global feed list + email bodies (load/save)
+    icon-repository.ts      # KV access for cached favicons (icon:*)
+    websub-subscription-repository.ts # KV access for WebSub subscriber lists (websub:subs:*)
+    counters-repository.ts  # KV access for the monitoring counters singleton (stats:counters)
+    email-parser.ts         # Email parsing (addresses, headers, encoded words)
+    format.ts               # Pure formatting helpers (formatBytes)
     value-objects/          # FeedId, EmailAddress, Domain (immutable, self-validating)
+  application/              # Use-cases / orchestration (wires domain + infrastructure)
+    feed-service.ts         # createFeedRecord / renameFeed / editFeed / deleteFeedRecord (admin UI + REST API)
+    email-processor.ts      # Core ingestion: load aggregate → accepts? → feed.ingest → persist
+    feed-fetcher.ts         # Read model for RSS/Atom rendering (config + email bodies; bypasses the aggregate)
+    stats.ts                # Monitoring counters increment policy + storage scans
+  infrastructure/          # Adapters: KV/R2, outbound HTTP, logging, framework glue
+    logger.ts               # JSON structured logger
+    auth.ts                 # timingSafeEqual, proxy-auth check, API bearer middleware
+    cloudflare-email.ts     # Cloudflare Email routing handler
+    forwardemail.ts         # ForwardEmail webhook types/parsing
+    worker.ts               # Typed worker / waitUntil helper
+    attachments.ts          # R2 bucket accessor
+    favicon-fetcher.ts      # Outbound favicon fetch + cache (uses IconRepository)
+    feed-generator.ts       # RSS/Atom XML generation
+    html-processor.ts       # Email HTML sanitization / inline cid: rewriting
+    websub.ts               # WebSub subscription management + delivery
+    unsubscribe.ts          # RFC 8058 one-click unsubscribe dispatch
+    urls.ts                 # URL builders
   routes/
     inbound.ts              # ForwardEmail webhook handler
     rss.ts                  # RSS feed renderer
@@ -77,19 +102,6 @@ src/
     api/                    # Versioned REST API (@hono/zod-openapi)
       index.ts             # OpenAPIHono app: /v1 routes + /openapi.json + /docs
       schemas.ts           # Zod schemas (validation + OpenAPI source of truth)
-  lib/
-    auth.ts                 # timingSafeEqual, proxy-auth check, API bearer middleware
-    feed-service.ts         # Shared feed create/update/delete (admin UI + REST API)
-    cloudflare-email.ts     # Cloudflare Email routing handler
-    email-parser.ts         # Email parsing (mailparser)
-    email-processor.ts      # Core ingestion logic (parse → store)
-    feed-fetcher.ts         # KV feed/email fetch helpers
-    feed-generator.ts       # RSS/Atom XML generation
-    forwardemail.ts         # ForwardEmail webhook types/parsing
-    id-generator.ts         # Feed/entry ID generation
-    logger.ts               # JSON structured logger
-    websub.ts               # WebSub subscription management
-    worker.ts               # Typed worker export helper
   scripts/
     client/                 # TypeScript client scripts (compiled by esbuild)
       dashboard.ts          # Admin dashboard interactions
@@ -110,7 +122,7 @@ All data lives in the `EMAIL_STORAGE` KV namespace:
 
 | Key                         | Value                                                                    |
 | --------------------------- | ------------------------------------------------------------------------ |
-| `feeds:list`                | `{ feeds: Array<{ id, title, description? }> }`                          |
+| `feeds:list`                | `{ feeds: Array<{ id, title, description?, expires_at? }> }`             |
 | `feed:<feedId>:config`      | `FeedConfig`                                                             |
 | `feed:<feedId>:metadata`    | `{ emails: Array<{ key, subject, receivedAt, size?, attachmentIds? }> }` |
 | `feed:<feedId>:<timestamp>` | Full `EmailData`                                                         |
@@ -118,7 +130,15 @@ All data lives in the `EMAIL_STORAGE` KV namespace:
 | `icon:<domain>`             | Cached favicon record (base64 + content type; negative entries allowed)  |
 | `stats:counters`            | `Counters` (cumulative monitoring counters singleton)                    |
 
-`src/domain/feed-repository.ts` (`FeedRepository`) owns the KV key schema and all get/put access — go through it; never inline `feed:`/`feeds:list`/`websub:`/`icon:`/`stats:counters` key strings elsewhere.
+The KV key schema lives in `src/domain/feed-keys.ts` — never inline a `feed:`/`feeds:list`/`websub:`/`icon:`/`stats:counters` key string anywhere else. KV access is owned by four repositories, each for one concern: `FeedRepository` (the Feed aggregate + global list + email bodies), `IconRepository` (`icon:*`), `WebSubSubscriptionRepository` (`websub:subs:*`), and `CountersRepository` (`stats:counters`). Go through a repository, never `env.EMAIL_STORAGE.get/put` directly.
+
+### Domain & layering rules
+
+- **Layers**: `domain/` is framework-agnostic (no Hono). `application/` orchestrates use-cases. `infrastructure/` holds adapters (KV/R2, HTTP, logging). `routes/` is the HTTP edge. Imports point inward: routes → application → domain; infrastructure implements ports the inner layers call.
+- **The `Feed` aggregate is the only writer of feed config + the email index.** Load it with `FeedRepository.load(feedId)`, mutate via its methods (`ingest`, `removeEmails`, `rename`, `edit`), then persist with `save`/`saveMetadata`/`saveConfig`. No route or service mutates `metadata.emails` directly. Email **bodies** are large blobs outside the aggregate — flush them (`putEmail`/`deleteEmail`) alongside the metadata save.
+  - Read-only RSS/Atom rendering uses the `feed-fetcher` read model, not the aggregate (no invariant to enforce on the hot path).
+  - KV has no multi-key transaction; the aggregate is the seam a future Durable Object would wrap to serialise concurrent ingests (see `email-processor.ts`).
+- **`FeedId`** is the type used by the domain (`Feed.id`) and every single-feed `FeedRepository` method. Wrap a raw id string with `FeedId.fromTrusted(value)` at the call site; keep `.value` (string) for URLs, logs, JSON and the feed-list registry. Mint new ids with `FeedId.generate()`.
 
 ### Worker bindings (`Env`)
 
