@@ -10,6 +10,7 @@ import { parseOneClickUnsubscribe } from "../utils/unsubscribe";
 import { getAttachmentBucket } from "../utils/attachments";
 import { FeedRepository } from "../domain/feed-repository";
 import { Feed } from "../domain/feed.aggregate";
+import { FeedId } from "../domain/value-objects/feed-id";
 import { logger } from "./logger";
 import { FEED_MAX_BYTES } from "../config/constants";
 
@@ -84,7 +85,7 @@ async function loadAcceptingFeed(
     return { ok: false, reason: "invalid_address" };
   }
 
-  const feed = await FeedRepository.from(env).load(feedId);
+  const feed = await FeedRepository.from(env).load(FeedId.fromTrusted(feedId));
   if (!feed) {
     logger.error("Feed not found", { feedId });
     return { ok: false, reason: "feed_not_found" };
@@ -182,9 +183,9 @@ async function storeEmail(
     ...r2Deletions,
   ]);
 
-  logger.info("Email processed", { feedId: feed.id });
+  logger.info("Email processed", { feedId: feed.id.value });
   if (ctx) {
-    ctx.waitUntil(notifySubscribers(feed.id, env));
+    ctx.waitUntil(notifySubscribers(feed.id.value, env));
     if (iconDomain) {
       ctx.waitUntil(cacheFaviconForDomain(iconDomain, env));
     }
@@ -207,5 +208,5 @@ export async function processEmail(
     emails_received: 1,
     last_email_at: new Date().toISOString(),
   });
-  return { ok: true, feedId: validation.feed.id };
+  return { ok: true, feedId: validation.feed.id.value };
 }

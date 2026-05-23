@@ -3,6 +3,7 @@ import { generateRssFeed, generateAtomFeed } from "./feed-generator";
 import { baseUrl, feedRssUrl, feedAtomUrl, feedUrl } from "./urls";
 import { FeedRepository } from "../domain/feed-repository";
 import { WebSubSubscriptionRepository } from "../domain/websub-subscription-repository";
+import { FeedId } from "../domain/value-objects/feed-id";
 
 export async function getSubscriptions(
   feedId: string,
@@ -47,9 +48,10 @@ async function buildFeedXml(
   format: "rss" | "atom" = "rss",
 ): Promise<string | null> {
   const repo = FeedRepository.from(env);
+  const id = FeedId.fromTrusted(feedId);
   const [feedMetadata, rawConfig] = await Promise.all([
-    repo.getMetadata(feedId),
-    repo.getConfig(feedId),
+    repo.getMetadata(id),
+    repo.getConfig(id),
   ]);
 
   if (!feedMetadata) return null;

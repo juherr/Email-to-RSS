@@ -2,7 +2,10 @@ import { describe, it, expect } from "vitest";
 import { createMockEnv } from "../test/setup";
 import { Feed, CreateFeedInput } from "./feed.aggregate";
 import { FeedRepository } from "./feed-repository";
+import { FeedId } from "./value-objects/feed-id";
 import type { Env, EmailMetadata } from "../types";
+
+const FID = FeedId.fromTrusted("a.b.42");
 
 const mockEnv = (overrides: Partial<Env> = {}) =>
   ({ ...createMockEnv(), ...overrides }) as unknown as Env;
@@ -27,25 +30,21 @@ const entry = (overrides: Partial<EmailMetadata> = {}): EmailMetadata => ({
 
 describe("Feed.create", () => {
   it("builds a config with an empty email index and no expiry by default", () => {
-    const feed = Feed.create("a.b.42", createInput(), mockEnv());
-    expect(feed.id).toBe("a.b.42");
+    const feed = Feed.create(FID, createInput(), mockEnv());
+    expect(feed.id.value).toBe("a.b.42");
     expect(feed.config.title).toBe("News");
     expect(feed.config.expires_at).toBeUndefined();
     expect(feed.metadata.emails).toEqual([]);
   });
 
   it("resolves expiry from lifetimeHours", () => {
-    const feed = Feed.create(
-      "a.b.42",
-      createInput({ lifetimeHours: 1 }),
-      mockEnv(),
-    );
+    const feed = Feed.create(FID, createInput({ lifetimeHours: 1 }), mockEnv());
     expect(feed.config.expires_at).toBeGreaterThan(Date.now());
   });
 
   it("lets FEED_TTL_HOURS override a client lifetime", () => {
     const feed = Feed.create(
-      "a.b.42",
+      FID,
       createInput({ lifetimeHours: 1000000 }),
       mockEnv({ FEED_TTL_HOURS: "1" }),
     );
@@ -57,7 +56,7 @@ describe("Feed.create", () => {
 describe("Feed.isExpired / accepts", () => {
   it("reports expiry against the configured instant", () => {
     const feed = Feed.reconstitute(
-      "a.b.42",
+      FID,
       { title: "T", language: "en", created_at: 0, expires_at: 100 },
       { emails: [] },
     );
@@ -67,7 +66,7 @@ describe("Feed.isExpired / accepts", () => {
 
   it("applies the sender policy", () => {
     const feed = Feed.reconstitute(
-      "a.b.42",
+      FID,
       {
         title: "T",
         language: "en",
@@ -84,7 +83,7 @@ describe("Feed.isExpired / accepts", () => {
 describe("Feed.ingest", () => {
   it("prepends the entry, tracks icon/unsub and trims to the byte budget", () => {
     const feed = Feed.reconstitute(
-      "a.b.42",
+      FID,
       { title: "T", language: "en", created_at: 0 },
       {
         emails: [entry({ key: "old", size: 400 })],
@@ -110,7 +109,7 @@ describe("Feed.ingest", () => {
 describe("Feed.removeEmails", () => {
   it("drops matching keys and returns the removed entries", () => {
     const feed = Feed.reconstitute(
-      "a.b.42",
+      FID,
       { title: "T", language: "en", created_at: 0 },
       {
         emails: [
@@ -131,20 +130,20 @@ describe("FeedRepository.load / save round-trip", () => {
   it("persists a created feed and reflects later mutations", async () => {
     const repo = new FeedRepository(mockEnv().EMAIL_STORAGE);
     const created = Feed.create(
-      "a.b.42",
+      FID,
       createInput({ title: "Round" }),
       mockEnv(),
     );
     await repo.save(created);
 
-    const loaded = await repo.load("a.b.42");
+    const loaded = await repo.load(FID);
     expect(loaded).not.toBeNull();
     expect(loaded!.config.title).toBe("Round");
 
     loaded!.ingest(entry({ key: "feed:a.b.42:1" }), { maxBytes: 1_000_000 });
     await repo.saveMetadata(loaded!);
 
-    const reloaded = await repo.load("a.b.42");
+    const reloaded = await repo.load(FID);
     expect(reloaded!.metadata.emails.map((e) => e.key)).toEqual([
       "feed:a.b.42:1",
     ]);
@@ -152,6 +151,6 @@ describe("FeedRepository.load / save round-trip", () => {
 
   it("returns null when the feed has no config", async () => {
     const repo = new FeedRepository(mockEnv().EMAIL_STORAGE);
-    expect(await repo.load("missing")).toBeNull();
+    expect(await repo.load(FeedId.fromTrusted("missing"))).toBeNull();
   });
 });

@@ -7,6 +7,7 @@ import {
   deleteKeysWithConcurrency,
 } from "./helpers";
 import { FeedRepository } from "../../domain/feed-repository";
+import { FeedId } from "../../domain/value-objects/feed-id";
 import { feedRssUrl, feedAtomUrl, feedEmailAddress } from "../../utils/urls";
 import { formatBytes } from "../../utils/format";
 import { EmailAddress } from "../../domain/value-objects/email-address";
@@ -153,8 +154,9 @@ emailsRouter.get("/feeds/:feedId/emails", async (c) => {
   const message = c.req.query("message");
   const count = Number(c.req.query("count") || "0");
 
-  const feedConfig = await repo.getConfig(feedId);
-  const feedMetadata = await repo.getMetadata(feedId);
+  const id = FeedId.fromTrusted(feedId);
+  const feedConfig = await repo.getConfig(id);
+  const feedMetadata = await repo.getMetadata(id);
 
   if (!feedConfig || !feedMetadata) {
     return c.text("Feed not found", 404);
@@ -650,7 +652,7 @@ emailsRouter.post("/emails/:emailKey/delete", async (c) => {
       return c.text("Feed ID is required", 400);
     }
 
-    const feed = await repo.load(feedId);
+    const feed = await repo.load(FeedId.fromTrusted(feedId));
 
     await repo.deleteEmail(emailKey);
     if (feed) {
@@ -685,7 +687,7 @@ emailsRouter.post("/feeds/:feedId/emails/bulk-delete", async (c) => {
     (c.req.header("Accept") || "").includes("application/json");
 
   try {
-    const feed = await repo.load(feedId);
+    const feed = await repo.load(FeedId.fromTrusted(feedId));
 
     if (!feed) {
       return wantsJson

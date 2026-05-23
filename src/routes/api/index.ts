@@ -10,6 +10,7 @@ import {
 } from "../../lib/feed-service";
 import { deleteAttachmentsForEmails } from "../admin/helpers";
 import { FeedRepository } from "../../domain/feed-repository";
+import { FeedId } from "../../domain/value-objects/feed-id";
 import { getStats } from "../../utils/stats";
 import { feedEmailAddress, feedRssUrl, feedAtomUrl } from "../../utils/urls";
 import {
@@ -170,9 +171,10 @@ apiApp.openapi(
     const env = c.env;
     const { feedId } = c.req.valid("param");
     const repo = FeedRepository.from(env);
-    const config = await repo.getConfig(feedId);
+    const id = FeedId.fromTrusted(feedId);
+    const config = await repo.getConfig(id);
     if (!config) return c.json({ error: "Feed not found" }, 404);
-    const metadata = await repo.getMetadata(feedId);
+    const metadata = await repo.getMetadata(id);
     return c.json(
       toFeed(feedId, config, metadata?.emails.length ?? 0, env),
       200,
@@ -215,7 +217,9 @@ apiApp.openapi(
       return c.json({ error: "Feed not found" }, 404);
     if (result.status === "expired")
       return c.json({ error: "Feed has expired and cannot be modified" }, 409);
-    const metadata = await FeedRepository.from(env).getMetadata(feedId);
+    const metadata = await FeedRepository.from(env).getMetadata(
+      FeedId.fromTrusted(feedId),
+    );
     return c.json(
       toFeed(feedId, result.config, metadata?.emails.length ?? 0, env),
       200,
@@ -265,7 +269,9 @@ apiApp.openapi(
   async (c) => {
     const env = c.env;
     const { feedId } = c.req.valid("param");
-    const metadata = await FeedRepository.from(env).getMetadata(feedId);
+    const metadata = await FeedRepository.from(env).getMetadata(
+      FeedId.fromTrusted(feedId),
+    );
     if (!metadata) return c.json({ error: "Feed not found" }, 404);
     return c.json(
       {
@@ -301,7 +307,7 @@ apiApp.openapi(
     const { feedId, entryId } = c.req.valid("param");
     const receivedAt = parseInt(entryId, 10);
     const repo = FeedRepository.from(env);
-    const metadata = await repo.getMetadata(feedId);
+    const metadata = await repo.getMetadata(FeedId.fromTrusted(feedId));
     const metaEntry = metadata?.emails.find((e) => e.receivedAt === receivedAt);
     if (!metaEntry) return c.json({ error: "Email not found" }, 404);
     const data = await repo.getEmail(metaEntry.key);
@@ -345,7 +351,7 @@ apiApp.openapi(
     const repo = FeedRepository.from(env);
     const { feedId, entryId } = c.req.valid("param");
     const receivedAt = parseInt(entryId, 10);
-    const feed = await repo.load(feedId);
+    const feed = await repo.load(FeedId.fromTrusted(feedId));
     const metaEntry = feed?.metadata.emails.find(
       (e) => e.receivedAt === receivedAt,
     );

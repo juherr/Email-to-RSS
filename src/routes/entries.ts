@@ -4,6 +4,7 @@ import { Env } from "../types";
 import { processEmailContent } from "../utils/html-processor";
 import { formatBytes } from "../utils/format";
 import { FeedRepository } from "../domain/feed-repository";
+import { FeedId } from "../domain/value-objects/feed-id";
 import { isExpired } from "../domain/feed";
 
 export async function handle(c: Context<{ Bindings: Env }>): Promise<Response> {
@@ -15,10 +16,11 @@ export async function handle(c: Context<{ Bindings: Env }>): Promise<Response> {
   }
 
   const repo = FeedRepository.from(c.env);
+  const id = FeedId.fromTrusted(feedId);
 
   const [feedMetadata, feedConfig] = await Promise.all([
-    repo.getMetadata(feedId),
-    repo.getConfig(feedId),
+    repo.getMetadata(id),
+    repo.getConfig(id),
   ]);
   if (!feedMetadata) {
     return new Response("Feed not found", { status: 404 });

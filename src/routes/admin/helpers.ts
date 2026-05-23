@@ -2,6 +2,7 @@ import { EmailData, EmailMetadata, Env } from "../../types";
 import { logger } from "../../lib/logger";
 import { getAttachmentBucket } from "../../utils/attachments";
 import { FeedRepository } from "../../domain/feed-repository";
+import { FeedId } from "../../domain/value-objects/feed-id";
 
 // Delete the R2 attachments belonging to the given email keys. Call before the
 // emails are removed from feed metadata, while `emails` still carries their
@@ -60,7 +61,9 @@ export async function collectUnsubscribeUrls(
   feedId: string,
 ): Promise<string[]> {
   try {
-    const metadata = await new FeedRepository(emailStorage).getMetadata(feedId);
+    const metadata = await new FeedRepository(emailStorage).getMetadata(
+      FeedId.fromTrusted(feedId),
+    );
     return Object.values(metadata?.unsubscribe ?? {});
   } catch (error) {
     logger.error("Error reading unsubscribe URLs", {
@@ -82,14 +85,15 @@ export async function purgeFeedKeysStep(
   listComplete: boolean;
 }> {
   const repo = new FeedRepository(emailStorage);
-  const listed = await repo.listFeedKeys(feedId, {
+  const id = FeedId.fromTrusted(feedId);
+  const listed = await repo.listFeedKeys(id, {
     cursor: options.cursor,
     limit: options.limit,
   });
   const keys = listed.names;
 
   if (options.bucket && keys.length > 0) {
-    const emailKeys = keys.filter((k) => repo.isEmailKey(feedId, k));
+    const emailKeys = keys.filter((k) => repo.isEmailKey(id, k));
     if (emailKeys.length > 0) {
       const emailDataResults = await Promise.allSettled(
         emailKeys.map((k) => repo.getEmail(k)),

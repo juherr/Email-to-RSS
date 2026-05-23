@@ -1,4 +1,5 @@
 import { Env, FeedConfig, FeedMetadata, EmailMetadata } from "../types";
+import { FeedId } from "./value-objects/feed-id";
 import {
   resolveExpiresAt,
   isExpired,
@@ -46,13 +47,13 @@ export interface IngestOptions {
  */
 export class Feed {
   private constructor(
-    readonly id: string,
+    readonly id: FeedId,
     private _config: FeedConfig,
     private _metadata: FeedMetadata,
   ) {}
 
   /** Mint a brand-new feed with an empty email index. */
-  static create(id: string, input: CreateFeedInput, env: Env): Feed {
+  static create(id: FeedId, input: CreateFeedInput, env: Env): Feed {
     const now = Date.now();
     const expiresAt = resolveExpiresAt(env, input.lifetimeHours);
     const config: FeedConfig = {
@@ -70,7 +71,7 @@ export class Feed {
 
   /** Rebuild an aggregate from persisted state. */
   static reconstitute(
-    id: string,
+    id: FeedId,
     config: FeedConfig,
     metadata: FeedMetadata,
   ): Feed {

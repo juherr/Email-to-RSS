@@ -16,6 +16,15 @@ export class FeedId {
     return match ? new FeedId(match[1]) : null;
   }
 
+  /**
+   * Wrap an id we already trust — a value we minted ourselves and round-tripped
+   * through our own links or KV keys (route params, the feed list, email keys).
+   * No validation: a wrong id simply misses in KV and 404s, exactly as before.
+   */
+  static fromTrusted(value: string): FeedId {
+    return new FeedId(value);
+  }
+
   static generate(): FeedId {
     const noun1 = nouns[Math.floor(Math.random() * nouns.length)];
     const noun2 = nouns[Math.floor(Math.random() * nouns.length)];

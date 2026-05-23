@@ -10,6 +10,7 @@ import { getAttachmentBucket } from "../../utils/attachments";
 import { Layout } from "./ui";
 import { purgeFeedKeysStep, collectUnsubscribeUrls } from "./helpers";
 import { FeedRepository } from "../../domain/feed-repository";
+import { FeedId } from "../../domain/value-objects/feed-id";
 import {
   createFeedRecord,
   editFeed,
@@ -148,7 +149,9 @@ feedsRouter.get("/:feedId/edit", async (c) => {
   const env = c.env;
   const feedId = c.req.param("feedId");
 
-  const feedConfig = await FeedRepository.from(env).getConfig(feedId);
+  const feedConfig = await FeedRepository.from(env).getConfig(
+    FeedId.fromTrusted(feedId),
+  );
 
   if (!feedConfig) {
     return c.text("Feed not found", 404);
@@ -359,6 +362,7 @@ feedsRouter.post("/:feedId/edit", async (c) => {
 feedsRouter.post("/:feedId/sender-filter", async (c) => {
   const env = c.env;
   const feedId = c.req.param("feedId");
+  const id = FeedId.fromTrusted(feedId);
   const repo = FeedRepository.from(env);
 
   const body = await c.req.json().catch(() => null);
@@ -370,7 +374,7 @@ feedsRouter.post("/:feedId/sender-filter", async (c) => {
   const { action, value } = parsed.data;
   const normalized = value.trim().toLowerCase();
 
-  const feedConfig = await repo.getConfig(feedId);
+  const feedConfig = await repo.getConfig(id);
   if (!feedConfig) return c.json({ ok: false, error: "Feed not found" }, 404);
 
   const allowedSenders = (feedConfig.allowed_senders || []).map((s) =>
@@ -397,7 +401,7 @@ feedsRouter.post("/:feedId/sender-filter", async (c) => {
 
   if (!targetList.includes(normalized)) {
     targetList.push(normalized);
-    await repo.putConfig(feedId, {
+    await repo.putConfig(id, {
       ...feedConfig,
       allowed_senders: allowedSenders,
       blocked_senders: blockedSenders,

@@ -3,6 +3,7 @@ import { logger } from "../lib/logger";
 import { FeedRepository } from "../domain/feed-repository";
 import { CountersRepository } from "../domain/counters-repository";
 import { WebSubSubscriptionRepository } from "../domain/websub-subscription-repository";
+import { FeedId } from "../domain/value-objects/feed-id";
 import { getAttachmentBucket } from "./attachments";
 
 const EMPTY_COUNTERS: Counters = {
@@ -109,7 +110,7 @@ export async function scanKvUsage(kv: KVNamespace): Promise<{ bytes: number }> {
     const repo = new FeedRepository(kv);
     const feeds = await repo.listFeeds();
     for (const feed of feeds) {
-      const metadata = await repo.getMetadata(feed.id);
+      const metadata = await repo.getMetadata(FeedId.fromTrusted(feed.id));
       if (!metadata) continue;
       for (const email of metadata.emails) {
         bytes += email.size ?? 0;

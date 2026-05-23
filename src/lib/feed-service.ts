@@ -1,11 +1,11 @@
 import { Context } from "hono";
 import { Env, FeedConfig } from "../types";
-import { generateFeedId } from "../utils/id-generator";
 import { bumpCounters } from "../utils/stats";
 import { waitUntilSafe } from "../utils/worker";
 import { sendUnsubscribes } from "../utils/unsubscribe";
 import { getAttachmentBucket } from "../utils/attachments";
 import { FeedRepository } from "../domain/feed-repository";
+import { FeedId } from "../domain/value-objects/feed-id";
 import {
   Feed,
   CreateFeedInput,
@@ -27,7 +27,7 @@ export async function createFeedRecord(
   input: CreateFeedInput,
 ): Promise<{ feedId: string; config: FeedConfig }> {
   const repo = FeedRepository.from(env);
-  const feed = Feed.create(generateFeedId(), input, env);
+  const feed = Feed.create(FeedId.generate(), input, env);
 
   await repo.save(feed);
   await repo.addToList(
@@ -42,7 +42,7 @@ export async function createFeedRecord(
     last_feed_created_at: new Date().toISOString(),
   });
 
-  return { feedId: feed.id, config: feed.config };
+  return { feedId: feed.id.value, config: feed.config };
 }
 
 export type UpdateFeedResult =
@@ -60,13 +60,13 @@ export async function renameFeed(
   patch: { title?: string; description?: string },
 ): Promise<UpdateFeedResult> {
   const repo = FeedRepository.from(env);
-  const feed = await repo.load(feedId);
+  const feed = await repo.load(FeedId.fromTrusted(feedId));
   if (!feed) return { status: "not_found" };
 
   feed.rename(patch);
   await repo.saveConfig(feed);
   await repo.updateInList(
-    feedId,
+    feed.id,
     feed.config.title,
     feed.config.description,
     feed.config.expires_at,
@@ -85,7 +85,7 @@ export async function editFeed(
   input: UpdateFeedInput,
 ): Promise<UpdateFeedResult> {
   const repo = FeedRepository.from(env);
-  const feed = await repo.load(feedId);
+  const feed = await repo.load(FeedId.fromTrusted(feedId));
   if (!feed) return { status: "not_found" };
 
   if (feed.edit(input, env).status === "expired") {
@@ -94,7 +94,7 @@ export async function editFeed(
 
   await repo.saveConfig(feed);
   await repo.updateInList(
-    feedId,
+    feed.id,
     feed.config.title,
     feed.config.description,
     feed.config.expires_at,
@@ -119,20 +119,21 @@ export async function deleteFeedFastDetailed(
   feedId: string,
 ): Promise<DeleteFeedFastResult> {
   const repo = new FeedRepository(emailStorage);
+  const id = FeedId.fromTrusted(feedId);
 
   const errors: string[] = [];
   let configDeleted = false;
   let metadataDeleted = false;
 
   try {
-    await repo.deleteConfig(feedId);
+    await repo.deleteConfig(id);
     configDeleted = true;
   } catch (error) {
     errors.push(`config delete failed: ${String(error)}`);
   }
 
   try {
-    await repo.deleteMetadata(feedId);
+    await repo.deleteMetadata(id);
     metadataDeleted = true;
   } catch (error) {
     errors.push(`metadata delete failed: ${String(error)}`);
@@ -159,7 +160,7 @@ export async function deleteFeedRecord(
   const unsubscribeUrls = await collectUnsubscribeUrls(emailStorage, feedId);
 
   await deleteFeedFastDetailed(emailStorage, feedId);
-  const removed = await repo.removeFromList(feedId);
+  const removed = await repo.removeFromList(FeedId.fromTrusted(feedId));
   if (removed) {
     await bumpCounters(emailStorage, { feeds_deleted: 1 });
   }

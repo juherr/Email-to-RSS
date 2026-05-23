@@ -1,6 +1,7 @@
 import { Context } from "hono";
 import { Env } from "../types";
 import { FeedRepository } from "../domain/feed-repository";
+import { FeedId } from "../domain/value-objects/feed-id";
 import { cacheFaviconForDomain, getCachedIcon } from "../utils/favicon-fetcher";
 
 export const FAVICON_PATH = "/favicon.svg";
@@ -40,7 +41,9 @@ export async function handleFeedFavicon(
   const feedId = c.req.param("feedId");
   if (!feedId) return projectFavicon();
 
-  const metadata = await FeedRepository.from(env).getMetadata(feedId);
+  const metadata = await FeedRepository.from(env).getMetadata(
+    FeedId.fromTrusted(feedId),
+  );
   const domain = metadata?.iconDomain;
   if (!domain) return projectFavicon();
 

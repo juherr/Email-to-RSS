@@ -9,6 +9,7 @@ import {
 import { FEEDS_LIST_KEY } from "../config/constants";
 import { feedKeys } from "./feed-keys";
 import { Feed } from "./feed.aggregate";
+import { FeedId } from "./value-objects/feed-id";
 import { logger } from "../lib/logger";
 
 /**
@@ -28,27 +29,27 @@ export class FeedRepository {
 
   // ── Key schema (delegates to feed-keys) ───────────────────────────────────
 
-  private configKey(feedId: string): string {
-    return feedKeys.config(feedId);
+  private configKey(feedId: FeedId): string {
+    return feedKeys.config(feedId.value);
   }
 
-  private metadataKey(feedId: string): string {
-    return feedKeys.metadata(feedId);
+  private metadataKey(feedId: FeedId): string {
+    return feedKeys.metadata(feedId.value);
   }
 
   /** Prefix covering every key owned by a feed (config, metadata, emails). */
-  feedKeyPrefix(feedId: string): string {
-    return feedKeys.feedPrefix(feedId);
+  feedKeyPrefix(feedId: FeedId): string {
+    return feedKeys.feedPrefix(feedId.value);
   }
 
   /** Mint a fresh, time-ordered email key. Call once and reuse the result. */
-  newEmailKey(feedId: string): string {
-    return feedKeys.newEmail(feedId);
+  newEmailKey(feedId: FeedId): string {
+    return feedKeys.newEmail(feedId.value);
   }
 
   /** True when `key` is an email entry (not the feed's config/metadata key). */
-  isEmailKey(feedId: string, key: string): boolean {
-    return feedKeys.isEmail(feedId, key);
+  isEmailKey(feedId: FeedId, key: string): boolean {
+    return feedKeys.isEmail(feedId.value, key);
   }
 
   /** Recover the feed id embedded in an email key (`feed:<id>:<ts>`). */
@@ -62,7 +63,7 @@ export class FeedRepository {
    * Load the aggregate (config + email index). A feed exists iff it has a
    * config; metadata defaults to empty so a freshly-created feed still loads.
    */
-  async load(feedId: string): Promise<Feed | null> {
+  async load(feedId: FeedId): Promise<Feed | null> {
     const [config, metadata] = await Promise.all([
       this.getConfig(feedId),
       this.getMetadata(feedId),
@@ -97,33 +98,33 @@ export class FeedRepository {
 
   // ── Feed config ───────────────────────────────────────────────────────────
 
-  async getConfig(feedId: string): Promise<FeedConfig | null> {
+  async getConfig(feedId: FeedId): Promise<FeedConfig | null> {
     return (await this.kv.get(this.configKey(feedId), {
       type: "json",
     })) as FeedConfig | null;
   }
 
-  async putConfig(feedId: string, config: FeedConfig): Promise<void> {
+  async putConfig(feedId: FeedId, config: FeedConfig): Promise<void> {
     await this.kv.put(this.configKey(feedId), JSON.stringify(config));
   }
 
-  async deleteConfig(feedId: string): Promise<void> {
+  async deleteConfig(feedId: FeedId): Promise<void> {
     await this.kv.delete(this.configKey(feedId));
   }
 
   // ── Feed metadata ─────────────────────────────────────────────────────────
 
-  async getMetadata(feedId: string): Promise<FeedMetadata | null> {
+  async getMetadata(feedId: FeedId): Promise<FeedMetadata | null> {
     return (await this.kv.get(this.metadataKey(feedId), {
       type: "json",
     })) as FeedMetadata | null;
   }
 
-  async putMetadata(feedId: string, metadata: FeedMetadata): Promise<void> {
+  async putMetadata(feedId: FeedId, metadata: FeedMetadata): Promise<void> {
     await this.kv.put(this.metadataKey(feedId), JSON.stringify(metadata));
   }
 
-  async deleteMetadata(feedId: string): Promise<void> {
+  async deleteMetadata(feedId: FeedId): Promise<void> {
     await this.kv.delete(this.metadataKey(feedId));
   }
 
@@ -156,7 +157,7 @@ export class FeedRepository {
   }
 
   async addToList(
-    feedId: string,
+    feedId: FeedId,
     title: string,
     description?: string,
     expires_at?: number,
@@ -166,18 +167,18 @@ export class FeedRepository {
         type: "json",
       })) as FeedList | null) || { feeds: [] };
 
-      feedList.feeds.push({ id: feedId, title, description, expires_at });
+      feedList.feeds.push({ id: feedId.value, title, description, expires_at });
       await this.kv.put(FEEDS_LIST_KEY, JSON.stringify(feedList));
     } catch (error) {
       logger.error("Error adding feed to list", {
-        feedId,
+        feedId: feedId.value,
         error: String(error),
       });
     }
   }
 
   async updateInList(
-    feedId: string,
+    feedId: FeedId,
     title: string,
     description?: string,
     expires_at?: number,
@@ -187,7 +188,9 @@ export class FeedRepository {
         type: "json",
       })) as FeedList | null) || { feeds: [] };
 
-      const feedIndex = feedList.feeds.findIndex((feed) => feed.id === feedId);
+      const feedIndex = feedList.feeds.findIndex(
+        (feed) => feed.id === feedId.value,
+      );
       if (feedIndex !== -1) {
         feedList.feeds[feedIndex].title = title;
         feedList.feeds[feedIndex].description = description;
@@ -196,7 +199,7 @@ export class FeedRepository {
       }
     } catch (error) {
       logger.error("Error updating feed in list", {
-        feedId,
+        feedId: feedId.value,
         error: String(error),
       });
     }
@@ -233,15 +236,15 @@ export class FeedRepository {
     }
   }
 
-  async removeFromList(feedId: string): Promise<boolean> {
-    const removed = await this.removeFromListBulk([feedId]);
-    return removed.includes(feedId);
+  async removeFromList(feedId: FeedId): Promise<boolean> {
+    const removed = await this.removeFromListBulk([feedId.value]);
+    return removed.includes(feedId.value);
   }
 
   // ── Key listing / counting ────────────────────────────────────────────────
 
   async listFeedKeys(
-    feedId: string,
+    feedId: FeedId,
     options: { cursor?: string; limit?: number } = {},
   ): Promise<{ names: string[]; cursor: string; listComplete: boolean }> {
     const prefix = this.feedKeyPrefix(feedId);
