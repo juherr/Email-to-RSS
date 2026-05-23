@@ -199,6 +199,8 @@ This feature is **optional**. If no R2 bucket is bound, attachments are silently
    npm run deploy
    ```
 
+> **Deploy token permission:** with an R2 binding, `wrangler deploy` verifies the bucket exists, so the deploy credentials need **Account → Workers R2 Storage** (Read or Edit) on top of the usual Workers Scripts permission. Local `npx wrangler login` already grants this; a **scoped API token** (e.g. the `CLOUDFLARE_API_TOKEN` used in GitHub Actions) does not by default — add the R2 permission at <https://dash.cloudflare.com/profile/api-tokens>, otherwise the deploy fails with `Authentication error [code: 10000]` on `/r2/buckets/...`.
+
 **Turning it off:** set `ATTACHMENTS_ENABLED = "false"` in `[vars]` to disable attachments even while the R2 bucket stays bound (useful to cap usage on a demo). Any other value (or leaving it unset) keeps the feature on whenever R2 is configured.
 
 Attachments are deleted from R2 automatically when the corresponding email is deleted from the admin UI, or when an email is dropped during feed size trimming.
