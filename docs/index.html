@@ -503,7 +503,7 @@
 
     .install-step {
       display: grid;
-      grid-template-columns: 48px 1fr;
+      grid-template-columns: 48px minmax(0, 1fr);
       gap: 1.25rem;
       align-items: start;
     }
@@ -590,30 +590,49 @@
       border-collapse: collapse;
       font-size: 0.85rem;
       margin-top: 0.75rem;
+      table-layout: fixed;
     }
-    .waf-table th {
+    .waf-table th,
+    .waf-table td {
       text-align: left;
-      padding: 0.5rem 0.75rem;
+      padding: 0.5rem 0.6rem;
+      vertical-align: top;
+    }
+    .waf-table thead th:first-child { width: 38%; }
+    .waf-table thead th {
       border-bottom: 1px solid var(--border);
+      color: var(--text);
+      font-weight: 600;
+      font-size: 0.8rem;
+    }
+    .waf-table tbody th {
       color: var(--muted);
       font-weight: 500;
       font-size: 0.8rem;
-    }
-    .waf-table td {
-      padding: 0.5rem 0.75rem;
       border-bottom: 1px solid rgba(255,255,255,0.04);
-      vertical-align: top;
     }
-    .waf-table td code {
+    .waf-table tbody td {
+      border-bottom: 1px solid rgba(255,255,255,0.04);
+      color: var(--text);
+    }
+    .waf-table code {
       font-family: 'JetBrains Mono', monospace;
       font-size: 0.8em;
       color: var(--accent);
+      overflow-wrap: anywhere;
     }
-    .waf-table tr:last-child td { border-bottom: none; }
+    .waf-table tbody tr:last-child th,
+    .waf-table tbody tr:last-child td { border-bottom: none; }
 
     @media (max-width: 600px) {
       .step:not(:last-child)::after { display: none; }
       .step { padding-right: 0; }
+      section { padding-left: 1.25rem; padding-right: 1.25rem; }
+      #how-it-works { padding-left: 1.25rem; padding-right: 1.25rem; }
+      .install-step { grid-template-columns: 34px minmax(0, 1fr); gap: 0.85rem; }
+      .install-step-num { width: 34px; height: 34px; font-size: 0.8rem; }
+      .install-step-connector { margin-left: 16px; }
+      .code-block pre { padding: 1rem; }
     }
   </style>
 </head>
@@ -984,23 +1003,36 @@ bucket_name = "kill-the-news-attachments"</span></pre>
           <div class="code-block-header"><span class="dot-r"></span><span class="dot-y"></span><span class="dot-g"></span> WAF rules</div>
           <table class="waf-table">
             <thead>
-              <tr><th>Endpoint</th><th>Condition (URI Path)</th><th>Limit (recommended)</th><th>Limit (free tier)</th><th>Action (recommended)</th><th>Action (free tier)</th></tr>
+              <tr>
+                <th scope="col">Setting</th>
+                <th scope="col"><code>/api/inbound</code></th>
+                <th scope="col"><code>/admin*</code></th>
+              </tr>
             </thead>
             <tbody>
               <tr>
-                <td><code>/api/inbound</code></td>
+                <th scope="row">Condition (URI Path)</th>
                 <td>wildcard <code>/api/inbound/*</code></td>
-                <td>60 req / min / IP</td>
-                <td>10 req / 10 s / IP</td>
-                <td>Block (1 min)</td>
-                <td>Block (10 s)</td>
+                <td>wildcard <code>/admin/*</code></td>
               </tr>
               <tr>
-                <td><code>/admin*</code></td>
-                <td>wildcard <code>/admin/*</code></td>
+                <th scope="row">Limit (recommended)</th>
+                <td>60 req / min / IP</td>
                 <td>20 req / min / IP</td>
+              </tr>
+              <tr>
+                <th scope="row">Limit (free tier)</th>
+                <td>10 req / 10 s / IP</td>
                 <td>20 req / 10 s / IP</td>
+              </tr>
+              <tr>
+                <th scope="row">Action (recommended)</th>
+                <td>Block (1 min)</td>
                 <td>Managed Challenge (5 min)</td>
+              </tr>
+              <tr>
+                <th scope="row">Action (free tier)</th>
+                <td>Block (10 s)</td>
                 <td>Managed Challenge (10 s)</td>
               </tr>
             </tbody>
