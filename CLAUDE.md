@@ -42,6 +42,7 @@ Single Cloudflare Worker built with Hono. Routes:
 | `GET /admin`                         | Password-protected admin UI                                            |
 | `/hub`                               | WebSub hub (subscribe/publish)                                         |
 | `GET /favicon.svg`, `/favicon.ico`   | Project favicon (envelope logo); fallback for per-feed favicons        |
+| `GET /favicon/:feedId`               | Per-feed favicon from the last sender's domain (falls back to project) |
 | `GET /health`                        | Health check                                                           |
 | `email`                              | Cloudflare Email routing handler (alternative to ForwardEmail webhook) |
 

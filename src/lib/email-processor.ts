@@ -8,6 +8,10 @@ import {
 } from "../types";
 import { notifySubscribers } from "../utils/websub";
 import { bumpCounters } from "../utils/stats";
+import {
+  cacheFaviconForDomain,
+  extractEmailDomain,
+} from "../utils/favicon-fetcher";
 import { logger } from "./logger";
 import { FEED_MAX_BYTES } from "../config/constants";
 
@@ -213,6 +217,12 @@ export async function storeEmail(
   };
   feedMetadata.emails.unshift(newEntry);
 
+  // Track the latest sender's domain so the feed icon follows the source.
+  const iconDomain = extractEmailDomain(input.from);
+  if (iconDomain) {
+    feedMetadata.iconDomain = iconDomain;
+  }
+
   let totalSize = feedMetadata.emails.reduce(
     (sum, e) => sum + (e.size ?? 0),
     0,
@@ -240,6 +250,9 @@ export async function storeEmail(
   logger.info("Email processed", { feedId });
   if (ctx) {
     ctx.waitUntil(notifySubscribers(feedId, env));
+    if (iconDomain) {
+      ctx.waitUntil(cacheFaviconForDomain(iconDomain, env));
+    }
   }
 }
 

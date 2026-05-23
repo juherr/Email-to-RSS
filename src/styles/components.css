@@ -24,6 +24,26 @@
   color: var(--color-text-primary);
 }
 
+/* Per-feed favicon (list + table views) */
+.feed-icon {
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  object-fit: contain;
+  vertical-align: middle;
+  flex-shrink: 0;
+}
+
+.feed-title .feed-icon {
+  margin-right: var(--spacing-xs);
+}
+
+.feed-title-cell {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--spacing-sm);
+}
+
 .feed-description {
   font-size: var(--font-size-md);
   color: var(--color-text-secondary);

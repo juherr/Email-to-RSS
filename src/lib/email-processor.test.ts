@@ -1,12 +1,13 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import "../test/setup";
-import { createMockEnv, MockR2 } from "../test/setup";
+import { http, HttpResponse } from "msw";
+import { createMockEnv, MockR2, server } from "../test/setup";
 import {
   processEmail,
   ProcessEmailInput,
   RawAttachment,
 } from "./email-processor";
 import { getCounters } from "../utils/stats";
+import { iconKey } from "../utils/storage";
 
 const VALID_FEED_ID = "apple.mountain.42";
 const VALID_TO = `${VALID_FEED_ID}@test.getmynews.app`;
@@ -494,5 +495,56 @@ describe("processEmail — monitoring counters", () => {
     const counters = await getCounters(env.EMAIL_STORAGE as any);
     expect(counters.emails_rejected).toBe(1);
     expect(counters.emails_received).toBe(0);
+  });
+});
+
+describe("processEmail — feed icon", () => {
+  let env: ReturnType<typeof createMockEnv>;
+
+  beforeEach(async () => {
+    env = createMockEnv();
+    await env.EMAIL_STORAGE.put(
+      `feed:${VALID_FEED_ID}:config`,
+      JSON.stringify({}),
+    );
+  });
+
+  it("persists the latest sender domain on the feed metadata", async () => {
+    await processEmail(
+      makeInput({ from: "News <news@github.com>" }),
+      env as any,
+    );
+
+    const metadata = (await env.EMAIL_STORAGE.get(
+      `feed:${VALID_FEED_ID}:metadata`,
+      "json",
+    )) as { iconDomain?: string };
+    expect(metadata.iconDomain).toBe("github.com");
+  });
+
+  it("triggers a background favicon fetch via ctx.waitUntil", async () => {
+    let fetched = false;
+    server.use(
+      http.get("https://github.com/favicon.ico", () => {
+        fetched = true;
+        return new HttpResponse(new Uint8Array([1, 2, 3]), {
+          headers: { "Content-Type": "image/png" },
+        });
+      }),
+    );
+
+    const pending: Promise<unknown>[] = [];
+    const ctx = {
+      waitUntil: (p: Promise<unknown>) => pending.push(p),
+      passThroughOnException: () => {},
+    } as unknown as ExecutionContext;
+
+    await processEmail(makeInput({ from: "news@github.com" }), env as any, ctx);
+    await Promise.all(pending);
+
+    expect(fetched).toBe(true);
+    expect(
+      await env.EMAIL_STORAGE.get(iconKey("github.com"), "json"),
+    ).toMatchObject({ contentType: "image/png" });
   });
 });

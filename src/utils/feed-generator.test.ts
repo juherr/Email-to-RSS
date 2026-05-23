@@ -72,6 +72,17 @@ describe("generateRssFeed", () => {
     expect(result).toContain("<title>Test Newsletter</title>");
   });
 
+  it("includes the per-feed icon as the channel <image>", () => {
+    const result = generateRssFeed(
+      mockFeedConfig,
+      mockEmails,
+      BASE_URL,
+      FEED_ID,
+    );
+    expect(result).toContain("<image>");
+    expect(result).toContain(`${BASE_URL}/favicon/${FEED_ID}`);
+  });
+
   it("includes <enclosure> element for email with attachment", () => {
     const result = generateRssFeed(
       mockFeedConfig,
@@ -170,6 +181,18 @@ describe("generateAtomFeed", () => {
       FEED_ID,
     );
     expect(result).toContain('xmlns="http://www.w3.org/2005/Atom"');
+  });
+
+  it("includes the per-feed icon as <icon> and <logo>", () => {
+    const result = generateAtomFeed(
+      mockFeedConfig,
+      mockEmails,
+      BASE_URL,
+      FEED_ID,
+    );
+    const iconUrl = `${BASE_URL}/favicon/${FEED_ID}`;
+    expect(result).toContain(`<icon>${iconUrl}</icon>`);
+    expect(result).toContain(`<logo>${iconUrl}</logo>`);
   });
 
   it("contains <feed> root element", () => {

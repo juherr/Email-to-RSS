@@ -29,7 +29,12 @@ class MockKV {
     return type === "json" ? JSON.parse(value) : value;
   }
 
-  async put(key: string, value: any) {
+  async put(
+    key: string,
+    value: any,
+    _options?: { expirationTtl?: number; expiration?: number },
+  ) {
+    // TTL options are accepted for API parity but not simulated in tests.
     this.store.set(
       key,
       typeof value === "string" ? value : JSON.stringify(value),

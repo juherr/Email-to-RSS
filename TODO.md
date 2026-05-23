@@ -20,7 +20,7 @@ Feature gaps identified by comparing with [kill-the-newsletter](https://github.c
 
 - [x] **Authelia / external auth provider support** — allow delegating admin authentication to an external identity provider (e.g. Authelia, Authentik) via a trusted header (`Remote-User`, `X-Forwarded-User`) set by a reverse proxy. The Worker would accept the header as proof of authentication instead of checking the cookie, with a configurable secret or IP allowlist to trust only the proxy.
 
-- [ ] **Per-feed favicon from the last sender's domain** — give each feed an icon by fetching the favicon of the last sender's domain, so feeds are visually distinguishable in readers and the admin UI. Resolve the domain from the most recent email's `from`, fetch its favicon (e.g. `https://<domain>/favicon.ico` or a parsed `<link rel="icon">`, with a fallback service), and cache the result aggressively (KV/R2 + Cache API with a long TTL) so it isn't re-fetched on every request. Expose it via the RSS `<image>` / Atom `<icon>` and the admin feed list.
+- [x] **Per-feed favicon from the last sender's domain** — give each feed an icon by fetching the favicon of the last sender's domain, so feeds are visually distinguishable in readers and the admin UI. Resolve the domain from the most recent email's `from`, fetch its favicon (e.g. `https://<domain>/favicon.ico` or a parsed `<link rel="icon">`, with a fallback service), and cache the result aggressively (KV/R2 + Cache API with a long TTL) so it isn't re-fetched on every request. Expose it via the RSS `<image>` / Atom `<icon>` and the admin feed list.
 
 - [ ] **RFC 8058 one-click unsubscribe on feed deletion** — when a feed is deleted, automatically unsubscribe from the newsletters that fed it so messages stop arriving at the now-dead address. Parse and store the `List-Unsubscribe` / `List-Unsubscribe-Post` headers ([RFC 8058](https://www.rfc-editor.org/rfc/rfc8058.txt)) from incoming emails, then on deletion POST `List-Unsubscribe=One-Click` to each stored unsubscribe URL. Requires capturing the headers during ingestion (`src/lib/email-processor.ts`) and firing the outbound requests from the feed-delete paths (`src/routes/admin/feeds.tsx`), ideally via `ctx.waitUntil`.
 
@@ -38,14 +38,14 @@ Feature gaps identified by comparing with [kill-the-newsletter](https://github.c
 
 Breakdown of the _"Per-feed favicon from the last sender's domain"_ item above. Goal: each feed shows an icon derived from its newsletter source, fetched once and cached so it never re-fetches on a normal request.
 
-- [ ] **Resolve the sender domain** — on ingestion, extract the domain from the latest email's `from` address (already parsed in `src/lib/email-processor.ts`) and persist it on the feed (e.g. `icon_domain` in `FeedConfig` / feed metadata) so the icon tracks the most recent sender.
+- [x] **Resolve the sender domain** — on ingestion, extract the domain from the latest email's `from` address (`extractEmailDomain` in `src/utils/favicon-fetcher.ts`) and persist it as `iconDomain` on the feed metadata so the icon tracks the most recent sender.
 
-- [ ] **Fetch the favicon** — resolve an icon URL for the domain: try `https://<domain>/favicon.ico`, optionally parse the homepage for `<link rel="icon">`, and fall back to a third-party service (e.g. `https://icons.duckduckgo.com/ip3/<domain>.ico`). Run lazily/async (`ctx.waitUntil`) so it never blocks email processing.
+- [x] **Fetch the favicon** — resolve an icon URL for the domain: try `https://<domain>/favicon.ico`, then fall back to `https://icons.duckduckgo.com/ip3/<domain>.ico`. Runs async via `ctx.waitUntil` so it never blocks email processing.
 
-- [ ] **Cache aggressively** — store the fetched bytes keyed by domain (R2 for the image bytes, or KV for small icons) with a long TTL (e.g. refresh ~weekly), and serve them through the Cloudflare Cache API. The domain is the cache key so feeds from the same sender share one fetch.
+- [x] **Cache aggressively** — store the fetched bytes (base64) keyed by domain in KV with a 1-week TTL (`ICON_TTL_SECONDS`). The domain is the cache key so feeds from the same sender share one fetch; the fetch only fires when the cache entry is absent/expired.
 
-- [ ] **Serve endpoint** — add a route like `GET /icons/:domain` (or `GET /favicon/:feedId`) returning the cached bytes with the correct `Content-Type` and a long `Cache-Control`, falling back to the project favicon (see _Project favicon_ in Quick wins) when no domain icon is found.
+- [x] **Serve endpoint** — `GET /favicon/:feedId` returns the cached bytes with the correct `Content-Type` and a long `Cache-Control`, falling back to the project favicon when no domain icon is found.
 
-- [ ] **Expose in outputs** — reference the icon from the RSS `<image>` and Atom `<icon>`/`<logo>` in `src/utils/feed-generator.ts`, and render it next to each feed in the admin list (`src/routes/admin/feeds.tsx`).
+- [x] **Expose in outputs** — the icon is referenced from the RSS `<image>` and Atom `<icon>`/`<logo>` in `src/utils/feed-generator.ts`, and rendered next to each feed in the admin list/table (`src/routes/admin.tsx`).
 
-- [ ] **Failure handling** — missing/blocked favicons must degrade gracefully to the project favicon fallback; never let an icon fetch error surface to ingestion or feed rendering.
+- [x] **Failure handling** — missing/blocked favicons degrade gracefully to the project favicon fallback (negative cache entry); icon fetch errors never surface to ingestion or feed rendering.

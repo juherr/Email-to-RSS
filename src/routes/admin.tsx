@@ -145,7 +145,12 @@ app.get("/login", (c) => {
               fill="none"
               xmlns="http://www.w3.org/2000/svg"
             >
-              <rect width="24" height="24" rx="12" fill="var(--color-primary)" />
+              <rect
+                width="24"
+                height="24"
+                rx="12"
+                fill="var(--color-primary)"
+              />
               <path
                 d="M17 9C17 7.89543 16.1046 7 15 7H9C7.89543 7 7 7.89543 7 9V15C7 16.1046 7.89543 17 9 17H15C16.1046 17 17 16.1046 17 15V9Z"
                 stroke="white"
@@ -161,9 +166,7 @@ app.get("/login", (c) => {
             </svg>
           </div>
           <h1 class="auth-title">kill-the-news</h1>
-          {errorMessage && (
-            <div class="auth-error">{errorMessage}</div>
-          )}
+          {errorMessage && <div class="auth-error">{errorMessage}</div>}
           <form class="auth-form" action="/admin/login" method="post">
             <div class="form-group">
               <label for="password">Password</label>
@@ -641,7 +644,11 @@ app.get("/", async (c) => {
                           title="Resize"
                         ></div>
                       </th>
-                      <th class="th-resizable" data-sort-key="atom" aria-sort="none">
+                      <th
+                        class="th-resizable"
+                        data-sort-key="atom"
+                        aria-sort="none"
+                      >
                         <button
                           type="button"
                           class="th-button"
@@ -689,7 +696,10 @@ app.get("/", async (c) => {
                       const sortEmail = emailAddress.toLowerCase();
                       const sortRss = rssUrl.toLowerCase();
                       const sortAtom = atomUrl.toLowerCase();
-                      const descDisplay = clampText(feed.description || "", 220);
+                      const descDisplay = clampText(
+                        feed.description || "",
+                        220,
+                      );
                       const descHover = clampText(feed.description || "", 1000);
                       const searchHaystack =
                         `${clampText(feed.title, 320)} ${feed.id} ${clampText(feed.description || "", 320)}`.toLowerCase();
@@ -718,18 +728,30 @@ app.get("/", async (c) => {
                             />
                           </td>
                           <td>
-                            <strong class="truncate" title={titleHover}>
-                              {titleDisplay}
-                            </strong>
-                            {feed.description && (
-                              <div
-                                class="muted truncate"
-                                style="font-size: var(--font-size-sm); margin-top: 4px;"
-                                title={descHover}
-                              >
-                                {descDisplay}
+                            <div class="feed-title-cell">
+                              <img
+                                class="feed-icon"
+                                src={`/favicon/${feed.id}`}
+                                alt=""
+                                width="20"
+                                height="20"
+                                loading="lazy"
+                              />
+                              <div>
+                                <strong class="truncate" title={titleHover}>
+                                  {titleDisplay}
+                                </strong>
+                                {feed.description && (
+                                  <div
+                                    class="muted truncate"
+                                    style="font-size: var(--font-size-sm); margin-top: 4px;"
+                                    title={descHover}
+                                  >
+                                    {descDisplay}
+                                  </div>
+                                )}
                               </div>
-                            )}
+                            </div>
                           </td>
                           <td>
                             <code>{feed.id}</code>
@@ -842,6 +864,14 @@ app.get("/", async (c) => {
                   >
                     <div class="feed-header">
                       <h3 class="feed-title" title={titleHover}>
+                        <img
+                          class="feed-icon"
+                          src={`/favicon/${feed.id}`}
+                          alt=""
+                          width="20"
+                          height="20"
+                          loading="lazy"
+                        />
                         {titleDisplay}
                       </h3>
                       {feed.expires_at && (

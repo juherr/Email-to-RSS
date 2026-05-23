@@ -8,6 +8,13 @@ import {
 import { MAX_METADATA_EMAILS } from "../config/constants";
 
 /**
+ * KV key for a domain's cached favicon (shared across feeds from the same sender).
+ */
+export function iconKey(domain: string): string {
+  return `icon:${domain}`;
+}
+
+/**
  * Store email data in KV
  */
 export async function storeEmail(

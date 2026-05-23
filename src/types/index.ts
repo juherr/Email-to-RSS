@@ -45,6 +45,7 @@ export interface FeedConfig {
 // Feed metadata interface
 export interface FeedMetadata {
   emails: EmailMetadata[];
+  iconDomain?: string; // Most recent sender's domain, used to resolve the feed icon
 }
 
 // Email metadata interface (summary info for listing)
@@ -111,6 +112,7 @@ declare global {
     put(
       key: string,
       value: string | ArrayBuffer | ReadableStream | FormData,
+      options?: { expirationTtl?: number; expiration?: number },
     ): Promise<void>;
     delete(key: string): Promise<void>;
     list(options?: {

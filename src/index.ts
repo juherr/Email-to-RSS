@@ -8,7 +8,7 @@ import { handle as handleEntry } from "./routes/entries";
 import { handle as handleFiles } from "./routes/files";
 import { handle as handleStats } from "./routes/stats";
 import { handle as handleHome } from "./routes/home";
-import { handle as handleFavicon } from "./routes/favicon";
+import { handle as handleFavicon, handleFeedFavicon } from "./routes/favicon";
 import { hubRouter } from "./routes/hub";
 import { handleCloudflareEmail } from "./lib/cloudflare-email";
 import { Env } from "./types";
@@ -169,9 +169,12 @@ app.route("/files", files);
 app.route("/admin", admin);
 app.route("/hub", hubRouter);
 
-// Project favicon (also the fallback for the future per-feed favicon)
+// Project favicon (also the fallback for the per-feed favicon)
 app.get("/favicon.svg", handleFavicon);
 app.get("/favicon.ico", handleFavicon); // readers/browsers that hardcode .ico
+
+// Per-feed favicon derived from the last sender's domain
+app.get("/favicon/:feedId", handleFeedFavicon);
 
 // Health check endpoint for monitoring
 app.get("/health", (c) => c.json({ status: "ok", timestamp: Date.now() }));

@@ -24,3 +24,12 @@ export const FEEDS_LIST_KEY = "feeds:list";
 
 /** KV key for the monitoring counters singleton. */
 export const STATS_KEY = "stats:counters";
+
+/** Default TTL for a cached per-domain favicon (seconds). */
+export const ICON_TTL_SECONDS = 7 * 24 * 60 * 60; // 1 week
+
+/** Maximum accepted favicon size (bytes); larger responses are rejected. */
+export const MAX_ICON_BYTES = 100 * 1024; // 100 KB
+
+/** Timeout for an outbound favicon fetch (milliseconds). */
+export const ICON_FETCH_TIMEOUT_MS = 5000;

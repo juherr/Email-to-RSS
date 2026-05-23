@@ -23,9 +23,14 @@ function buildFeed(
   feedId: string,
   selfUrl?: { rss?: string; atom?: string },
 ): Feed {
+  const iconUrl = `${baseUrl}/favicon/${feedId}`;
   const feed = new Feed({
     title: feedConfig.title,
     description: feedConfig.description || "",
+    // Per-feed icon derived from the last sender's domain (self-falls-back to
+    // the project icon). image → RSS <image>/Atom <logo>; favicon → Atom <icon>.
+    image: iconUrl,
+    favicon: iconUrl,
     // Computed dynamically so the id is always canonical regardless of what
     // was stored in KV at feed-creation time (which may have used a stale domain).
     id: `${baseUrl}/rss/${feedId}`,
