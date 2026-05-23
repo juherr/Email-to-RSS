@@ -377,6 +377,9 @@ app.get("/", async (c) => {
             <p>Manage your email newsletter feeds</p>
           </div>
           <div class="header-actions">
+            <a href="/" class="button button-secondary">
+              Status
+            </a>
             <a href="/admin/logout" class="button button-logout">
               Logout
             </a>
