@@ -212,7 +212,7 @@ feedsRouter.post("/create", async (c) => {
       });
     }
 
-    return c.redirect(`/admin?view=${view}`);
+    return c.redirect(`/admin?view=${view}#your-feeds`);
   } catch (error) {
     logger.error("Error creating feed", { error: String(error) });
     if (c.req.header("Content-Type")?.includes("application/json")) {

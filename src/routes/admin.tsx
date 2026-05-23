@@ -383,8 +383,13 @@ app.get("/", async (c) => {
           </div>
         </div>
 
-        <div class="card">
-          <h2>Create New Feed</h2>
+        <details
+          class="card create-feed-card"
+          open={feedsWithConfig.length === 0}
+        >
+          <summary class="create-feed-summary">
+            <h2>Create New Feed</h2>
+          </summary>
           <form action="/admin/feeds/create" method="post">
             <div class="form-group">
               <label for="title">Feed Title</label>
@@ -458,7 +463,7 @@ app.get("/", async (c) => {
               Create Feed
             </button>
           </form>
-        </div>
+        </details>
 
         {message === "bulkDeleted" && (
           <div class="card">
@@ -471,7 +476,7 @@ app.get("/", async (c) => {
           </div>
         )}
 
-        <div class="toolbar">
+        <div class="toolbar" id="your-feeds">
           <div class="toolbar-group">
             <h2 style="margin: 0;">Your Feeds</h2>
             <span class="pill" id="feed-total-count">

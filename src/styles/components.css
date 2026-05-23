@@ -13,6 +13,39 @@
   margin-top: 0;
 }
 
+/* Create-feed accordion */
+.create-feed-card > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-md);
+  cursor: pointer;
+  list-style: none;
+}
+
+.create-feed-card > summary::-webkit-details-marker {
+  display: none;
+}
+
+.create-feed-summary h2 {
+  margin: 0;
+}
+
+.create-feed-card > summary::after {
+  content: "+";
+  color: var(--color-primary);
+  font-size: var(--font-size-xl);
+  line-height: 1;
+}
+
+.create-feed-card[open] > summary::after {
+  content: "\2212";
+}
+
+.create-feed-card[open] > summary {
+  margin-bottom: var(--spacing-md);
+}
+
 /* Feed header styling */
 .feed-header {
   margin-bottom: var(--spacing-md);
