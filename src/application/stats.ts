@@ -1,10 +1,10 @@
 import { Counters, Env, StatsResponse } from "../types";
-import { logger } from "../lib/logger";
+import { logger } from "../infrastructure/logger";
 import { FeedRepository } from "../domain/feed-repository";
 import { CountersRepository } from "../domain/counters-repository";
 import { WebSubSubscriptionRepository } from "../domain/websub-subscription-repository";
 import { FeedId } from "../domain/value-objects/feed-id";
-import { getAttachmentBucket } from "./attachments";
+import { getAttachmentBucket } from "../infrastructure/attachments";
 
 const EMPTY_COUNTERS: Counters = {
   feeds_created: 0,

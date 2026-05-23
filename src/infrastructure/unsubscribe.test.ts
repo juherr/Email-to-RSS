@@ -6,7 +6,7 @@ import {
   sendOneClickUnsubscribe,
   sendUnsubscribes,
 } from "./unsubscribe";
-import { getCounters } from "./stats";
+import { getCounters } from "../application/stats";
 import type { Env } from "../types";
 
 const POST_HEADER = "List-Unsubscribe=One-Click";

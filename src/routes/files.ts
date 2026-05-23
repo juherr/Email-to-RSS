@@ -1,6 +1,6 @@
 import { Context } from "hono";
 import { Env } from "../types";
-import { getAttachmentBucket } from "../utils/attachments";
+import { getAttachmentBucket } from "../infrastructure/attachments";
 
 export async function handle(c: Context<{ Bindings: Env }>): Promise<Response> {
   const bucket = getAttachmentBucket(c.env);

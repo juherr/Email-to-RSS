@@ -1,6 +1,6 @@
 import { EmailData, EmailMetadata, Env } from "../../types";
-import { logger } from "../../lib/logger";
-import { getAttachmentBucket } from "../../utils/attachments";
+import { logger } from "../../infrastructure/logger";
+import { getAttachmentBucket } from "../../infrastructure/attachments";
 import { FeedRepository } from "../../domain/feed-repository";
 import { FeedId } from "../../domain/value-objects/feed-id";
 

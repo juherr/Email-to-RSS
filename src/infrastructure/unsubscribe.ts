@@ -1,7 +1,7 @@
 import { Env } from "../types";
 import { UNSUBSCRIBE_TIMEOUT_MS } from "../config/constants";
-import { bumpCounters } from "./stats";
-import { logger } from "../lib/logger";
+import { bumpCounters } from "../application/stats";
+import { logger } from "../infrastructure/logger";
 
 /**
  * Extract a one-click unsubscribe URL from a stored email's headers per

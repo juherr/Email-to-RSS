@@ -1,7 +1,11 @@
-import { EmailParser } from "../utils/email-parser";
+import { EmailParser } from "../domain/email-parser";
 import { Env } from "../types";
-import { processEmail, IngestResult, RawAttachment } from "./email-processor";
-import { normalizeCid } from "../utils/html-processor";
+import {
+  processEmail,
+  IngestResult,
+  RawAttachment,
+} from "../application/email-processor";
+import { normalizeCid } from "../infrastructure/html-processor";
 
 /** Map an ingestion result to the HTTP response ForwardEmail expects. */
 export function ingestResultToResponse(result: IngestResult): Response {

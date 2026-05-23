@@ -6,7 +6,7 @@ import {
   ProcessEmailInput,
   RawAttachment,
 } from "./email-processor";
-import { getCounters } from "../utils/stats";
+import { getCounters } from "../application/stats";
 
 const iconKey = (domain: string) => `icon:${domain}`;
 

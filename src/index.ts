@@ -10,9 +10,9 @@ import { handle as handleHome } from "./routes/home";
 import { handle as handleFavicon, handleFeedFavicon } from "./routes/favicon";
 import { hubRouter } from "./routes/hub";
 import { apiApp } from "./routes/api";
-import { handleCloudflareEmail } from "./lib/cloudflare-email";
+import { handleCloudflareEmail } from "./infrastructure/cloudflare-email";
 import { Env } from "./types";
-import { logger } from "./lib/logger";
+import { logger } from "./infrastructure/logger";
 import { FeedRepository } from "./domain/feed-repository";
 import { purgeExpiredFeeds } from "./routes/admin/helpers";
 import {
@@ -20,8 +20,8 @@ import {
   scanR2Usage,
   scanKvUsage,
   setStorageSnapshot,
-} from "./utils/stats";
-import { getAttachmentBucket } from "./utils/attachments";
+} from "./application/stats";
+import { getAttachmentBucket } from "./infrastructure/attachments";
 import { FORWARD_EMAIL_IPS_CACHE_TTL_MS } from "./config/constants";
 
 type AppEnv = { Bindings: Env };

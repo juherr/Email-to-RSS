@@ -1,7 +1,7 @@
 import { Context } from "hono";
 import { Env } from "../types";
-import { getStats } from "../utils/stats";
-import { formatBytes } from "../utils/format";
+import { getStats } from "../application/stats";
+import { formatBytes } from "../domain/format";
 import { R2_FREE_TIER_BYTES, KV_FREE_TIER_BYTES } from "../config/constants";
 import { Layout } from "./admin/ui";
 

@@ -1,8 +1,8 @@
 import { Context } from "hono";
 import { Env } from "../types";
-import { generateRssFeed } from "../utils/feed-generator";
-import { fetchFeedData } from "../utils/feed-fetcher";
-import { baseUrl, feedRssUrl } from "../utils/urls";
+import { generateRssFeed } from "../infrastructure/feed-generator";
+import { fetchFeedData } from "../application/feed-fetcher";
+import { baseUrl, feedRssUrl } from "../infrastructure/urls";
 import { isExpired } from "../domain/feed";
 
 export async function handle(c: Context<{ Bindings: Env }>): Promise<Response> {

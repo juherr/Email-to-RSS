@@ -1,12 +1,12 @@
 import { Hono } from "hono";
 import { z } from "zod";
 import { Env } from "../../types";
-import { bumpCounters } from "../../utils/stats";
-import { waitUntilSafe } from "../../utils/worker";
-import { feedRssUrl, feedEmailAddress } from "../../utils/urls";
-import { logger } from "../../lib/logger";
-import { sendUnsubscribes } from "../../utils/unsubscribe";
-import { getAttachmentBucket } from "../../utils/attachments";
+import { bumpCounters } from "../../application/stats";
+import { waitUntilSafe } from "../../infrastructure/worker";
+import { feedRssUrl, feedEmailAddress } from "../../infrastructure/urls";
+import { logger } from "../../infrastructure/logger";
+import { sendUnsubscribes } from "../../infrastructure/unsubscribe";
+import { getAttachmentBucket } from "../../infrastructure/attachments";
 import { Layout } from "./ui";
 import { purgeFeedKeysStep, collectUnsubscribeUrls } from "./helpers";
 import { FeedRepository } from "../../domain/feed-repository";
@@ -16,7 +16,7 @@ import {
   editFeed,
   deleteFeedRecord,
   deleteFeedFastDetailed,
-} from "../../lib/feed-service";
+} from "../../application/feed-service";
 
 type AppEnv = { Bindings: Env };
 

@@ -9,7 +9,7 @@ import {
   scanKvUsage,
   setStorageSnapshot,
 } from "./stats";
-import { getAttachmentBucket } from "./attachments";
+import { getAttachmentBucket } from "../infrastructure/attachments";
 import { STATS_KEY, FEEDS_LIST_KEY } from "../config/constants";
 import { Env } from "../types";
 

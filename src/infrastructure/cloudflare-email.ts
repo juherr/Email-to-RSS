@@ -1,7 +1,7 @@
 import PostalMime from "postal-mime";
 import { Env } from "../types";
-import { processEmail, RawAttachment } from "./email-processor";
-import { normalizeCid } from "../utils/html-processor";
+import { processEmail, RawAttachment } from "../application/email-processor";
+import { normalizeCid } from "../infrastructure/html-processor";
 import { logger } from "./logger";
 
 export async function handleCloudflareEmail(

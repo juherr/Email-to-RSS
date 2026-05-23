@@ -1,6 +1,9 @@
 import { Context } from "hono";
 import { Env } from "../types";
-import { ForwardEmailPayload, handleForwardEmail } from "../lib/forwardemail";
+import {
+  ForwardEmailPayload,
+  handleForwardEmail,
+} from "../infrastructure/forwardemail";
 
 export async function handle(c: Context<{ Bindings: Env }>): Promise<Response> {
   try {

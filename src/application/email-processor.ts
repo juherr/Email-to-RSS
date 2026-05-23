@@ -1,17 +1,17 @@
-import { EmailParser } from "../utils/email-parser";
+import { EmailParser } from "../domain/email-parser";
 import { AttachmentData, EmailMetadata, Env } from "../types";
-import { notifySubscribers } from "../utils/websub";
-import { bumpCounters } from "../utils/stats";
+import { notifySubscribers } from "../infrastructure/websub";
+import { bumpCounters } from "../application/stats";
 import {
   cacheFaviconForDomain,
   extractEmailDomain,
-} from "../utils/favicon-fetcher";
-import { parseOneClickUnsubscribe } from "../utils/unsubscribe";
-import { getAttachmentBucket } from "../utils/attachments";
+} from "../infrastructure/favicon-fetcher";
+import { parseOneClickUnsubscribe } from "../infrastructure/unsubscribe";
+import { getAttachmentBucket } from "../infrastructure/attachments";
 import { FeedRepository } from "../domain/feed-repository";
 import { Feed } from "../domain/feed.aggregate";
 import { FeedId } from "../domain/value-objects/feed-id";
-import { logger } from "./logger";
+import { logger } from "../infrastructure/logger";
 import { FEED_MAX_BYTES } from "../config/constants";
 
 export interface RawAttachment {

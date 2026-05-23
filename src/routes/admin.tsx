@@ -5,12 +5,16 @@ import { z } from "zod";
 import { Env } from "../types";
 import { csrf } from "hono/csrf";
 import { ADMIN_COOKIE_MAX_AGE } from "../config/constants";
-import { logger } from "../lib/logger";
-import { timingSafeEqual, checkProxyAuth } from "../lib/auth";
+import { logger } from "../infrastructure/logger";
+import { timingSafeEqual, checkProxyAuth } from "../infrastructure/auth";
 import { Layout, clampText } from "./admin/ui";
 import { FeedRepository } from "../domain/feed-repository";
-import { renameFeed } from "../lib/feed-service";
-import { feedRssUrl, feedAtomUrl, feedEmailAddress } from "../utils/urls";
+import { renameFeed } from "../application/feed-service";
+import {
+  feedRssUrl,
+  feedAtomUrl,
+  feedEmailAddress,
+} from "../infrastructure/urls";
 import { feedsRouter } from "./admin/feeds";
 import { emailsRouter } from "./admin/emails";
 import { dashboardScript } from "../scripts/generated/dashboard";

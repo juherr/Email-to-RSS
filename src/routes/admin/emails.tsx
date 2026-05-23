@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { Env, EmailMetadata } from "../../types";
-import { logger } from "../../lib/logger";
+import { logger } from "../../infrastructure/logger";
 import { Layout, clampText } from "./ui";
 import {
   deleteAttachmentsForEmails,
@@ -8,8 +8,12 @@ import {
 } from "./helpers";
 import { FeedRepository } from "../../domain/feed-repository";
 import { FeedId } from "../../domain/value-objects/feed-id";
-import { feedRssUrl, feedAtomUrl, feedEmailAddress } from "../../utils/urls";
-import { formatBytes } from "../../utils/format";
+import {
+  feedRssUrl,
+  feedAtomUrl,
+  feedEmailAddress,
+} from "../../infrastructure/urls";
+import { formatBytes } from "../../domain/format";
 import { EmailAddress } from "../../domain/value-objects/email-address";
 import { emailsPageScript } from "../../scripts/generated/emails-page";
 

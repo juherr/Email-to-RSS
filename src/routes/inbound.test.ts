@@ -3,7 +3,7 @@ import { http, HttpResponse } from "msw";
 import worker from "../index";
 import { server, createMockEnv, MockR2 } from "../test/setup";
 import type { Env } from "../types";
-import type { ForwardEmailPayload } from "../lib/forwardemail";
+import type { ForwardEmailPayload } from "../infrastructure/forwardemail";
 
 const AUTHORIZED_IP = "138.197.213.185"; // first fallback IP
 const DOMAIN = "test.getmynews.app";

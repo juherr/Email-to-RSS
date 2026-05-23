@@ -3,10 +3,10 @@ import { Env } from "../types";
 import {
   verifyAndStoreSubscription,
   verifyAndDeleteSubscription,
-} from "../utils/websub";
-import { waitUntilSafe } from "../utils/worker";
+} from "../infrastructure/websub";
+import { waitUntilSafe } from "../infrastructure/worker";
 import { DEFAULT_LEASE_SECONDS, MAX_LEASE_SECONDS } from "../config/constants";
-import { feedTopicPattern } from "../utils/urls";
+import { feedTopicPattern } from "../infrastructure/urls";
 import { FeedRepository } from "../domain/feed-repository";
 import { FeedId } from "../domain/value-objects/feed-id";
 

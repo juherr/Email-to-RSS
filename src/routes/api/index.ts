@@ -2,17 +2,21 @@ import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
 import { cors } from "hono/cors";
 import { Scalar } from "@scalar/hono-api-reference";
 import { Env, FeedConfig } from "../../types";
-import { apiAuthMiddleware } from "../../lib/auth";
+import { apiAuthMiddleware } from "../../infrastructure/auth";
 import {
   createFeedRecord,
   editFeed,
   deleteFeedRecord,
-} from "../../lib/feed-service";
+} from "../../application/feed-service";
 import { deleteAttachmentsForEmails } from "../admin/helpers";
 import { FeedRepository } from "../../domain/feed-repository";
 import { FeedId } from "../../domain/value-objects/feed-id";
-import { getStats } from "../../utils/stats";
-import { feedEmailAddress, feedRssUrl, feedAtomUrl } from "../../utils/urls";
+import { getStats } from "../../application/stats";
+import {
+  feedEmailAddress,
+  feedRssUrl,
+  feedAtomUrl,
+} from "../../infrastructure/urls";
 import {
   ErrorSchema,
   FeedIdParam,

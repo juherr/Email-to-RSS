@@ -3,7 +3,7 @@ import { http, HttpResponse } from "msw";
 import { Hono } from "hono";
 import app from "./admin";
 import { createMockEnv, server } from "../test/setup";
-import { getCounters } from "../utils/stats";
+import { getCounters } from "../application/stats";
 import { Env } from "../types";
 
 describe("Admin Routes", () => {

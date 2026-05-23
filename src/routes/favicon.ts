@@ -2,7 +2,10 @@ import { Context } from "hono";
 import { Env } from "../types";
 import { FeedRepository } from "../domain/feed-repository";
 import { FeedId } from "../domain/value-objects/feed-id";
-import { cacheFaviconForDomain, getCachedIcon } from "../utils/favicon-fetcher";
+import {
+  cacheFaviconForDomain,
+  getCachedIcon,
+} from "../infrastructure/favicon-fetcher";
 
 export const FAVICON_PATH = "/favicon.svg";
 

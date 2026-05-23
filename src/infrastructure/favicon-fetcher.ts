@@ -6,7 +6,7 @@ import {
 } from "../config/constants";
 import { IconRepository } from "../domain/icon-repository";
 import { EmailAddress } from "../domain/value-objects/email-address";
-import { logger } from "../lib/logger";
+import { logger } from "../infrastructure/logger";
 
 interface IconRecord {
   data: string | null; // base64 icon bytes, or null for a negative cache entry

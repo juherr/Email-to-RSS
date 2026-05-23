@@ -1,6 +1,6 @@
 import { Env, WebSubSubscription } from "../types";
 import { feedKeys } from "./feed-keys";
-import { logger } from "../lib/logger";
+import { logger } from "../infrastructure/logger";
 
 /**
  * KV access for per-feed WebSub subscriber lists (`websub:subs:<feedId>`).

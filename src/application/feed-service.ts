@@ -1,9 +1,9 @@
 import { Context } from "hono";
 import { Env, FeedConfig } from "../types";
-import { bumpCounters } from "../utils/stats";
-import { waitUntilSafe } from "../utils/worker";
-import { sendUnsubscribes } from "../utils/unsubscribe";
-import { getAttachmentBucket } from "../utils/attachments";
+import { bumpCounters } from "../application/stats";
+import { waitUntilSafe } from "../infrastructure/worker";
+import { sendUnsubscribes } from "../infrastructure/unsubscribe";
+import { getAttachmentBucket } from "../infrastructure/attachments";
 import { FeedRepository } from "../domain/feed-repository";
 import { FeedId } from "../domain/value-objects/feed-id";
 import {
