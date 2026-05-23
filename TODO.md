@@ -32,6 +32,8 @@ Feature gaps identified by comparing with [kill-the-newsletter](https://github.c
 
 - [x] **Rate limiting via Cloudflare WAF rules** — protect `/api/inbound` and `/admin` against abuse. Configure WAF custom rules in the Cloudflare dashboard (or via Terraform): rate-limit `/api/inbound` to ~60 req/min per IP, and `/admin` to ~20 req/min per IP. No code changes required; this is pure infrastructure configuration.
 
+- [ ] **REST API with OpenAPI description** — expose a documented, machine-consumable REST API for feed/email management (create/list/update/delete feeds, list/read/delete emails, read stats) so the service can be automated without scraping the admin UI. Today only a couple of ad-hoc JSON endpoints exist (`POST /admin/feeds/create`, `POST /admin/api/feeds/:feedId/update`). Consolidate these under a versioned `/api/v1/*` surface with consistent auth (reuse the admin password / proxy-auth) and ship an OpenAPI 3.1 spec served at e.g. `/api/openapi.json` plus a rendered docs page. Prefer `@hono/zod-openapi` so the existing Zod schemas in `src/routes/admin/feeds.tsx` drive both validation and the generated spec (single source of truth).
+
 - [ ] **Migrate feed metadata to Durable Objects for atomic writes** — the current KV-based metadata store has a read-modify-write race condition: two concurrent emails to the same feed can silently overwrite each other's changes. Cloudflare Durable Objects serialise access per feed and eliminate the race entirely. Requires replacing `feed:<feedId>:metadata` KV writes in `src/lib/email-processor.ts` with a Durable Object that exposes an `appendEmail()` RPC, updating `wrangler.toml` with a DO binding, and migrating existing metadata at deploy time.
 
 ## Per-feed favicon — design notes
