@@ -33,3 +33,6 @@ export const MAX_ICON_BYTES = 100 * 1024; // 100 KB
 
 /** Timeout for an outbound favicon fetch (milliseconds). */
 export const ICON_FETCH_TIMEOUT_MS = 5000;
+
+/** Timeout for an outbound RFC 8058 one-click unsubscribe request (milliseconds). */
+export const UNSUBSCRIBE_TIMEOUT_MS = 5000;

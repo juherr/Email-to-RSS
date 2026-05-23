@@ -46,6 +46,9 @@ export interface FeedConfig {
 export interface FeedMetadata {
   emails: EmailMetadata[];
   iconDomain?: string; // Most recent sender's domain, used to resolve the feed icon
+  // RFC 8058 one-click unsubscribe URLs, keyed by sender so each newsletter on
+  // the feed keeps its own (latest) link; fired when the feed is deleted.
+  unsubscribe?: Record<string, string>;
 }
 
 // Email metadata interface (summary info for listing)
@@ -76,6 +79,7 @@ export interface Counters {
   feeds_deleted: number;
   emails_received: number;
   emails_rejected: number;
+  unsubscribes_sent: number;
   last_email_at?: string; // ISO 8601
   last_feed_created_at?: string; // ISO 8601
   first_seen?: string; // ISO 8601 — first time counters were written (instance start)

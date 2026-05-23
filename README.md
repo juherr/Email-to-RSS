@@ -23,6 +23,7 @@ kill-the-news keeps the same workflow while avoiding shared domains and shared d
 - RSS generation on demand (`/rss/:feedId`)
 - Atom feed at `/atom/:feedId`
 - Per-feed favicon derived from the last sender's domain (`/favicon/:feedId`), cached and shown in feeds + admin
+- Automatic RFC 8058 one-click unsubscribe when a feed is deleted — stops newsletters from mailing the now-dead address
 - Email attachments stored in Cloudflare R2 and exposed as RSS enclosures (optional)
 - Cloudflare KV storage for feed config + email metadata/content
 - Password-protected admin UI

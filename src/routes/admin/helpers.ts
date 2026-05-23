@@ -1,4 +1,4 @@
-import { EmailData, FeedList, FeedListItem } from "../../types";
+import { EmailData, FeedList, FeedListItem, FeedMetadata } from "../../types";
 import { FEEDS_LIST_KEY } from "../../config/constants";
 import { logger } from "../../lib/logger";
 
@@ -130,6 +130,28 @@ export async function removeFeedFromList(
 ): Promise<boolean> {
   const removed = await removeFeedsFromListBulk(emailStorage, [feedId]);
   return removed.includes(feedId);
+}
+
+/**
+ * Read a feed's stored RFC 8058 one-click unsubscribe URLs (one per sender).
+ * Must be called before the feed metadata is deleted. Never throws.
+ */
+export async function collectUnsubscribeUrls(
+  emailStorage: KVNamespace,
+  feedId: string,
+): Promise<string[]> {
+  try {
+    const metadata = (await emailStorage.get(`feed:${feedId}:metadata`, {
+      type: "json",
+    })) as FeedMetadata | null;
+    return Object.values(metadata?.unsubscribe ?? {});
+  } catch (error) {
+    logger.error("Error reading unsubscribe URLs", {
+      feedId,
+      error: String(error),
+    });
+    return [];
+  }
 }
 
 export async function purgeFeedKeysStep(

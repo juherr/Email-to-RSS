@@ -12,6 +12,7 @@ import {
   cacheFaviconForDomain,
   extractEmailDomain,
 } from "../utils/favicon-fetcher";
+import { parseOneClickUnsubscribe } from "../utils/unsubscribe";
 import { logger } from "./logger";
 import { FEED_MAX_BYTES } from "../config/constants";
 
@@ -221,6 +222,19 @@ export async function storeEmail(
   const iconDomain = extractEmailDomain(input.from);
   if (iconDomain) {
     feedMetadata.iconDomain = iconDomain;
+  }
+
+  // Capture the sender's RFC 8058 one-click unsubscribe link so we can stop the
+  // newsletter when the feed is deleted. Keyed by sender: each newsletter on the
+  // feed keeps its own entry, and a repeat send overwrites with the latest URL.
+  const unsubUrl = parseOneClickUnsubscribe(input.headers ?? {});
+  if (unsubUrl) {
+    const senderKey =
+      input.senders[0] || extractEmailDomain(input.from) || input.from;
+    feedMetadata.unsubscribe = {
+      ...(feedMetadata.unsubscribe ?? {}),
+      [senderKey]: unsubUrl,
+    };
   }
 
   let totalSize = feedMetadata.emails.reduce(

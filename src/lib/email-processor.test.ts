@@ -548,3 +548,93 @@ describe("processEmail — feed icon", () => {
     ).toMatchObject({ contentType: "image/png" });
   });
 });
+
+describe("processEmail — unsubscribe capture", () => {
+  let env: ReturnType<typeof createMockEnv>;
+
+  beforeEach(async () => {
+    env = createMockEnv();
+    await env.EMAIL_STORAGE.put(
+      `feed:${VALID_FEED_ID}:config`,
+      JSON.stringify({}),
+    );
+  });
+
+  it("stores the one-click unsubscribe URL on the feed metadata, keyed by sender", async () => {
+    await processEmail(
+      makeInput({
+        senders: ["news@example.com"],
+        headers: {
+          "list-unsubscribe": "<https://example.com/u?t=abc>",
+          "list-unsubscribe-post": "List-Unsubscribe=One-Click",
+        },
+      }),
+      env as any,
+    );
+
+    const metadata = (await env.EMAIL_STORAGE.get(
+      `feed:${VALID_FEED_ID}:metadata`,
+      "json",
+    )) as { unsubscribe?: Record<string, string> };
+    expect(metadata.unsubscribe).toEqual({
+      "news@example.com": "https://example.com/u?t=abc",
+    });
+  });
+
+  it("keeps one entry per sender and overwrites with the latest URL", async () => {
+    await processEmail(
+      makeInput({
+        senders: ["a@one.com"],
+        headers: {
+          "list-unsubscribe": "<https://one.com/u/1>",
+          "list-unsubscribe-post": "List-Unsubscribe=One-Click",
+        },
+      }),
+      env as any,
+    );
+    await processEmail(
+      makeInput({
+        senders: ["b@two.com"],
+        headers: {
+          "list-unsubscribe": "<https://two.com/u/1>",
+          "list-unsubscribe-post": "List-Unsubscribe=One-Click",
+        },
+      }),
+      env as any,
+    );
+    await processEmail(
+      makeInput({
+        senders: ["a@one.com"],
+        headers: {
+          "list-unsubscribe": "<https://one.com/u/2>",
+          "list-unsubscribe-post": "List-Unsubscribe=One-Click",
+        },
+      }),
+      env as any,
+    );
+
+    const metadata = (await env.EMAIL_STORAGE.get(
+      `feed:${VALID_FEED_ID}:metadata`,
+      "json",
+    )) as { unsubscribe?: Record<string, string> };
+    expect(metadata.unsubscribe).toEqual({
+      "a@one.com": "https://one.com/u/2",
+      "b@two.com": "https://two.com/u/1",
+    });
+  });
+
+  it("does not store anything without the one-click Post header", async () => {
+    await processEmail(
+      makeInput({
+        headers: { "list-unsubscribe": "<https://example.com/u/1>" },
+      }),
+      env as any,
+    );
+
+    const metadata = (await env.EMAIL_STORAGE.get(
+      `feed:${VALID_FEED_ID}:metadata`,
+      "json",
+    )) as { unsubscribe?: Record<string, string> };
+    expect(metadata.unsubscribe).toBeUndefined();
+  });
+});

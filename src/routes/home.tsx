@@ -119,6 +119,7 @@ export async function handle(c: Context<{ Bindings: Env }>): Promise<Response> {
               tone="danger"
             />
             <Stat label="Net feeds" value={netFeeds} />
+            <Stat label="Unsubscribes sent" value={stats.unsubscribes_sent} />
             <Stat
               label="Last feed created"
               value={formatRelative(stats.last_feed_created_at)}

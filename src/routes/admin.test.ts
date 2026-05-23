@@ -1,7 +1,9 @@
 import { describe, it, expect, beforeEach } from "vitest";
+import { http, HttpResponse } from "msw";
 import { Hono } from "hono";
 import app from "./admin";
-import { createMockEnv } from "../test/setup";
+import { createMockEnv, server } from "../test/setup";
+import { getCounters } from "../utils/stats";
 import { Env } from "../types";
 
 describe("Admin Routes", () => {
@@ -326,6 +328,119 @@ describe("Admin Routes", () => {
         const payload = (await deleteRes.json()) as any;
         expect(payload.ok).toBe(true);
         expect(payload.feedId).toBe(feedId);
+      });
+
+      it("fires one-click unsubscribe requests on feed deletion and bumps the counter", async () => {
+        const authCookie = await loginAndGetCookie();
+        const formData = new FormData();
+        formData.append("title", "Unsub Feed");
+
+        await request("/admin/feeds/create", {
+          method: "POST",
+          headers: {
+            Cookie: authCookie,
+            Origin: "https://test.getmynews.app",
+          },
+          body: formData,
+        });
+
+        const feedList = (await mockEnv.EMAIL_STORAGE.get(
+          "feeds:list",
+          "json",
+        )) as {
+          feeds: Array<{ id: string }>;
+        } | null;
+        const feedId = feedList?.feeds[0].id as string;
+
+        // Simulate an ingested email having captured an unsubscribe URL.
+        await mockEnv.EMAIL_STORAGE.put(
+          `feed:${feedId}:metadata`,
+          JSON.stringify({
+            emails: [],
+            unsubscribe: { "news@example.com": "https://example.com/u/1" },
+          }),
+        );
+
+        let unsubHit = false;
+        server.use(
+          http.post("https://example.com/u/1", () => {
+            unsubHit = true;
+            return HttpResponse.text("ok");
+          }),
+        );
+
+        const pending: Promise<unknown>[] = [];
+        const ctx = {
+          waitUntil: (p: Promise<unknown>) => pending.push(p),
+          passThroughOnException: () => {},
+        } as unknown as ExecutionContext;
+
+        const deleteRes = await testApp.request(
+          `/admin/feeds/${feedId}/delete`,
+          {
+            method: "POST",
+            headers: {
+              Cookie: authCookie,
+              Origin: "https://test.getmynews.app",
+            },
+          },
+          mockEnv,
+          ctx,
+        );
+        expect(deleteRes.status).toBe(302);
+
+        await Promise.all(pending);
+
+        expect(unsubHit).toBe(true);
+        const counters = await getCounters(mockEnv.EMAIL_STORAGE);
+        expect(counters.unsubscribes_sent).toBe(1);
+      });
+
+      it("sends no unsubscribe requests when the feed has none", async () => {
+        const authCookie = await loginAndGetCookie();
+        const formData = new FormData();
+        formData.append("title", "No Unsub Feed");
+
+        await request("/admin/feeds/create", {
+          method: "POST",
+          headers: {
+            Cookie: authCookie,
+            Origin: "https://test.getmynews.app",
+          },
+          body: formData,
+        });
+
+        const feedList = (await mockEnv.EMAIL_STORAGE.get(
+          "feeds:list",
+          "json",
+        )) as {
+          feeds: Array<{ id: string }>;
+        } | null;
+        const feedId = feedList?.feeds[0].id as string;
+
+        const pending: Promise<unknown>[] = [];
+        const ctx = {
+          waitUntil: (p: Promise<unknown>) => pending.push(p),
+          passThroughOnException: () => {},
+        } as unknown as ExecutionContext;
+
+        await testApp.request(
+          `/admin/feeds/${feedId}/delete`,
+          {
+            method: "POST",
+            headers: {
+              Cookie: authCookie,
+              Origin: "https://test.getmynews.app",
+            },
+          },
+          mockEnv,
+          ctx,
+        );
+
+        await Promise.all(pending);
+
+        const counters = await getCounters(mockEnv.EMAIL_STORAGE);
+        expect(counters.unsubscribes_sent).toBe(0);
       });
 
       it("should allow bulk feed deletion with valid authentication", async () => {

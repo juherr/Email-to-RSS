@@ -6,6 +6,7 @@ import { bumpCounters } from "../../utils/stats";
 import { waitUntilSafe } from "../../utils/worker";
 import { feedRssUrl, feedEmailAddress } from "../../utils/urls";
 import { logger } from "../../lib/logger";
+import { sendUnsubscribes } from "../../utils/unsubscribe";
 import { Layout } from "./ui";
 import {
   addFeedToList,
@@ -13,6 +14,7 @@ import {
   removeFeedFromList,
   removeFeedsFromListBulk,
   purgeFeedKeysStep,
+  collectUnsubscribeUrls,
 } from "./helpers";
 
 type AppEnv = { Bindings: Env };
@@ -537,10 +539,17 @@ feedsRouter.post("/:feedId/delete", async (c) => {
   const wantsJson = (c.req.header("Accept") || "").includes("application/json");
 
   try {
+    // Read unsubscribe URLs before the metadata is deleted below.
+    const unsubscribeUrls = await collectUnsubscribeUrls(emailStorage, feedId);
+
     await deleteFeedFast(emailStorage, feedId);
     const removed = await removeFeedFromList(emailStorage, feedId);
     if (removed) {
       await bumpCounters(emailStorage, { feeds_deleted: 1 });
+    }
+
+    if (unsubscribeUrls.length > 0) {
+      waitUntilSafe(c, sendUnsubscribes(unsubscribeUrls, env));
     }
 
     waitUntilSafe(
@@ -638,9 +647,12 @@ feedsRouter.post("/bulk-delete", async (c) => {
       const okIds: string[] = [];
       const failures: Array<{ feedId: string; error: string }> = [];
       const warnings: Array<{ feedId: string; warning: string }> = [];
+      const unsubscribeUrls: string[] = [];
 
       for (const feedId of parsedFeedIds) {
         try {
+          // Read unsubscribe URLs before the feed metadata is deleted.
+          const urls = await collectUnsubscribeUrls(emailStorage, feedId);
           const result = await deleteFeedFastDetailed(emailStorage, feedId);
           if (!result.ok) {
             failures.push({
@@ -660,6 +672,7 @@ feedsRouter.post("/bulk-delete", async (c) => {
             });
           }
 
+          unsubscribeUrls.push(...urls);
           okIds.push(feedId);
         } catch (error) {
           logger.error("Error bulk deleting feed", {
@@ -675,6 +688,10 @@ feedsRouter.post("/bulk-delete", async (c) => {
         await bumpCounters(emailStorage, {
           feeds_deleted: deletedFeedIds.length,
         });
+      }
+
+      if (unsubscribeUrls.length > 0) {
+        waitUntilSafe(c, sendUnsubscribes(unsubscribeUrls, env));
       }
 
       const removed = new Set(deletedFeedIds);
@@ -711,11 +728,17 @@ feedsRouter.post("/bulk-delete", async (c) => {
     }
 
     const okIds: string[] = [];
+    const unsubscribeUrls: string[] = [];
 
     for (const feedId of parsedFeedIds) {
       try {
+        // Read unsubscribe URLs before the feed metadata is deleted.
+        const urls = await collectUnsubscribeUrls(emailStorage, feedId);
         const result = await deleteFeedFastDetailed(emailStorage, feedId);
-        if (result.ok) okIds.push(feedId);
+        if (result.ok) {
+          unsubscribeUrls.push(...urls);
+          okIds.push(feedId);
+        }
       } catch (error) {
         logger.error("Error bulk deleting feed", {
           feedId,
@@ -729,6 +752,10 @@ feedsRouter.post("/bulk-delete", async (c) => {
       await bumpCounters(emailStorage, {
         feeds_deleted: deletedFeedIds.length,
       });
+    }
+
+    if (unsubscribeUrls.length > 0) {
+      waitUntilSafe(c, sendUnsubscribes(unsubscribeUrls, env));
     }
 
     return c.redirect(
