@@ -147,6 +147,5 @@ Update together:
 
 - `README.md`
 - `INSTALL.md` (setup, deployment, and configuration guide)
-- `AGENTS.md`
 - `setup.sh` (if setup/deploy assumptions changed)
 - Tests under `src/routes/*.test.ts` and `src/test/setup.ts`
