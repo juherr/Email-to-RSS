@@ -34,7 +34,6 @@ Single Cloudflare Worker built with Hono. Routes:
 | ------------------------------------ | ---------------------------------------------------------------------- | ------- |
 | `GET /`                              | Public status page (monitoring counters + link to admin)               |
 | `POST /api/inbound`                  | Webhook from ForwardEmail; IP-allowlisted to their MX sources          |
-| `GET /api/stats`                     | Deprecated alias of `GET /api/v1/stats` (public monitoring counters)   |
 | `/api/v1/feeds*`                     | Versioned REST API (Bearer/proxy auth) — feeds + emails CRUD           |
 | `GET /api/v1/stats`                  | Public monitoring counters (JSON, CORS); canonical stats endpoint      |
 | `GET /api/openapi.json`              | OpenAPI 3.1 spec (public)                                              |
@@ -65,7 +64,6 @@ src/
     files.ts                # R2 attachment serving
     hub.ts                  # WebSub hub
     home.tsx                # Public status page (GET /)
-    stats.ts                # Monitoring counters API (GET /api/stats)
     admin.tsx               # Admin UI entrypoint (hono/jsx)
     admin/                  # Admin sub-modules
       feeds.tsx             # Feeds CRUD UI

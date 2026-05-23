@@ -57,13 +57,11 @@ Main routes:
 - `src/routes/api/`: versioned REST API + OpenAPI spec/docs (`/api/v1/*`, `/api/openapi.json`, `/api/docs`)
 - `src/lib/feed-service.ts`: shared feed create/update/delete (used by the admin UI and the REST API)
 - `src/routes/home.tsx`: public status page (`GET /`)
-- `src/routes/stats.ts`: monitoring counters API (`GET /api/stats`)
 
 ### Monitoring
 
 `GET /api/v1/stats` returns JSON counters (public, no auth, CORS-enabled) for
-uptime/monitoring tools and the landing page. `GET /api/stats` is a deprecated alias kept
-for backward compatibility — prefer the versioned path. Both expose the same fields:
+uptime/monitoring tools and the landing page:
 
 | Field                         | Meaning                                                  |
 | ----------------------------- | -------------------------------------------------------- |

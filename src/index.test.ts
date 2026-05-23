@@ -45,9 +45,9 @@ describe("CORS middleware", () => {
     );
   });
 
-  it("makes /api/stats readable from any origin", async () => {
+  it("makes /api/v1/stats readable from any origin", async () => {
     const res = await worker.fetch(
-      req("/api/stats", { headers: { Origin: "https://example.com" } }),
+      req("/api/v1/stats", { headers: { Origin: "https://example.com" } }),
       env as unknown as Env,
     );
     expect(res.status).toBe(200);

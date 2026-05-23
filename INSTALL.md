@@ -156,7 +156,7 @@ This feature is **optional**. If no R2 bucket is bound, attachments are silently
 
 Attachments are deleted from R2 automatically when the corresponding email is deleted from the admin UI, or when an email is dropped during feed size trimming.
 
-**Monitoring storage / free tier:** the status page (`/`) and `/api/stats` report R2 space used (against the **10 GB** R2 free tier) and an estimate of KV space used (against the **1 GB** KV free tier). The figures are refreshed hourly by the cron trigger. KV usage is an estimate based on stored email sizes, so treat it as a lower bound.
+**Monitoring storage / free tier:** the status page (`/`) and `/api/v1/stats` report R2 space used (against the **10 GB** R2 free tier) and an estimate of KV space used (against the **1 GB** KV free tier). The figures are refreshed hourly by the cron trigger. KV usage is an estimate based on stored email sizes, so treat it as a lower bound.
 
 ### External auth provider (Authelia / Authentik / reverse proxy)
 

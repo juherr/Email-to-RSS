@@ -6,7 +6,6 @@ import { handle as handleAtom } from "./routes/atom";
 import { handle as handleAdmin } from "./routes/admin";
 import { handle as handleEntry } from "./routes/entries";
 import { handle as handleFiles } from "./routes/files";
-import { handle as handleStats } from "./routes/stats";
 import { handle as handleHome } from "./routes/home";
 import { handle as handleFavicon, handleFeedFavicon } from "./routes/favicon";
 import { hubRouter } from "./routes/hub";
@@ -148,10 +147,6 @@ api.use("/inbound", async (c, next) => {
 // API routes (inbound webhook)
 api.post("/inbound", handleInbound);
 
-// Public monitoring stats (JSON) — readable from any origin (landing page, embeds)
-api.use("/stats", cors({ origin: "*" }));
-api.get("/stats", handleStats);
-
 // RSS feed routes (public)
 rss.get("/:feedId", handleRSS);
 
@@ -223,7 +218,7 @@ export default {
       logger.info("Feed TTL cleanup", { deleted: expiredIds.length });
     }
 
-    // Refresh the cached storage-usage snapshot for the status page / /api/stats.
+    // Refresh the cached storage-usage snapshot for the status page / /api/v1/stats.
     try {
       const r2 = attachmentBucket
         ? await scanR2Usage(attachmentBucket)
