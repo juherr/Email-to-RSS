@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { z } from "zod";
-import { Env, FeedConfig, FeedMetadata, EmailData } from "../../types";
+import { Env, FeedConfig, FeedMetadata } from "../../types";
 import { generateFeedId } from "../../utils/id-generator";
 import { waitUntilSafe } from "../../utils/worker";
 import { feedRssUrl, feedEmailAddress } from "../../utils/urls";
@@ -12,6 +12,7 @@ import {
   removeFeedFromList,
   removeFeedsFromListBulk,
   deleteKeysWithConcurrency,
+  purgeFeedKeysStep,
 } from "./helpers";
 
 type AppEnv = { Bindings: Env };
@@ -92,63 +93,6 @@ async function deleteFeedFast(
   return result.ok;
 }
 
-async function purgeFeedKeysStep(
-  emailStorage: KVNamespace,
-  feedId: string,
-  options: { cursor?: string; limit?: number; bucket?: R2Bucket } = {},
-): Promise<{
-  deletedKeys: string[];
-  failedKeys: string[];
-  cursor: string;
-  listComplete: boolean;
-}> {
-  const prefix = `feed:${feedId}:`;
-  const limit = Math.min(1000, Math.max(1, Math.floor(options.limit || 100)));
-  const cursor = options.cursor || undefined;
-
-  const listed = await emailStorage.list({ prefix, cursor, limit });
-  const keys = (listed.keys || []).map((k) => k.name);
-
-  if (options.bucket && keys.length > 0) {
-    const emailKeys = keys.filter((k) => {
-      const suffix = k.slice(prefix.length);
-      return suffix !== "config" && suffix !== "metadata";
-    });
-    if (emailKeys.length > 0) {
-      const emailDataResults = await Promise.allSettled(
-        emailKeys.map(
-          (k) =>
-            emailStorage.get(k, { type: "json" }) as Promise<EmailData | null>,
-        ),
-      );
-      const attachmentIds = emailDataResults
-        .filter(
-          (r): r is PromiseFulfilledResult<EmailData | null> =>
-            r.status === "fulfilled",
-        )
-        .flatMap((r) => r.value?.attachments?.map((a) => a.id) ?? []);
-      if (attachmentIds.length > 0) {
-        await Promise.allSettled(
-          attachmentIds.map((id) => options.bucket!.delete(id)),
-        );
-      }
-    }
-  }
-
-  const { ok, failed } = await deleteKeysWithConcurrency(
-    emailStorage,
-    keys,
-    35,
-  );
-
-  return {
-    deletedKeys: ok,
-    failedKeys: failed,
-    cursor: listed.cursor || "",
-    listComplete: !!listed.list_complete,
-  };
-}
-
 // ── Routes ────────────────────────────────────────────────────────────────────
 
 feedsRouter.post("/create", async (c) => {
@@ -164,6 +108,7 @@ feedsRouter.post("/create", async (c) => {
     let view: string;
     let allowedSenders: string[];
     let blockedSenders: string[];
+    let lifetimeHoursRaw: string | undefined;
 
     if (isJson) {
       const body = await c.req.json<Record<string, unknown>>();
@@ -182,6 +127,8 @@ feedsRouter.post("/create", async (c) => {
             (body.blockedSenders as unknown[]).map(String),
           )
         : [];
+      lifetimeHoursRaw =
+        body.lifetimeHours != null ? String(body.lifetimeHours) : undefined;
     } else {
       const formData = await c.req.formData();
       title = formData.get("title")?.toString() || "";
@@ -194,6 +141,7 @@ feedsRouter.post("/create", async (c) => {
       blockedSenders = parseAllowedSenders(
         formData.get("blocked_senders")?.toString() || "",
       );
+      lifetimeHoursRaw = formData.get("lifetime_hours")?.toString();
     }
 
     const parsedData = createFeedSchema.parse({
@@ -203,6 +151,17 @@ feedsRouter.post("/create", async (c) => {
       allowedSenders,
       blockedSenders,
     });
+
+    // FEED_TTL_HOURS overrides any client-submitted value
+    const resolvedHours = env.FEED_TTL_HOURS
+      ? parseInt(env.FEED_TTL_HOURS, 10)
+      : lifetimeHoursRaw
+        ? parseInt(lifetimeHoursRaw, 10)
+        : NaN;
+    const expiresAt =
+      Number.isFinite(resolvedHours) && resolvedHours > 0
+        ? Date.now() + resolvedHours * 3_600_000
+        : undefined;
 
     const feedId = generateFeedId();
 
@@ -214,6 +173,7 @@ feedsRouter.post("/create", async (c) => {
       blocked_senders: parsedData.blockedSenders,
       created_at: Date.now(),
       updated_at: Date.now(),
+      ...(expiresAt !== undefined ? { expires_at: expiresAt } : {}),
     };
 
     const feedMetadata: FeedMetadata = { emails: [] };
@@ -228,6 +188,7 @@ feedsRouter.post("/create", async (c) => {
       feedId,
       parsedData.title,
       parsedData.description,
+      expiresAt,
     );
 
     if (isJson) {
@@ -261,6 +222,22 @@ feedsRouter.get("/:feedId/edit", async (c) => {
     return c.text("Feed not found", 404);
   }
 
+  const now = Date.now();
+  const isExpired =
+    feedConfig.expires_at !== undefined && feedConfig.expires_at <= now;
+  const ttlLocked = !!env.FEED_TTL_HOURS;
+
+  // Remaining hours: ceil so we don't show 0 when there's still time left
+  const remainingHours =
+    feedConfig.expires_at !== undefined && feedConfig.expires_at > now
+      ? Math.ceil((feedConfig.expires_at - now) / 3_600_000)
+      : undefined;
+
+  const lifetimeFieldValue =
+    ttlLocked && !isExpired
+      ? (env.FEED_TTL_HOURS ?? "")
+      : (remainingHours?.toString() ?? "");
+
   return c.html(
     <Layout title="Edit Feed">
       <div class="container fade-in">
@@ -275,7 +252,25 @@ feedsRouter.get("/:feedId/edit", async (c) => {
           </div>
         </div>
 
-        <div class="card">
+        {isExpired && (
+          <div class="card card-warning">
+            <p>
+              <strong>This feed has expired.</strong> It no longer accepts
+              emails and its content is no longer publicly accessible.
+            </p>
+            <form
+              action={`/admin/feeds/${feedId}/delete`}
+              method="post"
+              style="margin-top: 0.75rem;"
+            >
+              <button type="submit" class="button button-danger">
+                Delete this feed
+              </button>
+            </form>
+          </div>
+        )}
+
+        <div class={`card${isExpired ? " card-disabled" : ""}`}>
           <form action={`/admin/feeds/${feedId}/edit`} method="post">
             <div class="form-group">
               <label for="title">Feed Title</label>
@@ -285,12 +280,18 @@ feedsRouter.get("/:feedId/edit", async (c) => {
                 name="title"
                 value={feedConfig.title}
                 required
+                disabled={isExpired}
               />
             </div>
 
             <div class="form-group">
               <label for="description">Description</label>
-              <textarea id="description" name="description" rows={3}>
+              <textarea
+                id="description"
+                name="description"
+                rows={3}
+                disabled={isExpired}
+              >
                 {feedConfig.description || ""}
               </textarea>
             </div>
@@ -304,6 +305,7 @@ feedsRouter.get("/:feedId/edit", async (c) => {
                 name="allowed_senders"
                 rows={3}
                 placeholder={"newsletter@example.com\ntechmeme.com"}
+                disabled={isExpired}
               >
                 {(feedConfig.allowed_senders || []).join("\n")}
               </textarea>
@@ -322,6 +324,7 @@ feedsRouter.get("/:feedId/edit", async (c) => {
                 name="blocked_senders"
                 rows={3}
                 placeholder={"spam@example.com\nunwanted.com"}
+                disabled={isExpired}
               >
                 {(feedConfig.blocked_senders || []).join("\n")}
               </textarea>
@@ -331,11 +334,37 @@ feedsRouter.get("/:feedId/edit", async (c) => {
               </small>
             </div>
 
+            <div class="form-group">
+              <label for="lifetime_hours">Lifetime (hours)</label>
+              <input
+                type="number"
+                id="lifetime_hours"
+                name="lifetime_hours"
+                min="1"
+                value={lifetimeFieldValue}
+                disabled={isExpired || ttlLocked}
+                placeholder={feedConfig.expires_at ? undefined : "No expiry"}
+              />
+              {ttlLocked ? (
+                <small>
+                  Feed lifetime is fixed to {env.FEED_TTL_HOURS}h by server
+                  configuration.
+                </small>
+              ) : (
+                <small>
+                  Hours from now until this feed expires. Leave empty to keep
+                  the current expiry (or no expiry).
+                </small>
+              )}
+            </div>
+
             <input type="hidden" id="language" name="language" value="en" />
 
-            <button type="submit" class="button">
-              Update Feed
-            </button>
+            {!isExpired && (
+              <button type="submit" class="button">
+                Update Feed
+              </button>
+            )}
           </form>
         </div>
       </div>
@@ -359,6 +388,7 @@ feedsRouter.post("/:feedId/edit", async (c) => {
     const blockedSenders = parseAllowedSenders(
       formData.get("blocked_senders")?.toString() || "",
     );
+    const lifetimeHoursRaw = formData.get("lifetime_hours")?.toString();
 
     const parsedData = updateFeedSchema.parse({
       title,
@@ -377,24 +407,50 @@ feedsRouter.post("/:feedId/edit", async (c) => {
       return c.text("Feed not found", 404);
     }
 
-    await emailStorage.put(
-      feedConfigKey,
-      JSON.stringify({
-        ...existingConfig,
-        title: parsedData.title,
-        description: parsedData.description,
-        language: parsedData.language,
-        allowed_senders: parsedData.allowedSenders,
-        blocked_senders: parsedData.blockedSenders,
-        updated_at: Date.now(),
-      }),
-    );
+    // Expired feeds cannot be edited
+    if (
+      existingConfig.expires_at !== undefined &&
+      existingConfig.expires_at <= Date.now()
+    ) {
+      return c.text("Feed has expired and cannot be modified.", 403);
+    }
+
+    // Resolve new expires_at:
+    // - FEED_TTL_HOURS set: always recompute from env (reset TTL from now)
+    // - Field submitted: set new expiry from now
+    // - Field empty: preserve existing expires_at (no silent removal)
+    let newExpiresAt: number | undefined;
+    if (env.FEED_TTL_HOURS) {
+      const h = parseInt(env.FEED_TTL_HOURS, 10);
+      newExpiresAt =
+        Number.isFinite(h) && h > 0 ? Date.now() + h * 3_600_000 : undefined;
+    } else if (lifetimeHoursRaw) {
+      const h = parseInt(lifetimeHoursRaw, 10);
+      newExpiresAt =
+        Number.isFinite(h) && h > 0 ? Date.now() + h * 3_600_000 : undefined;
+    } else {
+      newExpiresAt = existingConfig.expires_at;
+    }
+
+    const updatedConfig: FeedConfig = {
+      ...existingConfig,
+      title: parsedData.title,
+      description: parsedData.description,
+      language: parsedData.language,
+      allowed_senders: parsedData.allowedSenders,
+      blocked_senders: parsedData.blockedSenders,
+      updated_at: Date.now(),
+      expires_at: newExpiresAt,
+    };
+
+    await emailStorage.put(feedConfigKey, JSON.stringify(updatedConfig));
 
     await updateFeedInList(
       emailStorage,
       feedId,
       parsedData.title,
       parsedData.description,
+      newExpiresAt,
     );
 
     return c.redirect("/admin");

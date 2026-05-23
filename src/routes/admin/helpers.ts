@@ -1,4 +1,4 @@
-import { FeedList, FeedListItem } from "../../types";
+import { EmailData, FeedList, FeedListItem } from "../../types";
 import { FEEDS_LIST_KEY } from "../../config/constants";
 import { logger } from "../../lib/logger";
 
@@ -49,13 +49,14 @@ export async function addFeedToList(
   feedId: string,
   title: string,
   description?: string,
+  expires_at?: number,
 ): Promise<void> {
   try {
     const feedList = ((await emailStorage.get(FEEDS_LIST_KEY, {
       type: "json",
     })) as FeedList | null) || { feeds: [] };
 
-    feedList.feeds.push({ id: feedId, title, description });
+    feedList.feeds.push({ id: feedId, title, description, expires_at });
     await emailStorage.put(FEEDS_LIST_KEY, JSON.stringify(feedList));
   } catch (error) {
     logger.error("Error adding feed to list", { feedId, error: String(error) });
@@ -67,6 +68,7 @@ export async function updateFeedInList(
   feedId: string,
   title: string,
   description?: string,
+  expires_at?: number,
 ): Promise<void> {
   try {
     const feedList = ((await emailStorage.get(FEEDS_LIST_KEY, {
@@ -77,6 +79,7 @@ export async function updateFeedInList(
     if (feedIndex !== -1) {
       feedList.feeds[feedIndex].title = title;
       feedList.feeds[feedIndex].description = description;
+      feedList.feeds[feedIndex].expires_at = expires_at;
       await emailStorage.put(FEEDS_LIST_KEY, JSON.stringify(feedList));
     }
   } catch (error) {
@@ -127,4 +130,77 @@ export async function removeFeedFromList(
 ): Promise<boolean> {
   const removed = await removeFeedsFromListBulk(emailStorage, [feedId]);
   return removed.includes(feedId);
+}
+
+export async function purgeFeedKeysStep(
+  emailStorage: KVNamespace,
+  feedId: string,
+  options: { cursor?: string; limit?: number; bucket?: R2Bucket } = {},
+): Promise<{
+  deletedKeys: string[];
+  failedKeys: string[];
+  cursor: string;
+  listComplete: boolean;
+}> {
+  const prefix = `feed:${feedId}:`;
+  const limit = Math.min(1000, Math.max(1, Math.floor(options.limit || 100)));
+  const cursor = options.cursor || undefined;
+
+  const listed = await emailStorage.list({ prefix, cursor, limit });
+  const keys = (listed.keys || []).map((k) => k.name);
+
+  if (options.bucket && keys.length > 0) {
+    const emailKeys = keys.filter((k) => {
+      const suffix = k.slice(prefix.length);
+      return suffix !== "config" && suffix !== "metadata";
+    });
+    if (emailKeys.length > 0) {
+      const emailDataResults = await Promise.allSettled(
+        emailKeys.map(
+          (k) =>
+            emailStorage.get(k, { type: "json" }) as Promise<EmailData | null>,
+        ),
+      );
+      const attachmentIds = emailDataResults
+        .filter(
+          (r): r is PromiseFulfilledResult<EmailData | null> =>
+            r.status === "fulfilled",
+        )
+        .flatMap((r) => r.value?.attachments?.map((a) => a.id) ?? []);
+      if (attachmentIds.length > 0) {
+        await Promise.allSettled(
+          attachmentIds.map((id) => options.bucket!.delete(id)),
+        );
+      }
+    }
+  }
+
+  const { ok, failed } = await deleteKeysWithConcurrency(
+    emailStorage,
+    keys,
+    35,
+  );
+
+  return {
+    deletedKeys: ok,
+    failedKeys: failed,
+    cursor: listed.cursor || "",
+    listComplete: !!listed.list_complete,
+  };
+}
+
+export async function purgeExpiredFeeds(
+  emailStorage: KVNamespace,
+  feedId: string,
+  bucket?: R2Bucket,
+): Promise<void> {
+  let cursor: string | undefined;
+  do {
+    const step = await purgeFeedKeysStep(emailStorage, feedId, {
+      bucket,
+      limit: 100,
+      cursor,
+    });
+    cursor = step.listComplete ? undefined : step.cursor;
+  } while (cursor);
 }

@@ -15,6 +15,12 @@ export async function handle(c: Context<{ Bindings: Env }>): Promise<Response> {
     if (!feedData) {
       return new Response("Feed not found", { status: 404 });
     }
+    if (
+      feedData.feedConfig.expires_at !== undefined &&
+      feedData.feedConfig.expires_at <= Date.now()
+    ) {
+      return new Response("Feed has expired", { status: 410 });
+    }
 
     const base = baseUrl(c.env);
     const selfUrl = new URL(c.req.url).origin + `/rss/${feedId}`;

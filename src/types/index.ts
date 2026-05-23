@@ -8,6 +8,7 @@ export interface Env {
   FEED_MAX_SIZE_BYTES?: string;
   PROXY_TRUSTED_IPS?: string;
   PROXY_AUTH_SECRET?: string;
+  FEED_TTL_HOURS?: string;
 }
 
 // Stored attachment metadata (bytes live in R2, keyed by id)
@@ -38,6 +39,7 @@ export interface FeedConfig {
   author?: string;
   created_at: number;
   updated_at?: number;
+  expires_at?: number; // Unix timestamp ms — present when a TTL is configured
 }
 
 // Feed metadata interface
@@ -64,6 +66,7 @@ export interface FeedListItem {
   id: string;
   title: string;
   description?: string;
+  expires_at?: number; // Cached from FeedConfig to avoid per-feed KV reads
 }
 
 // WebSub (PubSubHubbub) subscription configuration

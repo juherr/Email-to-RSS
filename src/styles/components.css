@@ -972,3 +972,41 @@ table.table code {
   padding: 0;
   margin: 0;
 }
+
+/* Feed TTL — expiry badges */
+.pill-expiry {
+  background-color: rgba(255, 159, 10, 0.15);
+  color: var(--color-warning);
+  border-color: rgba(255, 159, 10, 0.3);
+}
+
+.pill-expired {
+  background-color: rgba(255, 69, 58, 0.15);
+  color: var(--color-danger);
+  border-color: rgba(255, 69, 58, 0.3);
+}
+
+/* Feed TTL — expired feed row */
+.feed-expired .feed-header,
+.feed-expired td:not(:last-child) {
+  opacity: 0.5;
+}
+
+/* Feed TTL — disabled-looking action buttons on expired feeds */
+.button-disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+  pointer-events: none;
+  user-select: none;
+}
+
+/* Feed TTL — card states in edit form */
+.card-warning {
+  border-color: rgba(255, 159, 10, 0.4);
+  background-color: rgba(255, 159, 10, 0.06);
+}
+
+.card-disabled {
+  opacity: 0.6;
+  pointer-events: none;
+}

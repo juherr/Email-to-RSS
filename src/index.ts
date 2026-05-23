@@ -10,6 +10,11 @@ import { hubRouter } from "./routes/hub";
 import { handleCloudflareEmail } from "./lib/cloudflare-email";
 import { Env } from "./types";
 import { logger } from "./lib/logger";
+import {
+  listAllFeeds,
+  purgeExpiredFeeds,
+  removeFeedsFromListBulk,
+} from "./routes/admin/helpers";
 import { FORWARD_EMAIL_IPS_CACHE_TTL_MS } from "./config/constants";
 
 type AppEnv = { Bindings: Env };
@@ -176,16 +181,18 @@ export default {
     await handleCloudflareEmail(message, env, ctx);
   },
   async scheduled(_event: ScheduledEvent, env: Env, _ctx: ExecutionContext) {
-    let cursor: string | undefined;
-    let deleted = 0;
-    do {
-      const result = await env.EMAIL_STORAGE.list({ cursor });
-      await Promise.all(
-        result.keys.map(({ name }) => env.EMAIL_STORAGE.delete(name)),
-      );
-      deleted += result.keys.length;
-      cursor = result.list_complete ? undefined : result.cursor;
-    } while (cursor);
-    logger.info("Demo KV reset complete", { deleted });
+    const feeds = await listAllFeeds(env.EMAIL_STORAGE);
+    const now = Date.now();
+    const expiredIds = feeds
+      .filter((f) => f.expires_at !== undefined && f.expires_at <= now)
+      .map((f) => f.id);
+
+    for (const feedId of expiredIds) {
+      await purgeExpiredFeeds(env.EMAIL_STORAGE, feedId, env.ATTACHMENT_BUCKET);
+    }
+    if (expiredIds.length > 0) {
+      await removeFeedsFromListBulk(env.EMAIL_STORAGE, expiredIds);
+      logger.info("Feed TTL cleanup", { deleted: expiredIds.length });
+    }
   },
 };

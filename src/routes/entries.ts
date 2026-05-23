@@ -1,6 +1,6 @@
 import { Context } from "hono";
 import { html, raw } from "hono/html";
-import { Env, FeedMetadata, EmailData } from "../types";
+import { Env, FeedConfig, FeedMetadata, EmailData } from "../types";
 import { processEmailContent } from "../utils/html-processor";
 
 export async function handle(c: Context<{ Bindings: Env }>): Promise<Response> {
@@ -13,12 +13,24 @@ export async function handle(c: Context<{ Bindings: Env }>): Promise<Response> {
 
   const emailStorage = c.env.EMAIL_STORAGE;
 
-  const feedMetadata = (await emailStorage.get(
-    `feed:${feedId}:metadata`,
-    "json",
-  )) as FeedMetadata | null;
+  const [feedMetadata, feedConfig] = await Promise.all([
+    emailStorage.get(
+      `feed:${feedId}:metadata`,
+      "json",
+    ) as Promise<FeedMetadata | null>,
+    emailStorage.get(
+      `feed:${feedId}:config`,
+      "json",
+    ) as Promise<FeedConfig | null>,
+  ]);
   if (!feedMetadata) {
     return new Response("Feed not found", { status: 404 });
+  }
+  if (
+    feedConfig?.expires_at !== undefined &&
+    feedConfig.expires_at <= Date.now()
+  ) {
+    return new Response("Feed has expired", { status: 410 });
   }
 
   const metaEntry = feedMetadata.emails.find(

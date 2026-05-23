@@ -112,6 +112,16 @@ export async function validateEmail(
       response: new Response("Feed does not exist", { status: 404 }),
     };
   }
+  if (
+    feedConfig.expires_at !== undefined &&
+    feedConfig.expires_at <= Date.now()
+  ) {
+    logger.warn("Rejected email: feed expired", { feedId });
+    return {
+      ok: false,
+      response: new Response("Feed has expired", { status: 410 }),
+    };
+  }
 
   const allowedSenders = (feedConfig.allowed_senders || [])
     .map(normalizeEmail)

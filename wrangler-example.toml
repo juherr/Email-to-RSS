@@ -24,6 +24,10 @@ fallthrough = false
 enabled = true
 invocation_logs = true
 
+# Hourly cleanup: purge KV + R2 data for feeds whose TTL has expired
+[triggers]
+crons = ["0 * * * *"]
+
 # Global Environment variables
 [vars]
 DOMAIN = "REPLACE_WITH_YOUR_DOMAIN" # Web domain (used for feed URLs and admin UI)
@@ -34,6 +38,10 @@ DOMAIN = "REPLACE_WITH_YOUR_DOMAIN" # Web domain (used for feed URLs and admin U
 
 # Optional: size-based feed trimming threshold in bytes (default: 524288 = 512 KB)
 # FEED_MAX_SIZE_BYTES = "524288"
+
+# Optional: lock feed lifetime for all users (hours). When set, the TTL field in
+# the admin UI is pre-filled and read-only. Remove to allow per-feed configuration.
+# FEED_TTL_HOURS = "24"
 
 # Optional: external proxy auth (Authelia/Authentik)
 # Comma-separated IPs of trusted reverse proxies
@@ -88,7 +96,4 @@ routes = [
 [env.demo.vars]
 DOMAIN = "demo.kill-the.news"
 EMAIL_DOMAIN = "kill-the.news" # Optional: email domain when it differs from the web domain
-
-# Nightly reset: wipe all KV data at 03:00 UTC so the demo stays clean
-[env.demo.triggers]
-crons = ["0 3 * * *"]
+FEED_TTL_HOURS = "24"          # Demo: all feeds expire after 24 hours (UI field is locked)

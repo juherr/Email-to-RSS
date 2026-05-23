@@ -279,6 +279,35 @@ const CopyFieldInline = ({ value }: CopyFieldInlineProps) => (
   </div>
 );
 
+function formatExpiry(expiresAt: number): { label: string; expired: boolean } {
+  const remaining = expiresAt - Date.now();
+  if (remaining <= 0) {
+    const h = Math.floor(-remaining / 3_600_000);
+    return {
+      label: h > 0 ? `Expired ${h}h ago` : "Just expired",
+      expired: true,
+    };
+  }
+  const h = Math.floor(remaining / 3_600_000);
+  if (h >= 48) {
+    return { label: `Expires in ${Math.floor(h / 24)}d`, expired: false };
+  }
+  const m = Math.floor((remaining % 3_600_000) / 60_000);
+  return {
+    label: h > 0 ? `Expires in ${h}h ${m}m` : `Expires in ${m}m`,
+    expired: false,
+  };
+}
+
+const ExpiryBadge = ({ expiresAt }: { expiresAt: number }) => {
+  const { label, expired } = formatExpiry(expiresAt);
+  return (
+    <span class={`pill ${expired ? "pill-expired" : "pill-expiry"}`}>
+      {label}
+    </span>
+  );
+};
+
 // Admin dashboard route
 app.get("/", async (c) => {
   // Type assertion for environment variables
@@ -396,6 +425,29 @@ app.get("/", async (c) => {
               </small>
             </div>
 
+            <div class="form-group">
+              <label for="lifetime_hours">
+                Lifetime (hours{env.FEED_TTL_HOURS ? "" : ", optional"})
+              </label>
+              <input
+                type="number"
+                id="lifetime_hours"
+                name="lifetime_hours"
+                min="1"
+                value={env.FEED_TTL_HOURS || ""}
+                disabled={!!env.FEED_TTL_HOURS}
+                placeholder={env.FEED_TTL_HOURS ? undefined : "No expiry"}
+              />
+              {env.FEED_TTL_HOURS ? (
+                <small>
+                  Feed lifetime is fixed to {env.FEED_TTL_HOURS}h by server
+                  configuration.
+                </small>
+              ) : (
+                <small>Leave empty for no expiry.</small>
+              )}
+            </div>
+
             <input type="hidden" id="language" name="language" value="en" />
             <input type="hidden" name="view" value={view} />
 
@@ -489,6 +541,7 @@ app.get("/", async (c) => {
                     <col data-col="email" style="width: 200px;" />
                     <col data-col="rss" style="width: 190px;" />
                     <col data-col="atom" style="width: 190px;" />
+                    <col data-col="expires" style="width: 130px;" />
                     <col data-col="actions" style="width: 170px;" />
                   </colgroup>
                   <thead>
@@ -607,6 +660,14 @@ app.get("/", async (c) => {
                         ></div>
                       </th>
                       <th class="th-resizable">
+                        <span>Expires</span>
+                        <div
+                          class="col-resizer"
+                          data-col="expires"
+                          title="Resize"
+                        ></div>
+                      </th>
+                      <th class="th-resizable">
                         <span>Actions</span>
                         <div
                           class="col-resizer"
@@ -632,10 +693,13 @@ app.get("/", async (c) => {
                       const descHover = clampText(feed.description || "", 1000);
                       const searchHaystack =
                         `${clampText(feed.title, 320)} ${feed.id} ${clampText(feed.description || "", 320)}`.toLowerCase();
+                      const isExpired =
+                        feed.expires_at !== undefined &&
+                        feed.expires_at <= Date.now();
 
                       return (
                         <tr
-                          class="feed-row"
+                          class={`feed-row${isExpired ? " feed-expired" : ""}`}
                           data-feed-id={feed.id}
                           data-search={searchHaystack}
                           data-sort-title={sortTitle}
@@ -680,19 +744,47 @@ app.get("/", async (c) => {
                             <CopyFieldInline value={atomUrl} />
                           </td>
                           <td>
+                            {feed.expires_at ? (
+                              <ExpiryBadge expiresAt={feed.expires_at} />
+                            ) : (
+                              <span class="muted">—</span>
+                            )}
+                          </td>
+                          <td>
                             <div class="row-actions">
-                              <a
-                                href={`/admin/feeds/${feed.id}/edit`}
-                                class="button button-small"
-                              >
-                                Edit
-                              </a>
-                              <a
-                                href={`/admin/feeds/${feed.id}/emails`}
-                                class="button button-small"
-                              >
-                                Emails
-                              </a>
+                              {isExpired ? (
+                                <>
+                                  <span
+                                    class="button button-small button-disabled"
+                                    aria-disabled="true"
+                                    tabindex={-1}
+                                  >
+                                    Edit
+                                  </span>
+                                  <span
+                                    class="button button-small button-disabled"
+                                    aria-disabled="true"
+                                    tabindex={-1}
+                                  >
+                                    Emails
+                                  </span>
+                                </>
+                              ) : (
+                                <>
+                                  <a
+                                    href={`/admin/feeds/${feed.id}/edit`}
+                                    class="button button-small"
+                                  >
+                                    Edit
+                                  </a>
+                                  <a
+                                    href={`/admin/feeds/${feed.id}/emails`}
+                                    class="button button-small"
+                                  >
+                                    Emails
+                                  </a>
+                                </>
+                              )}
                               <button
                                 type="button"
                                 class="button button-small button-danger button-delete"
@@ -738,10 +830,13 @@ app.get("/", async (c) => {
                 const descHover = clampText(feed.description || "", 1000);
                 const searchHaystack =
                   `${clampText(feed.title, 320)} ${feed.id} ${clampText(feed.description || "", 320)}`.toLowerCase();
+                const isExpired =
+                  feed.expires_at !== undefined &&
+                  feed.expires_at <= Date.now();
 
                 return (
                   <li
-                    class="feed-item card feed-row"
+                    class={`feed-item card feed-row${isExpired ? " feed-expired" : ""}`}
                     data-feed-id={feed.id}
                     data-search={searchHaystack}
                   >
@@ -749,6 +844,9 @@ app.get("/", async (c) => {
                       <h3 class="feed-title" title={titleHover}>
                         {titleDisplay}
                       </h3>
+                      {feed.expires_at && (
+                        <ExpiryBadge expiresAt={feed.expires_at} />
+                      )}
                       {feed.description && (
                         <p class="feed-description">
                           <span title={descHover}>{descDisplay}</span>
@@ -809,18 +907,39 @@ app.get("/", async (c) => {
 
                     <div class="feed-buttons">
                       <div class="feed-buttons-left">
-                        <a
-                          href={`/admin/feeds/${feed.id}/edit`}
-                          class="button button-small"
-                        >
-                          Edit
-                        </a>
-                        <a
-                          href={`/admin/feeds/${feed.id}/emails`}
-                          class="button button-small"
-                        >
-                          Emails
-                        </a>
+                        {isExpired ? (
+                          <>
+                            <span
+                              class="button button-small button-disabled"
+                              aria-disabled="true"
+                              tabindex={-1}
+                            >
+                              Edit
+                            </span>
+                            <span
+                              class="button button-small button-disabled"
+                              aria-disabled="true"
+                              tabindex={-1}
+                            >
+                              Emails
+                            </span>
+                          </>
+                        ) : (
+                          <>
+                            <a
+                              href={`/admin/feeds/${feed.id}/edit`}
+                              class="button button-small"
+                            >
+                              Edit
+                            </a>
+                            <a
+                              href={`/admin/feeds/${feed.id}/emails`}
+                              class="button button-small"
+                            >
+                              Emails
+                            </a>
+                          </>
+                        )}
                       </div>
                       <div class="feed-buttons-right">
                         <button
