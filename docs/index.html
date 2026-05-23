@@ -171,6 +171,38 @@
 
     .section-header { margin-bottom: 3rem; }
 
+    /* ── FAQ ── */
+    .faq-list { display: flex; flex-direction: column; gap: 0.75rem; }
+    .faq-item {
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--surface);
+      transition: border-color 0.2s;
+    }
+    .faq-item[open] { border-color: rgba(246,130,31,0.4); }
+    .faq-item summary {
+      cursor: pointer;
+      list-style: none;
+      padding: 1.1rem 1.35rem;
+      font-weight: 600;
+      font-size: 0.95rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 1rem;
+    }
+    .faq-item summary::-webkit-details-marker { display: none; }
+    .faq-item summary::after { content: "+"; color: var(--accent); font-size: 1.2rem; line-height: 1; }
+    .faq-item[open] summary::after { content: "−"; }
+    .faq-item p {
+      margin: 0;
+      padding: 0 1.35rem 1.2rem;
+      color: var(--muted);
+      font-size: 0.9rem;
+      line-height: 1.65;
+    }
+    .faq-item a { color: var(--accent); }
+
     /* ── Features ── */
     .features-grid {
       display: grid;
@@ -651,6 +683,7 @@
     <a href="#features" class="nav-link">Features</a>
     <a href="#how-it-works" class="nav-link">How it works</a>
     <a href="#install" class="nav-link">Install</a>
+    <a href="#faq" class="nav-link">FAQ</a>
     <a href="https://github.com/sponsors/juherr" class="nav-link nav-link-sponsor" target="_blank" rel="noopener">
       <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 21.593c-.524-.505-3.655-3.536-5.905-5.8C3.39 13.078 2 10.538 2 8a6 6 0 0 1 10-4.472A6 6 0 0 1 22 8c0 2.538-1.39 5.078-4.095 7.793-2.25 2.264-5.381 5.295-5.905 5.8z"/></svg>
       Sponsor
@@ -711,7 +744,7 @@
         Create a feed, grab the RSS URL, and add it to your reader — all without deploying anything.
       </p>
       <div class="demo-creds">
-        <span class="cred-item">URL <strong>demo.kill-the.news/admin</strong></span>
+        <span class="cred-item">URL <strong>demo.kill-the.news</strong></span>
         <span class="cred-sep">·</span>
         <span class="cred-item">Password <strong>password</strong></span>
       </div>
@@ -1084,6 +1117,53 @@ bucket_name = "kill-the-news-attachments"</span></pre>
   </div>
 </section>
 </div>
+
+<!-- FAQ -->
+<section id="faq">
+  <div class="section-header">
+    <div class="section-label">FAQ</div>
+    <h2 class="section-title">Questions &amp; answers</h2>
+    <p class="section-sub">The practical stuff — subscribing, privacy, troubleshooting, and how kill-the-news differs.</p>
+  </div>
+  <div class="faq-list">
+    <details class="faq-item">
+      <summary>How does kill-the-news work?</summary>
+      <p>Create a feed in the admin UI and you get a unique address on your domain (e.g. <code style="font-family:monospace;color:var(--accent)">newsletter.42@yourdomain.com</code>) plus an RSS and an Atom feed. Any email sent to that address is turned into entries in those feeds.</p>
+    </details>
+    <details class="faq-item">
+      <summary>How do I confirm a newsletter subscription?</summary>
+      <p>Confirmation emails arrive as feed entries — open the entry in your reader and click the confirmation link. If a publisher requires a reply, subscribe with your normal inbox instead and set up a filter that auto-forwards its mail to your feed address.</p>
+    </details>
+    <details class="faq-item">
+      <summary>Are my feeds private?</summary>
+      <p>Yes. Each feed URL carries an unguessable ID, it is served from your own domain on your own Cloudflare account, and the admin UI is password-protected. Treat the feed URL like a password — anyone who has it can read your newsletters.</p>
+    </details>
+    <details class="faq-item">
+      <summary>Why are old entries disappearing?</summary>
+      <p>Feeds honor an optional size and time-to-live cap so RSS readers stay happy — some readers choke on feeds that grow too large. When a limit is reached, the oldest entries (and their R2 attachments) are purged automatically.</p>
+    </details>
+    <details class="faq-item">
+      <summary>Can I share a feed with someone?</summary>
+      <p>Don't. Anyone with the URL can read your newsletters and even unsubscribe you. Share the project instead, so others can self-host and create their own feeds.</p>
+    </details>
+    <details class="faq-item">
+      <summary>Why isn't my feed updating?</summary>
+      <p>Send a test email to the feed address. If it shows up within a minute, the delay is on the newsletter publisher's side, not kill-the-news. Readers that support WebSub get near-instant push updates instead of waiting for the next poll.</p>
+    </details>
+    <details class="faq-item">
+      <summary>How is this different from kill-the-newsletter.com?</summary>
+      <p>kill-the-news is self-hosted on your own Cloudflare account: your data, your domain, RSS <em>and</em> Atom output, attachments served as enclosures, WebSub push updates — all running on the free tier.</p>
+    </details>
+    <details class="faq-item">
+      <summary>How much does it cost?</summary>
+      <p>It runs on Cloudflare's free tier (Workers + KV + R2) plus the cost of your domain. With Cloudflare Email Routing, no third-party service is required at all.</p>
+    </details>
+    <details class="faq-item">
+      <summary>How do I delete a feed?</summary>
+      <p>From the password-protected admin UI — open the Feeds tab and delete it there. Its entries and attachments are removed along with it.</p>
+    </details>
+  </div>
+</section>
 
 <!-- Tech Stack -->
 <section id="tech-stack" style="padding-top:0;">
