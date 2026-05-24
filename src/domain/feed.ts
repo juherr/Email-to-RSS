@@ -1,33 +1,38 @@
-import { Env, FeedConfig, FeedMetadata, EmailMetadata } from "../types";
-import { EmailAddress } from "./value-objects/email-address";
-import { Domain } from "./value-objects/domain";
+import { FeedConfig, FeedMetadata, EmailMetadata } from "../types";
+import { SenderPolicy, SenderDecision } from "./value-objects/sender-policy";
 
 const HOUR_MS = 3_600_000;
 
+export type { SenderDecision };
+
 /**
  * The Feed aggregate's invariants, in one framework-agnostic place: expiry,
- * sender allow/block policy, and the email-size budget. No I/O — callers load
- * and persist state through the FeedRepository.
+ * sender allow/block policy, and the email-size budget. No I/O and no ambient
+ * time or environment — callers pass `now` (from a Clock) and a resolved
+ * lifetime; persistence goes through the FeedRepository.
  */
 
 /**
- * Resolve a feed's `expires_at` from a requested lifetime (hours). A server-side
- * `FEED_TTL_HOURS` always overrides the client-supplied value. Returns undefined
- * when no positive lifetime applies (i.e. the feed never expires).
+ * Resolve a feed's `expires_at` from an already-resolved lifetime (hours) and a
+ * current instant. Returns undefined when no positive lifetime applies (i.e. the
+ * feed never expires). The policy decision of *which* lifetime applies (a client
+ * request vs. a server-side `FEED_TTL_HOURS` override, and parsing the env
+ * string) belongs to the application layer, not here.
  */
 export function resolveExpiresAt(
-  env: Env,
-  lifetimeHours?: number,
+  ttlHours: number | undefined,
+  now: number,
 ): number | undefined {
-  const hours = env.FEED_TTL_HOURS
-    ? parseInt(env.FEED_TTL_HOURS, 10)
-    : (lifetimeHours ?? NaN);
-  return Number.isFinite(hours) && hours > 0
-    ? Date.now() + hours * HOUR_MS
+  return ttlHours !== undefined && Number.isFinite(ttlHours) && ttlHours > 0
+    ? now + ttlHours * HOUR_MS
     : undefined;
 }
 
-/** Whether a feed has reached its expiry instant. */
+/**
+ * Whether a feed has reached its expiry instant. `now` defaults to the wall
+ * clock for convenience at the HTTP edge (routes); the aggregate always passes
+ * its injected clock so its own behaviour stays deterministic.
+ */
 export function isExpired(
   config: Pick<FeedConfig, "expires_at">,
   now: number = Date.now(),
@@ -35,77 +40,19 @@ export function isExpired(
   return config.expires_at !== undefined && config.expires_at <= now;
 }
 
-export type SenderDecision = "accepted" | "blocked";
-
-function normalizeEmail(value: string): string {
-  return value.trim().toLowerCase();
-}
-
-type SenderMatch = "blocked" | "allowed" | "neutral";
-
-function toDomains(entries: string[]): Domain[] {
-  return entries
-    .map((e) => Domain.parse(e))
-    .filter((d): d is Domain => d !== null);
-}
-
-function evaluateSender(
-  sender: string,
-  allowedSenders: string[],
-  blockedSenders: string[],
-): SenderMatch {
-  const parsed = EmailAddress.parse(sender);
-  const normalized = parsed ? parsed.normalized : normalizeEmail(sender);
-  const senderDomain = parsed?.domain ?? null;
-
-  const exactBlocked = blockedSenders.filter((e) => e.includes("@"));
-  const exactAllowed = allowedSenders.filter((e) => e.includes("@"));
-  const domainBlocked = toDomains(
-    blockedSenders.filter((e) => !e.includes("@")),
-  );
-  const domainAllowed = toDomains(
-    allowedSenders.filter((e) => !e.includes("@")),
-  );
-
-  if (exactBlocked.includes(normalized)) return "blocked";
-  if (exactAllowed.includes(normalized)) return "allowed";
-  if (senderDomain && domainBlocked.some((d) => d.matches(senderDomain)))
-    return "blocked";
-  if (senderDomain && domainAllowed.some((d) => d.matches(senderDomain)))
-    return "allowed";
-  return "neutral";
-}
-
 /**
  * Decide whether an inbound email is accepted, given the feed's sender lists and
- * the message's candidate sender addresses. With no lists configured everything
- * is accepted; a blocklist hit always rejects; an allowlist (when present) must
- * be matched by at least one sender.
+ * the message's candidate sender addresses. Thin wrapper over the `SenderPolicy`
+ * value object (which holds the matching semantics).
  */
 export function applySenderPolicy(
   config: Pick<FeedConfig, "allowed_senders" | "blocked_senders">,
   senders: string[],
 ): SenderDecision {
-  const allowedSenders = (config.allowed_senders || [])
-    .map(normalizeEmail)
-    .filter(Boolean);
-  const blockedSenders = (config.blocked_senders || [])
-    .map(normalizeEmail)
-    .filter(Boolean);
-
-  if (allowedSenders.length === 0 && blockedSenders.length === 0) {
-    return "accepted";
-  }
-
-  const hasAllowlist = allowedSenders.length > 0;
-  const accepted = senders.some((sender) => {
-    const decision = evaluateSender(sender, allowedSenders, blockedSenders);
-    if (decision === "allowed") return true;
-    if (decision === "blocked") return false;
-    return !hasAllowlist;
-  });
-
-  return accepted ? "accepted" : "blocked";
+  return SenderPolicy.fromLists(
+    config.allowed_senders,
+    config.blocked_senders,
+  ).decide(senders);
 }
 
 /**

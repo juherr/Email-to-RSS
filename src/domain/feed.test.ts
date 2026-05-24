@@ -5,35 +5,26 @@ import {
   applySenderPolicy,
   trimToByteBudget,
 } from "./feed";
-import type { Env, FeedMetadata, EmailMetadata } from "../types";
-
-const env = (overrides: Partial<Env> = {}): Env =>
-  ({ FEED_TTL_HOURS: undefined, ...overrides }) as Env;
+import type { FeedMetadata, EmailMetadata } from "../types";
 
 describe("resolveExpiresAt", () => {
-  it("returns undefined when no lifetime applies", () => {
-    expect(resolveExpiresAt(env())).toBeUndefined();
-    expect(resolveExpiresAt(env(), 0)).toBeUndefined();
-    expect(resolveExpiresAt(env(), -5)).toBeUndefined();
+  const NOW = 1_000_000;
+
+  it("returns undefined when no positive lifetime applies", () => {
+    expect(resolveExpiresAt(undefined, NOW)).toBeUndefined();
+    expect(resolveExpiresAt(0, NOW)).toBeUndefined();
+    expect(resolveExpiresAt(-5, NOW)).toBeUndefined();
+    expect(resolveExpiresAt(NaN, NOW)).toBeUndefined();
   });
 
-  it("computes expiry from a supplied lifetime", () => {
-    const before = Date.now();
-    const result = resolveExpiresAt(env(), 2)!;
-    expect(result).toBeGreaterThanOrEqual(before + 2 * 3_600_000);
-  });
-
-  it("lets a server-side FEED_TTL_HOURS override the client value", () => {
-    const before = Date.now();
-    const result = resolveExpiresAt(env({ FEED_TTL_HOURS: "1" }), 999)!;
-    // Uses 1h (server), not 999h (client).
-    expect(result).toBeLessThan(before + 2 * 3_600_000);
+  it("computes expiry from a supplied lifetime relative to now", () => {
+    expect(resolveExpiresAt(2, NOW)).toBe(NOW + 2 * 3_600_000);
   });
 });
 
 describe("isExpired", () => {
   it("is false when no expiry is set", () => {
-    expect(isExpired({ expires_at: undefined })).toBe(false);
+    expect(isExpired({ expires_at: undefined }, 1000)).toBe(false);
   });
 
   it("is true at or past the expiry instant", () => {

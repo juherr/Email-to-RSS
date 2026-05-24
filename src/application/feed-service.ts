@@ -19,6 +19,22 @@ import {
 export type { CreateFeedInput, UpdateFeedInput };
 
 /**
+ * Resolve the effective feed lifetime (hours) from a client request and the
+ * server-side `FEED_TTL_HOURS` override. Parsing the env string and applying the
+ * override is application/config policy — the domain only receives the resolved
+ * number. Returns undefined when the feed should never expire.
+ */
+function resolveTtlHours(
+  env: Env,
+  requestedHours?: number,
+): number | undefined {
+  const hours = env.FEED_TTL_HOURS
+    ? parseInt(env.FEED_TTL_HOURS, 10)
+    : (requestedHours ?? NaN);
+  return Number.isFinite(hours) && hours > 0 ? hours : undefined;
+}
+
+/**
  * Create a feed: write its config + empty metadata, register it in the global
  * list, and bump the `feeds_created` counter. Returns the new feed id + config.
  */
@@ -27,7 +43,9 @@ export async function createFeedRecord(
   input: CreateFeedInput,
 ): Promise<{ feedId: string; config: FeedConfig }> {
   const repo = FeedRepository.from(env);
-  const feed = Feed.create(FeedId.generate(), input, env);
+  const feed = Feed.create(FeedId.generate(), input, {
+    ttlHours: resolveTtlHours(env, input.lifetimeHours),
+  });
 
   await repo.save(feed);
   await repo.addToList(
@@ -88,7 +106,14 @@ export async function editFeed(
   const feed = await repo.load(FeedId.fromTrusted(feedId));
   if (!feed) return { status: "not_found" };
 
-  if (feed.edit(input, env).status === "expired") {
+  const recomputeExpiry =
+    Boolean(env.FEED_TTL_HOURS) || input.lifetimeHours !== undefined;
+  if (
+    feed.edit(input, {
+      recomputeExpiry,
+      ttlHours: resolveTtlHours(env, input.lifetimeHours),
+    }).status === "expired"
+  ) {
     return { status: "expired" };
   }
 
