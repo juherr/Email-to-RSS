@@ -258,6 +258,7 @@ export const createMockEnv = (options: { withR2?: boolean } = {}) => ({
   EMAIL_STORAGE: new MockKV(),
   DOMAIN: "test.getmynews.app",
   ADMIN_PASSWORD: "test-password",
+  FALLBACK_FORWARD_ADDRESS: undefined as string | undefined,
   ...(options.withR2
     ? { ATTACHMENT_BUCKET: new MockR2() as unknown as R2Bucket }
     : {}),

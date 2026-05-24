@@ -18,7 +18,12 @@ const RAW_EMAIL = [
 ].join("\r\n");
 
 function makeMessage(
-  overrides: Partial<{ from: string; to: string; rawText: string }> = {},
+  overrides: Partial<{
+    from: string;
+    to: string;
+    rawText: string;
+    forward: (rcptTo: string, headers?: Headers) => Promise<void>;
+  }> = {},
 ): ForwardableEmailMessage {
   const rawText = overrides.rawText ?? RAW_EMAIL;
   const encoder = new TextEncoder();
@@ -36,11 +41,22 @@ function makeMessage(
     headers: new Headers(),
     raw: stream,
     rawSize: bytes.length,
-    forward: async () => {},
+    forward: overrides.forward ?? (async () => {}),
     reply: async () => {},
     setReject: () => {},
   } as unknown as ForwardableEmailMessage;
 }
+
+/** Records every message.forward() call so tests can assert on routing. */
+function spyForward() {
+  const calls: string[] = [];
+  const forward = async (rcptTo: string) => {
+    calls.push(rcptTo);
+  };
+  return { calls, forward };
+}
+
+const FALLBACK = "fallback@personal.example";
 
 describe("handleCloudflareEmail", () => {
   let env: ReturnType<typeof createMockEnv>;
@@ -122,5 +138,112 @@ describe("handleCloudflareEmail", () => {
       "json",
     );
     expect(metadata).toBeNull();
+  });
+
+  describe("FALLBACK_FORWARD_ADDRESS catch-all fallback", () => {
+    it("forwards to the fallback when the feed does not exist", async () => {
+      const { calls, forward } = spyForward();
+      env.FALLBACK_FORWARD_ADDRESS = FALLBACK;
+
+      await handleCloudflareEmail(
+        makeMessage({ forward }),
+        env as any,
+        { waitUntil: () => {} } as any,
+      );
+
+      expect(calls).toEqual([FALLBACK]);
+    });
+
+    it("forwards to the fallback when the address is not a feed", async () => {
+      const { calls, forward } = spyForward();
+      env.FALLBACK_FORWARD_ADDRESS = FALLBACK;
+
+      await handleCloudflareEmail(
+        makeMessage({ to: `not-a-feed@${DOMAIN}`, forward }),
+        env as any,
+        { waitUntil: () => {} } as any,
+      );
+
+      expect(calls).toEqual([FALLBACK]);
+    });
+
+    it("does NOT forward an expired feed's mail (no newsletter leak)", async () => {
+      const { calls, forward } = spyForward();
+      env.FALLBACK_FORWARD_ADDRESS = FALLBACK;
+      await env.EMAIL_STORAGE.put(
+        `feed:${VALID_FEED_ID}:config`,
+        JSON.stringify({ expires_at: Date.now() - 1000 }),
+      );
+
+      await handleCloudflareEmail(
+        makeMessage({ forward }),
+        env as any,
+        { waitUntil: () => {} } as any,
+      );
+
+      expect(calls).toEqual([]);
+    });
+
+    it("does NOT forward when the sender is blocked", async () => {
+      const { calls, forward } = spyForward();
+      env.FALLBACK_FORWARD_ADDRESS = FALLBACK;
+      await env.EMAIL_STORAGE.put(
+        `feed:${VALID_FEED_ID}:config`,
+        JSON.stringify({ allowed_senders: ["other@example.com"] }),
+      );
+
+      await handleCloudflareEmail(
+        makeMessage({ forward }),
+        env as any,
+        { waitUntil: () => {} } as any,
+      );
+
+      expect(calls).toEqual([]);
+    });
+
+    it("does NOT forward when the email was ingested", async () => {
+      const { calls, forward } = spyForward();
+      env.FALLBACK_FORWARD_ADDRESS = FALLBACK;
+      await env.EMAIL_STORAGE.put(
+        `feed:${VALID_FEED_ID}:config`,
+        JSON.stringify({}),
+      );
+
+      await handleCloudflareEmail(
+        makeMessage({ forward }),
+        env as any,
+        { waitUntil: () => {} } as any,
+      );
+
+      expect(calls).toEqual([]);
+    });
+
+    it("does NOT forward when the env var is unset (current drop behavior)", async () => {
+      const { calls, forward } = spyForward();
+      // env.FALLBACK_FORWARD_ADDRESS intentionally left unset.
+
+      await handleCloudflareEmail(
+        makeMessage({ forward }),
+        env as any,
+        { waitUntil: () => {} } as any,
+      );
+
+      expect(calls).toEqual([]);
+    });
+
+    it("does not throw when the fallback forward fails (unverified address)", async () => {
+      env.FALLBACK_FORWARD_ADDRESS = FALLBACK;
+      const forward = async () => {
+        throw new Error("destination address not verified");
+      };
+
+      await expect(
+        handleCloudflareEmail(
+          makeMessage({ forward }),
+          env as any,
+          { waitUntil: () => {} } as any,
+        ),
+      ).resolves.toBeUndefined();
+    });
   });
 });

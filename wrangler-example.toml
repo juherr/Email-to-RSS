@@ -47,6 +47,12 @@ DOMAIN = "REPLACE_WITH_YOUR_DOMAIN" # Web domain (used for feed URLs and admin U
 # the admin UI is pre-filled and read-only. Remove to allow per-feed configuration.
 # FEED_TTL_HOURS = "24"
 
+# Optional: catch-all fallback forwarding. Inbound mail that isn't a feed (bad
+# address or unknown feed) is forwarded here instead of dropped — lets you point
+# a domain's catch-all at this worker without losing personal mail. The address
+# MUST be a *verified* destination in Cloudflare Email Routing or forwarding fails.
+# FALLBACK_FORWARD_ADDRESS = "you@example.com"
+
 # Optional: external proxy auth (Authelia/Authentik)
 # Comma-separated IPs of trusted reverse proxies
 # PROXY_TRUSTED_IPS = "10.0.0.1"

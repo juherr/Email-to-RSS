@@ -114,6 +114,29 @@ Scope the token to the relevant **account** and, for custom domains, the relevan
 - Keep `compatibility_date` fresh when doing runtime upgrades.
 - `ADMIN_PASSWORD` is a Cloudflare Worker secret, not a plain env var in config.
 
+### Catch-all fallback forwarding
+
+By default, inbound mail that doesn't match a feed is dropped (logged, then discarded). If you want to point a domain's **catch-all** at this worker without losing your personal mail, set an optional fallback address — non-feed mail is forwarded there instead of dropped:
+
+```toml
+[vars]
+FALLBACK_FORWARD_ADDRESS = "you@example.com"
+```
+
+**Prerequisite:** the address must be a **verified destination** in _Email → Email Routing → Destination addresses_ (Cloudflare won't forward to an unverified address — `message.forward()` fails, and the worker just logs a warning). This only applies to the Cloudflare Email Workers path (Option A).
+
+What gets forwarded vs dropped:
+
+| Situation                                          | Action                |
+| -------------------------------------------------- | --------------------- |
+| Address isn't a feed (e.g. `you@`, typo)           | forward               |
+| Well-formed feed address but no such feed          | forward               |
+| Feed exists but is **expired**                     | drop                  |
+| Feed exists but the sender is **blocked/filtered** | drop                  |
+| Delivered to a live feed                           | ingested (no forward) |
+
+Expired feeds and blocked senders are dropped on purpose, so a real newsletter never leaks into your fallback inbox. Leave the variable unset to keep the original drop-and-log behavior.
+
 ### Feed size limit
 
 By default the worker keeps emails until the feed's stored data exceeds **512 KB**, then drops the oldest entries (and their KV records) to stay under the limit. This is more robust than a fixed entry count for HTML-heavy newsletters.

@@ -10,6 +10,9 @@ export interface Env {
   PROXY_TRUSTED_IPS?: string;
   PROXY_AUTH_SECRET?: string;
   FEED_TTL_HOURS?: string;
+  // Optional catch-all fallback: non-feed inbound mail is forwarded here instead
+  // of being dropped. Must be a *verified* Cloudflare Email Routing destination.
+  FALLBACK_FORWARD_ADDRESS?: string;
 }
 
 // Stored attachment metadata (bytes live in R2, keyed by id)

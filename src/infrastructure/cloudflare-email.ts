@@ -1,6 +1,10 @@
 import PostalMime from "postal-mime";
 import { Env } from "../types";
-import { processEmail, RawAttachment } from "../application/email-processor";
+import {
+  processEmail,
+  RawAttachment,
+  IngestRejectionReason,
+} from "../application/email-processor";
 import { normalizeCid } from "../infrastructure/html-processor";
 import { logger } from "./logger";
 
@@ -51,8 +55,36 @@ export async function handleCloudflareEmail(
         to: message.to,
         reason: result.reason,
       });
+      await maybeForwardFallback(message, env, result.reason);
     }
   } catch (error) {
     console.error("Error processing Cloudflare email:", error);
+  }
+}
+
+// Reasons safe to forward to the catch-all fallback: the mail was never a feed's
+// (wrong address shape, or no such feed). Expired feeds and blocked senders are
+// dropped so a real newsletter never leaks into the fallback inbox.
+const FORWARDABLE_REASONS = new Set<IngestRejectionReason>([
+  "invalid_address",
+  "feed_not_found",
+]);
+
+async function maybeForwardFallback(
+  message: ForwardableEmailMessage,
+  env: Env,
+  reason: IngestRejectionReason,
+): Promise<void> {
+  const fallback = env.FALLBACK_FORWARD_ADDRESS;
+  if (!fallback || !FORWARDABLE_REASONS.has(reason)) return;
+
+  try {
+    await message.forward(fallback);
+  } catch (error) {
+    logger.warn("Fallback forward failed", {
+      to: message.to,
+      fallback,
+      error: error instanceof Error ? error.message : String(error),
+    });
   }
 }
