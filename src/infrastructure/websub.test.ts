@@ -9,9 +9,11 @@ import {
   verifyAndStoreSubscription,
   verifyAndDeleteSubscription,
 } from "./websub";
+import { FeedId } from "../domain/value-objects/feed-id";
 import type { Env, WebSubSubscription } from "../types";
 
 const mockEnv = () => createMockEnv() as unknown as Env;
+const fid = (value: string) => FeedId.fromTrusted(value);
 
 describe("buildHmacSignature", () => {
   it("returns sha256= prefixed hex", async () => {
@@ -35,7 +37,7 @@ describe("buildHmacSignature", () => {
 describe("getSubscriptions / saveSubscriptions", () => {
   it("returns empty array when no subs exist", async () => {
     const env = mockEnv();
-    expect(await getSubscriptions("feed1", env)).toEqual([]);
+    expect(await getSubscriptions(fid("feed1"), env)).toEqual([]);
   });
 
   it("round-trips stored subscriptions", async () => {
@@ -46,13 +48,13 @@ describe("getSubscriptions / saveSubscriptions", () => {
         expiresAt: Date.now() + 60000,
       },
     ];
-    await saveSubscriptions("feed1", subs, env);
-    expect(await getSubscriptions("feed1", env)).toEqual(subs);
+    await saveSubscriptions(fid("feed1"), subs, env);
+    expect(await getSubscriptions(fid("feed1"), env)).toEqual(subs);
   });
 
   it("uses the correct KV key", async () => {
     const env = mockEnv();
-    await saveSubscriptions("abc", [], env);
+    await saveSubscriptions(fid("abc"), [], env);
     expect(
       await env.EMAIL_STORAGE.get("websub:subs:abc", { type: "json" }),
     ).toEqual([]);
@@ -69,7 +71,7 @@ describe("notifySubscribers", () => {
         return HttpResponse.text("ok");
       }),
     );
-    await notifySubscribers("feed1", env);
+    await notifySubscribers(fid("feed1"), env);
     expect(called).toBe(false);
   });
 
@@ -81,7 +83,7 @@ describe("notifySubscribers", () => {
         expiresAt: Date.now() + 60000,
       },
     ];
-    await saveSubscriptions("feed1", subs, env);
+    await saveSubscriptions(fid("feed1"), subs, env);
     let called = false;
     server.use(
       http.post("https://reader.example/callback", () => {
@@ -89,7 +91,7 @@ describe("notifySubscribers", () => {
         return HttpResponse.text("ok");
       }),
     );
-    await notifySubscribers("feed1", env);
+    await notifySubscribers(fid("feed1"), env);
     expect(called).toBe(false);
   });
 
@@ -113,7 +115,7 @@ describe("notifySubscribers", () => {
         expiresAt: Date.now() + 60000,
       },
     ];
-    await saveSubscriptions("feed1", subs, env);
+    await saveSubscriptions(fid("feed1"), subs, env);
 
     let receivedBody = "";
     let receivedContentType = "";
@@ -125,7 +127,7 @@ describe("notifySubscribers", () => {
       }),
     );
 
-    await notifySubscribers("feed1", env);
+    await notifySubscribers(fid("feed1"), env);
 
     expect(receivedBody).toContain("<?xml");
     expect(receivedContentType).toContain("application/rss+xml");
@@ -152,7 +154,7 @@ describe("notifySubscribers", () => {
         secret: "mysecret",
       },
     ];
-    await saveSubscriptions("feed1", subs, env);
+    await saveSubscriptions(fid("feed1"), subs, env);
 
     let receivedSig256 = "";
     let receivedSig = "";
@@ -164,7 +166,7 @@ describe("notifySubscribers", () => {
       }),
     );
 
-    await notifySubscribers("feed1", env);
+    await notifySubscribers(fid("feed1"), env);
     expect(receivedSig256).toMatch(/^sha256=[0-9a-f]{64}$/);
     expect(receivedSig).toBe(""); // legacy header should NOT be sent
   });
@@ -190,7 +192,7 @@ describe("notifySubscribers", () => {
         format: "atom",
       },
     ];
-    await saveSubscriptions("feed1", subs, env);
+    await saveSubscriptions(fid("feed1"), subs, env);
 
     let receivedContentType = "";
     let receivedLink = "";
@@ -202,7 +204,7 @@ describe("notifySubscribers", () => {
       }),
     );
 
-    await notifySubscribers("feed1", env);
+    await notifySubscribers(fid("feed1"), env);
     expect(receivedContentType).toContain("application/atom+xml");
     expect(receivedLink).toContain(`/atom/feed1`);
     expect(receivedLink).toContain(`rel="self"`);
@@ -234,7 +236,7 @@ describe("notifySubscribers", () => {
         format: "atom",
       },
     ];
-    await saveSubscriptions("feed1", subs, env);
+    await saveSubscriptions(fid("feed1"), subs, env);
 
     const received: Record<string, string> = {};
     server.use(
@@ -248,7 +250,7 @@ describe("notifySubscribers", () => {
       }),
     );
 
-    await notifySubscribers("feed1", env);
+    await notifySubscribers(fid("feed1"), env);
     expect(received.rss).toContain("application/rss+xml");
     expect(received.atom).toContain("application/atom+xml");
   });
@@ -277,7 +279,7 @@ describe("notifySubscribers", () => {
         expiresAt: Date.now() + 60000,
       },
     ];
-    await saveSubscriptions("feed1", subs, env);
+    await saveSubscriptions(fid("feed1"), subs, env);
 
     const notified: string[] = [];
     server.use(
@@ -291,10 +293,10 @@ describe("notifySubscribers", () => {
       }),
     );
 
-    await notifySubscribers("feed1", env);
+    await notifySubscribers(fid("feed1"), env);
     expect(notified).toEqual(["active"]);
 
-    const remaining = await getSubscriptions("feed1", env);
+    const remaining = await getSubscriptions(fid("feed1"), env);
     expect(remaining).toHaveLength(1);
     expect(remaining[0].callbackUrl).toBe("https://active.example/callback");
   });
@@ -312,7 +314,7 @@ describe("verifyAndStoreSubscription", () => {
     );
 
     const result = await verifyAndStoreSubscription(
-      "feed1",
+      fid("feed1"),
       "https://reader.example/callback",
       undefined,
       86400,
@@ -321,7 +323,7 @@ describe("verifyAndStoreSubscription", () => {
     );
 
     expect(result).toBe(true);
-    const subs = await getSubscriptions("feed1", env);
+    const subs = await getSubscriptions(fid("feed1"), env);
     expect(subs).toHaveLength(1);
     expect(subs[0].callbackUrl).toBe("https://reader.example/callback");
     expect(subs[0].expiresAt).toBeGreaterThan(Date.now());
@@ -340,7 +342,7 @@ describe("verifyAndStoreSubscription", () => {
     );
 
     const result = await verifyAndStoreSubscription(
-      "feed1",
+      fid("feed1"),
       "https://reader.example/callback",
       undefined,
       86400,
@@ -350,7 +352,7 @@ describe("verifyAndStoreSubscription", () => {
 
     expect(result).toBe(true);
     expect(receivedTopic).toContain("/atom/feed1");
-    const subs = await getSubscriptions("feed1", env);
+    const subs = await getSubscriptions(fid("feed1"), env);
     expect(subs[0].format).toBe("atom");
   });
 
@@ -363,7 +365,7 @@ describe("verifyAndStoreSubscription", () => {
     );
 
     const result = await verifyAndStoreSubscription(
-      "feed1",
+      fid("feed1"),
       "https://reader.example/callback",
       undefined,
       86400,
@@ -372,7 +374,7 @@ describe("verifyAndStoreSubscription", () => {
     );
 
     expect(result).toBe(false);
-    const subs = await getSubscriptions("feed1", env);
+    const subs = await getSubscriptions(fid("feed1"), env);
     expect(subs).toHaveLength(0);
   });
 
@@ -381,7 +383,7 @@ describe("verifyAndStoreSubscription", () => {
     const existing: WebSubSubscription[] = [
       { callbackUrl: "https://reader.example/callback", expiresAt: 1000 },
     ];
-    await saveSubscriptions("feed1", existing, env);
+    await saveSubscriptions(fid("feed1"), existing, env);
 
     server.use(
       http.get("https://reader.example/callback", ({ request }) => {
@@ -392,7 +394,7 @@ describe("verifyAndStoreSubscription", () => {
     );
 
     const result = await verifyAndStoreSubscription(
-      "feed1",
+      fid("feed1"),
       "https://reader.example/callback",
       "newsecret",
       3600,
@@ -401,7 +403,7 @@ describe("verifyAndStoreSubscription", () => {
     );
 
     expect(result).toBe(true);
-    const subs = await getSubscriptions("feed1", env);
+    const subs = await getSubscriptions(fid("feed1"), env);
     expect(subs).toHaveLength(1);
     expect(subs[0].secret).toBe("newsecret");
   });
@@ -413,7 +415,7 @@ describe("verifyAndStoreSubscription", () => {
     );
 
     const result = await verifyAndStoreSubscription(
-      "feed1",
+      fid("feed1"),
       "https://reader.example/callback",
       undefined,
       86400,
@@ -422,7 +424,7 @@ describe("verifyAndStoreSubscription", () => {
     );
 
     expect(result).toBe(false);
-    const subs = await getSubscriptions("feed1", env);
+    const subs = await getSubscriptions(fid("feed1"), env);
     expect(subs).toHaveLength(0);
   });
 
@@ -437,7 +439,7 @@ describe("verifyAndStoreSubscription", () => {
     );
 
     const result = await verifyAndStoreSubscription(
-      "feed1",
+      fid("feed1"),
       "https://reader.example/callback",
       undefined,
       86400,
@@ -446,7 +448,7 @@ describe("verifyAndStoreSubscription", () => {
     );
 
     expect(result).toBe(false);
-    const subs = await getSubscriptions("feed1", env);
+    const subs = await getSubscriptions(fid("feed1"), env);
     expect(subs).toHaveLength(0);
   });
 });
@@ -455,7 +457,7 @@ describe("verifyAndDeleteSubscription", () => {
   it("removes subscription and returns true when callback echoes challenge", async () => {
     const env = mockEnv();
     await saveSubscriptions(
-      "feed1",
+      fid("feed1"),
       [
         {
           callbackUrl: "https://reader.example/callback",
@@ -474,19 +476,19 @@ describe("verifyAndDeleteSubscription", () => {
     );
 
     const result = await verifyAndDeleteSubscription(
-      "feed1",
+      fid("feed1"),
       "https://reader.example/callback",
       env,
     );
     expect(result).toBe(true);
-    const subs = await getSubscriptions("feed1", env);
+    const subs = await getSubscriptions(fid("feed1"), env);
     expect(subs).toHaveLength(0);
   });
 
   it("returns false and leaves subscription intact when callback returns wrong challenge", async () => {
     const env = mockEnv();
     await saveSubscriptions(
-      "feed1",
+      fid("feed1"),
       [
         {
           callbackUrl: "https://reader.example/callback",
@@ -503,19 +505,19 @@ describe("verifyAndDeleteSubscription", () => {
     );
 
     const result = await verifyAndDeleteSubscription(
-      "feed1",
+      fid("feed1"),
       "https://reader.example/callback",
       env,
     );
     expect(result).toBe(false);
-    const subs = await getSubscriptions("feed1", env);
+    const subs = await getSubscriptions(fid("feed1"), env);
     expect(subs).toHaveLength(1);
   });
 
   it("returns false and leaves subscription intact when callback fetch fails", async () => {
     const env = mockEnv();
     await saveSubscriptions(
-      "feed1",
+      fid("feed1"),
       [
         {
           callbackUrl: "https://reader.example/callback",
@@ -530,12 +532,12 @@ describe("verifyAndDeleteSubscription", () => {
     );
 
     const result = await verifyAndDeleteSubscription(
-      "feed1",
+      fid("feed1"),
       "https://reader.example/callback",
       env,
     );
     expect(result).toBe(false);
-    const subs = await getSubscriptions("feed1", env);
+    const subs = await getSubscriptions(fid("feed1"), env);
     expect(subs).toHaveLength(1);
   });
 });

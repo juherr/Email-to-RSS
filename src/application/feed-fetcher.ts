@@ -9,17 +9,16 @@ export interface FeedData {
 }
 
 export async function fetchFeedData(
-  feedId: string,
+  feedId: FeedId,
   env: Env,
 ): Promise<FeedData | null> {
   const repo = FeedRepository.from(env);
-  const id = FeedId.fromTrusted(feedId);
 
-  const feedMetadata = await repo.getMetadata(id);
+  const feedMetadata = await repo.getMetadata(feedId);
   if (!feedMetadata) return null;
 
-  const feedConfig = (await repo.getConfig(id)) ?? {
-    title: `Newsletter Feed ${feedId}`,
+  const feedConfig = (await repo.getConfig(feedId)) ?? {
+    title: `Newsletter Feed ${feedId.value}`,
     description: "Converted email newsletter",
     language: "en",
     created_at: Date.now(),

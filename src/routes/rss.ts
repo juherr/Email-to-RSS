@@ -4,6 +4,7 @@ import { generateRssFeed } from "../infrastructure/feed-generator";
 import { fetchFeedData } from "../application/feed-fetcher";
 import { baseUrl, feedRssUrl } from "../infrastructure/urls";
 import { isExpired } from "../domain/feed";
+import { FeedId } from "../domain/value-objects/feed-id";
 
 export async function handle(c: Context<{ Bindings: Env }>): Promise<Response> {
   try {
@@ -12,7 +13,7 @@ export async function handle(c: Context<{ Bindings: Env }>): Promise<Response> {
       return new Response("Feed ID is required", { status: 400 });
     }
 
-    const feedData = await fetchFeedData(feedId, c.env);
+    const feedData = await fetchFeedData(FeedId.fromTrusted(feedId), c.env);
     if (!feedData) {
       return new Response("Feed not found", { status: 404 });
     }

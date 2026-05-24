@@ -1,9 +1,32 @@
-import { FeedConfig, FeedMetadata, EmailMetadata } from "../types";
+import {
+  FeedConfig,
+  FeedMetadata,
+  EmailMetadata,
+  FeedListItem,
+} from "../types";
 import { FeedId } from "./value-objects/feed-id";
 import { SenderPolicy, SenderDecision } from "./value-objects/sender-policy";
 import { Clock, systemClock } from "./clock";
 import { FeedEvent } from "./events";
-import { resolveExpiresAt, isExpired, trimToByteBudget } from "./feed";
+import { isExpired } from "./feed";
+
+const HOUR_MS = 3_600_000;
+
+/**
+ * Resolve a feed's `expires_at` from an already-resolved lifetime (hours) and a
+ * current instant. Returns undefined when no positive lifetime applies (the feed
+ * never expires). Which lifetime applies (client request vs. server-side
+ * override, env parsing) is the application layer's call — the aggregate only
+ * receives the resolved number. File-private: the aggregate is its sole user.
+ */
+function resolveExpiresAt(
+  ttlHours: number | undefined,
+  now: number,
+): number | undefined {
+  return ttlHours !== undefined && Number.isFinite(ttlHours) && ttlHours > 0
+    ? now + ttlHours * HOUR_MS
+    : undefined;
+}
 
 export interface CreateFeedInput {
   title: string;
@@ -109,12 +132,78 @@ export class Feed {
     return new Feed(id, config, metadata, clock);
   }
 
-  get config(): Readonly<FeedConfig> {
-    return this._config;
+  // ── Intention-revealing reads ─────────────────────────────────────────────
+  // The aggregate exposes named fields and copies of its collections, never the
+  // raw `config`/`metadata` objects — a shallow `Readonly<…>` would still let a
+  // caller mutate the arrays inside. Persistence reads `toConfigSnapshot()` /
+  // `toMetadataSnapshot()`; the registry reads `summary()`.
+
+  get title(): string {
+    return this._config.title;
   }
 
-  get metadata(): Readonly<FeedMetadata> {
-    return this._metadata;
+  get description(): string | undefined {
+    return this._config.description;
+  }
+
+  get language(): string {
+    return this._config.language;
+  }
+
+  get createdAt(): number {
+    return this._config.created_at;
+  }
+
+  get updatedAt(): number | undefined {
+    return this._config.updated_at;
+  }
+
+  get expiresAt(): number | undefined {
+    return this._config.expires_at;
+  }
+
+  get iconDomain(): string | undefined {
+    return this._metadata.iconDomain;
+  }
+
+  allowedSenders(): string[] {
+    return [...(this._config.allowed_senders ?? [])];
+  }
+
+  blockedSenders(): string[] {
+    return [...(this._config.blocked_senders ?? [])];
+  }
+
+  /** A copy of the email index — mutating it never touches aggregate state. */
+  get emails(): readonly EmailMetadata[] {
+    return [...this._metadata.emails];
+  }
+
+  /** Per-sender one-click unsubscribe links (copy). */
+  unsubscribeUrls(): Record<string, string> {
+    return { ...(this._metadata.unsubscribe ?? {}) };
+  }
+
+  /** The projection stored in the global `feeds:list` registry. */
+  summary(): FeedListItem {
+    return {
+      id: this.id.value,
+      title: this._config.title,
+      description: this._config.description,
+      expires_at: this._config.expires_at,
+    };
+  }
+
+  // ── Persistence snapshots (repository-only) ───────────────────────────────
+
+  /** A serialisable copy of the config for the repository to persist. */
+  toConfigSnapshot(): FeedConfig {
+    return { ...this._config };
+  }
+
+  /** A serialisable copy of the email index for the repository to persist. */
+  toMetadataSnapshot(): FeedMetadata {
+    return { ...this._metadata, emails: [...this._metadata.emails] };
   }
 
   /**
@@ -161,7 +250,24 @@ export class Feed {
     }
 
     this._events.push({ type: "EmailIngested", iconDomain: opts.iconDomain });
-    return trimToByteBudget(this._metadata, opts.maxBytes);
+    return this.trimToByteBudget(opts.maxBytes);
+  }
+
+  /**
+   * Enforce the per-feed byte budget by dropping the oldest emails (from the
+   * tail of the index) until the total fits, always keeping at least one entry.
+   * Returns the dropped entries so the caller can purge their KV/R2 storage.
+   */
+  private trimToByteBudget(maxBytes: number): { dropped: EmailMetadata[] } {
+    const emails = this._metadata.emails;
+    let totalSize = emails.reduce((sum, e) => sum + (e.size ?? 0), 0);
+    const dropped: EmailMetadata[] = [];
+    while (totalSize > maxBytes && emails.length > 1) {
+      const entry = emails.pop()!;
+      totalSize -= entry.size ?? 0;
+      dropped.push(entry);
+    }
+    return { dropped };
   }
 
   /**
@@ -180,21 +286,12 @@ export class Feed {
   }
 
   /**
-   * In-place edit of the presentational fields only (title + description). Never
-   * touches expiry or the sender policy — used by the dashboard's minimal edit.
-   */
-  editDetails(patch: { title?: string; description?: string }): void {
-    if (patch.title !== undefined) this._config.title = patch.title;
-    if (patch.description !== undefined) {
-      this._config.description = patch.description;
-    }
-    this._config.updated_at = this.clock.now();
-  }
-
-  /**
-   * Full edit: apply the patch and recompute expiry from the application-supplied
-   * lifetime when asked (an absent recompute preserves the current expiry).
-   * Rejects an already-expired feed without mutating it.
+   * The single edit path. Apply the patch (only the fields it carries) and
+   * recompute expiry from the application-supplied lifetime when asked — an
+   * absent recompute preserves the current expiry, which covers the dashboard's
+   * title/description quick-edit (`recomputeExpiry: false`). Rejects an
+   * already-expired feed without mutating it, so a quick-edit can no more touch
+   * an expired feed than a full edit can.
    */
   edit(
     patch: UpdateFeedInput,

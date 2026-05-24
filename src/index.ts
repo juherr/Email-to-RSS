@@ -15,6 +15,7 @@ import { Env } from "./types";
 import { logger } from "./infrastructure/logger";
 import { FeedRepository } from "./infrastructure/feed-repository";
 import { purgeExpiredFeeds } from "./application/feed-cleanup";
+import { FeedId } from "./domain/value-objects/feed-id";
 import {
   bumpCounters,
   scanR2Usage,
@@ -206,7 +207,11 @@ export default {
       .map((f) => f.id);
 
     for (const feedId of expiredIds) {
-      await purgeExpiredFeeds(env.EMAIL_STORAGE, feedId, attachmentBucket);
+      await purgeExpiredFeeds(
+        env.EMAIL_STORAGE,
+        FeedId.fromTrusted(feedId),
+        attachmentBucket,
+      );
     }
     if (expiredIds.length > 0) {
       await repo.removeFromListBulk(expiredIds);

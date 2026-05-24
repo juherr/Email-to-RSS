@@ -9,6 +9,7 @@ import { logger } from "../infrastructure/logger";
 import { timingSafeEqual, checkProxyAuth } from "../infrastructure/auth";
 import { Layout, clampText } from "./admin/ui";
 import { FeedRepository } from "../infrastructure/feed-repository";
+import { FeedId } from "../domain/value-objects/feed-id";
 import { editFeedDetails } from "../application/feed-service";
 import {
   feedRssUrl,
@@ -996,11 +997,20 @@ app.post(
     try {
       const { title, description } = c.req.valid("json");
 
-      // In-place edit: only title/description, expiry untouched.
-      const result = await editFeedDetails(env, feedId, { title, description });
+      // Quick-edit: only title/description, expiry untouched.
+      const result = await editFeedDetails(env, FeedId.fromTrusted(feedId), {
+        title,
+        description,
+      });
 
       if (result.status === "not_found") {
         return c.json({ error: "Feed not found" }, 404);
+      }
+      if (result.status === "expired") {
+        return c.json(
+          { error: "Feed has expired and cannot be modified." },
+          403,
+        );
       }
 
       return c.json({ success: true });

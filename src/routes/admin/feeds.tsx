@@ -335,7 +335,7 @@ feedsRouter.post("/:feedId/edit", async (c) => {
       blockedSenders,
     });
 
-    const result = await editFeed(env, feedId, {
+    const result = await editFeed(env, FeedId.fromTrusted(feedId), {
       title: parsedData.title,
       description: parsedData.description,
       language: parsedData.language,
@@ -422,7 +422,9 @@ feedsRouter.post("/:feedId/delete", async (c) => {
   const wantsJson = (c.req.header("Accept") || "").includes("application/json");
 
   try {
-    await deleteFeedRecord(env, feedId, (p) => waitUntilSafe(c, p));
+    await deleteFeedRecord(env, FeedId.fromTrusted(feedId), (p) =>
+      waitUntilSafe(c, p),
+    );
 
     if (wantsJson) {
       return c.json({ ok: true, feedId });
@@ -456,11 +458,15 @@ feedsRouter.post("/:feedId/purge", async (c) => {
       ? Number(body?.limit)
       : 100;
 
-    const step = await purgeFeedKeysStep(emailStorage, feedId, {
-      cursor,
-      limit,
-      bucket: getAttachmentBucket(env),
-    });
+    const step = await purgeFeedKeysStep(
+      emailStorage,
+      FeedId.fromTrusted(feedId),
+      {
+        cursor,
+        limit,
+        bucket: getAttachmentBucket(env),
+      },
+    );
 
     return c.json({
       ok: step.failedKeys.length === 0,
@@ -516,9 +522,10 @@ feedsRouter.post("/bulk-delete", async (c) => {
 
       for (const feedId of parsedFeedIds) {
         try {
+          const id = FeedId.fromTrusted(feedId);
           // Read unsubscribe URLs before the feed metadata is deleted.
-          const urls = await collectUnsubscribeUrls(emailStorage, feedId);
-          const result = await deleteFeedFastDetailed(emailStorage, feedId);
+          const urls = await collectUnsubscribeUrls(emailStorage, id);
+          const result = await deleteFeedFastDetailed(emailStorage, id);
           if (!result.ok) {
             failures.push({
               feedId,
@@ -599,9 +606,10 @@ feedsRouter.post("/bulk-delete", async (c) => {
 
     for (const feedId of parsedFeedIds) {
       try {
+        const id = FeedId.fromTrusted(feedId);
         // Read unsubscribe URLs before the feed metadata is deleted.
-        const urls = await collectUnsubscribeUrls(emailStorage, feedId);
-        const result = await deleteFeedFastDetailed(emailStorage, feedId);
+        const urls = await collectUnsubscribeUrls(emailStorage, id);
+        const result = await deleteFeedFastDetailed(emailStorage, id);
         if (result.ok) {
           unsubscribeUrls.push(...urls);
           okIds.push(feedId);

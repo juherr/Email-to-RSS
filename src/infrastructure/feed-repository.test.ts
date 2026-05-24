@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { createMockEnv } from "../test/setup";
 import { FeedRepository } from "./feed-repository";
+import { Feed } from "../domain/feed.aggregate";
 import { FeedId } from "../domain/value-objects/feed-id";
 import type { Env, FeedConfig, FeedMetadata, EmailData } from "../types";
 
@@ -95,10 +96,29 @@ describe("FeedRepository emails", () => {
 });
 
 describe("FeedRepository feed list", () => {
-  it("adds, updates, lists and removes feeds with expiry", async () => {
+  const feedWith = (
+    id: string,
+    title: string,
+    opts: { description?: string; expires_at?: number } = {},
+  ) =>
+    Feed.reconstitute(
+      fid(id),
+      {
+        title,
+        language: "en",
+        created_at: 1000,
+        description: opts.description,
+        expires_at: opts.expires_at,
+      },
+      { emails: [] },
+    );
+
+  it("upserts the list entry from the aggregate on save/saveConfig", async () => {
     const repo = new FeedRepository(mockEnv().EMAIL_STORAGE);
-    await repo.addToList(fid("a.b.42"), "One", "desc", 5000);
-    await repo.addToList(fid("c.d.99"), "Two");
+    await repo.save(
+      feedWith("a.b.42", "One", { description: "desc", expires_at: 5000 }),
+    );
+    await repo.save(feedWith("c.d.99", "Two"));
 
     let feeds = await repo.listFeeds();
     expect(feeds).toHaveLength(2);
@@ -107,8 +127,10 @@ describe("FeedRepository feed list", () => {
       expires_at: 5000,
     });
 
-    await repo.updateInList(fid("a.b.42"), "One-updated", undefined, undefined);
+    // saveConfig refreshes the same entry in place (no duplicate, expiry cleared).
+    await repo.saveConfig(feedWith("a.b.42", "One-updated"));
     feeds = await repo.listFeeds();
+    expect(feeds.filter((f) => f.id === "a.b.42")).toHaveLength(1);
     const updated = feeds.find((f) => f.id === "a.b.42");
     expect(updated).toMatchObject({ title: "One-updated" });
     expect(updated?.expires_at).toBeUndefined();
@@ -121,9 +143,9 @@ describe("FeedRepository feed list", () => {
 
   it("bulk-removes only the matching ids", async () => {
     const repo = new FeedRepository(mockEnv().EMAIL_STORAGE);
-    await repo.addToList(fid("a.b.42"), "One");
-    await repo.addToList(fid("c.d.99"), "Two");
-    await repo.addToList(fid("e.f.10"), "Three");
+    await repo.save(feedWith("a.b.42", "One"));
+    await repo.save(feedWith("c.d.99", "Two"));
+    await repo.save(feedWith("e.f.10", "Three"));
 
     const removed = await repo.removeFromListBulk(["a.b.42", "e.f.10", "nope"]);
     expect(removed.sort()).toEqual(["a.b.42", "e.f.10"]);

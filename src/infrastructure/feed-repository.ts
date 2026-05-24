@@ -72,28 +72,38 @@ export class FeedRepository {
     return Feed.reconstitute(feedId, config, metadata ?? { emails: [] });
   }
 
-  /** Persist both keys the aggregate owns (config + metadata). */
+  /**
+   * Persist both keys the aggregate owns (config + metadata) and keep the global
+   * `feeds:list` entry in sync. The registry projection is derived from
+   * `feed.summary()` here, so no caller has to remember to mirror it.
+   */
   async save(feed: Feed): Promise<void> {
     await Promise.all([
-      this.putConfig(feed.id, feed.config),
-      this.putMetadata(feed.id, feed.metadata),
+      this.putConfig(feed.id, feed.toConfigSnapshot()),
+      this.putMetadata(feed.id, feed.toMetadataSnapshot()),
+      this.upsertListEntry(feed.summary()),
     ]);
   }
 
   /**
    * Persist only the email index. Used by the ingest/delete paths where config
-   * is unchanged — avoids a redundant config write on the hot path.
+   * is unchanged — avoids a redundant config write on the hot path. The list
+   * projection (title/description/expiry) is untouched, so it is not rewritten.
    */
   async saveMetadata(feed: Feed): Promise<void> {
-    await this.putMetadata(feed.id, feed.metadata);
+    await this.putMetadata(feed.id, feed.toMetadataSnapshot());
   }
 
   /**
-   * Persist only the config. Used by the rename/edit paths where metadata is
-   * unchanged — avoids re-writing (and risking clobbering) the email index.
+   * Persist only the config and refresh the `feeds:list` entry from it. Used by
+   * the rename/edit paths where metadata is unchanged — avoids re-writing (and
+   * risking clobbering) the email index.
    */
   async saveConfig(feed: Feed): Promise<void> {
-    await this.putConfig(feed.id, feed.config);
+    await Promise.all([
+      this.putConfig(feed.id, feed.toConfigSnapshot()),
+      this.upsertListEntry(feed.summary()),
+    ]);
   }
 
   // ── Feed config ───────────────────────────────────────────────────────────
@@ -156,50 +166,29 @@ export class FeedRepository {
     }
   }
 
-  async addToList(
-    feedId: FeedId,
-    title: string,
-    description?: string,
-    expires_at?: number,
-  ): Promise<void> {
+  /**
+   * Insert-or-update a feed's entry in the global `feeds:list` registry from its
+   * aggregate summary. Idempotent by feed id. Private: callers persist a `Feed`
+   * via `save`/`saveConfig`, which keep the projection in sync — never mirror the
+   * list by hand. (Read-modify-write is not atomic under KV, unchanged from the
+   * prior add/update split.)
+   */
+  private async upsertListEntry(summary: FeedListItem): Promise<void> {
     try {
       const feedList = ((await this.kv.get(FEEDS_LIST_KEY, {
         type: "json",
       })) as FeedList | null) || { feeds: [] };
 
-      feedList.feeds.push({ id: feedId.value, title, description, expires_at });
+      const index = feedList.feeds.findIndex((feed) => feed.id === summary.id);
+      if (index === -1) {
+        feedList.feeds.push(summary);
+      } else {
+        feedList.feeds[index] = summary;
+      }
       await this.kv.put(FEEDS_LIST_KEY, JSON.stringify(feedList));
     } catch (error) {
-      logger.error("Error adding feed to list", {
-        feedId: feedId.value,
-        error: String(error),
-      });
-    }
-  }
-
-  async updateInList(
-    feedId: FeedId,
-    title: string,
-    description?: string,
-    expires_at?: number,
-  ): Promise<void> {
-    try {
-      const feedList = ((await this.kv.get(FEEDS_LIST_KEY, {
-        type: "json",
-      })) as FeedList | null) || { feeds: [] };
-
-      const feedIndex = feedList.feeds.findIndex(
-        (feed) => feed.id === feedId.value,
-      );
-      if (feedIndex !== -1) {
-        feedList.feeds[feedIndex].title = title;
-        feedList.feeds[feedIndex].description = description;
-        feedList.feeds[feedIndex].expires_at = expires_at;
-        await this.kv.put(FEEDS_LIST_KEY, JSON.stringify(feedList));
-      }
-    } catch (error) {
-      logger.error("Error updating feed in list", {
-        feedId: feedId.value,
+      logger.error("Error upserting feed in list", {
+        feedId: summary.id,
         error: String(error),
       });
     }

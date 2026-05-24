@@ -72,12 +72,10 @@ hubRouter.post("/", async (c) => {
     );
   }
   const format = match[1] as "rss" | "atom";
-  const feedId = match[2];
+  const feedId = FeedId.fromTrusted(match[2]);
 
   // Verify the feed exists before accepting any subscription
-  const feedConfig = await FeedRepository.from(env).getConfig(
-    FeedId.fromTrusted(feedId),
-  );
+  const feedConfig = await FeedRepository.from(env).getConfig(feedId);
   if (!feedConfig) {
     return c.text("Not Found: feed does not exist", 404);
   }

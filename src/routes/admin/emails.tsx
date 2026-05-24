@@ -699,7 +699,7 @@ emailsRouter.post("/feeds/:feedId/emails/bulk-delete", async (c) => {
         : c.text("Feed not found", 404);
     }
 
-    const allowedKeys = new Set(feed.metadata.emails.map((email) => email.key));
+    const allowedKeys = new Set(feed.emails.map((email) => email.key));
 
     if (wantsJson) {
       const body = (await c.req.json().catch(() => null)) as {
@@ -729,7 +729,7 @@ emailsRouter.post("/feeds/:feedId/emails/bulk-delete", async (c) => {
 
       const { ok: deletedOk, failed: failedEmailKeys } =
         await deleteKeysWithConcurrency(emailStorage, candidates, 35);
-      await deleteAttachmentsForEmails(env, feed.metadata.emails, candidates);
+      await deleteAttachmentsForEmails(env, feed.emails, candidates);
 
       feed.removeEmails(deletedOk);
       await repo.saveMetadata(feed);
@@ -757,7 +757,7 @@ emailsRouter.post("/feeds/:feedId/emails/bulk-delete", async (c) => {
       candidates,
       35,
     );
-    await deleteAttachmentsForEmails(env, feed.metadata.emails, candidates);
+    await deleteAttachmentsForEmails(env, feed.emails, candidates);
 
     feed.removeEmails(deletedOk);
     await repo.saveMetadata(feed);

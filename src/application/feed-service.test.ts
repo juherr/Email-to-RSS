@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import { createMockEnv } from "../test/setup";
 import { createFeedRecord, editFeed } from "./feed-service";
 import { getCounters } from "./stats";
+import { FeedId } from "../domain/value-objects/feed-id";
 import type { Env } from "../types";
 
 const mkEnv = (overrides: Partial<Env> = {}) =>
@@ -59,7 +60,9 @@ describe("editFeed — TTL policy", () => {
     const { feedId } = await createFeedRecord(env, { ...baseInput });
 
     const before = Date.now();
-    const result = await editFeed(env, feedId, { title: "renamed" });
+    const result = await editFeed(env, FeedId.fromTrusted(feedId), {
+      title: "renamed",
+    });
 
     expect(result.status).toBe("ok");
     if (result.status === "ok") {
@@ -75,7 +78,9 @@ describe("editFeed — TTL policy", () => {
       lifetimeHours: 5,
     });
 
-    const result = await editFeed(env, feedId, { title: "x" });
+    const result = await editFeed(env, FeedId.fromTrusted(feedId), {
+      title: "x",
+    });
 
     expect(result.status).toBe("ok");
     if (result.status === "ok") {

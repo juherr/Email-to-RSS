@@ -32,7 +32,7 @@ export async function applyFeedEvents(
           emails_received: 1,
           last_email_at: new Date().toISOString(),
         });
-        schedule(notifySubscribers(feedId.value, env));
+        schedule(notifySubscribers(feedId, env));
         if (event.iconDomain) {
           schedule(cacheFaviconForDomain(event.iconDomain, env));
         }

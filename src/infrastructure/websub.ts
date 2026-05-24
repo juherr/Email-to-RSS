@@ -6,14 +6,14 @@ import { WebSubSubscriptionRepository } from "./websub-subscription-repository";
 import { FeedId } from "../domain/value-objects/feed-id";
 
 export async function getSubscriptions(
-  feedId: string,
+  feedId: FeedId,
   env: Env,
 ): Promise<WebSubSubscription[]> {
   return WebSubSubscriptionRepository.from(env).get(feedId);
 }
 
 export async function saveSubscriptions(
-  feedId: string,
+  feedId: FeedId,
   subscriptions: WebSubSubscription[],
   env: Env,
 ): Promise<void> {
@@ -43,22 +43,21 @@ export async function buildHmacSignature(
 }
 
 async function buildFeedXml(
-  feedId: string,
+  feedId: FeedId,
   env: Env,
   format: "rss" | "atom" = "rss",
 ): Promise<string | null> {
   const repo = FeedRepository.from(env);
-  const id = FeedId.fromTrusted(feedId);
   const [feedMetadata, rawConfig] = await Promise.all([
-    repo.getMetadata(id),
-    repo.getConfig(id),
+    repo.getMetadata(feedId),
+    repo.getConfig(feedId),
   ]);
 
   if (!feedMetadata) return null;
 
   const base = baseUrl(env);
   const feedConfig: FeedConfig = rawConfig ?? {
-    title: `Newsletter Feed ${feedId}`,
+    title: `Newsletter Feed ${feedId.value}`,
     description: "Converted email newsletter",
     language: "en",
     created_at: Date.now(),
@@ -74,15 +73,15 @@ async function buildFeedXml(
       feedConfig,
       emailsData,
       base,
-      feedId,
-      feedAtomUrl(feedId, env),
+      feedId.value,
+      feedAtomUrl(feedId.value, env),
     );
   }
-  return generateRssFeed(feedConfig, emailsData, base, feedId);
+  return generateRssFeed(feedConfig, emailsData, base, feedId.value);
 }
 
 export async function notifySubscribers(
-  feedId: string,
+  feedId: FeedId,
   env: Env,
 ): Promise<void> {
   const subs = await getSubscriptions(feedId, env);
@@ -140,12 +139,17 @@ export async function notifySubscribers(
   await Promise.allSettled([
     ...(rssFeed
       ? rssSubs.map((sub) =>
-          deliver(sub, rssFeed, "application/rss+xml", `/rss/${feedId}`),
+          deliver(sub, rssFeed, "application/rss+xml", `/rss/${feedId.value}`),
         )
       : []),
     ...(atomFeed
       ? atomSubs.map((sub) =>
-          deliver(sub, atomFeed, "application/atom+xml", `/atom/${feedId}`),
+          deliver(
+            sub,
+            atomFeed,
+            "application/atom+xml",
+            `/atom/${feedId.value}`,
+          ),
         )
       : []),
   ]);
@@ -176,7 +180,7 @@ async function verifyCallback(
 }
 
 export async function verifyAndStoreSubscription(
-  feedId: string,
+  feedId: FeedId,
   callbackUrl: string,
   secret: string | undefined,
   leaseSeconds: number,
@@ -185,7 +189,7 @@ export async function verifyAndStoreSubscription(
 ): Promise<boolean> {
   const verified = await verifyCallback(callbackUrl, {
     "hub.mode": "subscribe",
-    "hub.topic": feedUrl(format, feedId, env),
+    "hub.topic": feedUrl(format, feedId.value, env),
     "hub.lease_seconds": String(leaseSeconds),
   });
   if (!verified) return false;
@@ -208,13 +212,13 @@ export async function verifyAndStoreSubscription(
 }
 
 export async function verifyAndDeleteSubscription(
-  feedId: string,
+  feedId: FeedId,
   callbackUrl: string,
   env: Env,
 ): Promise<boolean> {
   const verified = await verifyCallback(callbackUrl, {
     "hub.mode": "unsubscribe",
-    "hub.topic": feedRssUrl(feedId, env),
+    "hub.topic": feedRssUrl(feedId.value, env),
   });
   if (!verified) return false;
 

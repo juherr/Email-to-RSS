@@ -34,9 +34,9 @@ describe("Feed.create", () => {
   it("builds a config with an empty email index and no expiry by default", () => {
     const feed = Feed.create(FID, createInput());
     expect(feed.id.value).toBe("a.b.42");
-    expect(feed.config.title).toBe("News");
-    expect(feed.config.expires_at).toBeUndefined();
-    expect(feed.metadata.emails).toEqual([]);
+    expect(feed.title).toBe("News");
+    expect(feed.expiresAt).toBeUndefined();
+    expect(feed.emails).toEqual([]);
   });
 
   it("resolves expiry from the supplied ttlHours using the injected clock", () => {
@@ -45,9 +45,9 @@ describe("Feed.create", () => {
       clock: fixedClock(NOW),
       ttlHours: 2,
     });
-    expect(feed.config.created_at).toBe(NOW);
-    expect(feed.config.updated_at).toBe(NOW);
-    expect(feed.config.expires_at).toBe(NOW + 2 * 3_600_000);
+    expect(feed.createdAt).toBe(NOW);
+    expect(feed.updatedAt).toBe(NOW);
+    expect(feed.expiresAt).toBe(NOW + 2 * 3_600_000);
   });
 
   it("trusts only deps.ttlHours, not the client lifetimeHours field", () => {
@@ -56,7 +56,16 @@ describe("Feed.create", () => {
     const feed = Feed.create(FID, createInput({ lifetimeHours: 9999 }), {
       ttlHours: undefined,
     });
-    expect(feed.config.expires_at).toBeUndefined();
+    expect(feed.expiresAt).toBeUndefined();
+  });
+
+  it("treats a non-positive ttlHours as no expiry", () => {
+    expect(
+      Feed.create(FID, createInput(), { ttlHours: 0 }).expiresAt,
+    ).toBeUndefined();
+    expect(
+      Feed.create(FID, createInput(), { ttlHours: -5 }).expiresAt,
+    ).toBeUndefined();
   });
 });
 
@@ -109,11 +118,11 @@ describe("Feed.edit", () => {
     );
 
     feed.edit({ title: "T2" }, { recomputeExpiry: false });
-    expect(feed.config.expires_at).toBe(FUTURE); // preserved
-    expect(feed.config.updated_at).toBe(NOW);
+    expect(feed.expiresAt).toBe(FUTURE); // preserved
+    expect(feed.updatedAt).toBe(NOW);
 
     feed.edit({ title: "T3" }, { recomputeExpiry: true, ttlHours: 1 });
-    expect(feed.config.expires_at).toBe(NOW + 3_600_000);
+    expect(feed.expiresAt).toBe(NOW + 3_600_000);
   });
 
   it("refuses to edit an already-expired feed", () => {
@@ -143,13 +152,28 @@ describe("Feed.ingest", () => {
       unsub: { senderKey: "news@example.com", url: "https://u/1" },
     });
 
-    expect(feed.metadata.emails[0].key).toBe("new");
-    expect(feed.metadata.iconDomain).toBe("example.com");
-    expect(feed.metadata.unsubscribe).toEqual({
+    expect(feed.emails[0].key).toBe("new");
+    expect(feed.iconDomain).toBe("example.com");
+    expect(feed.unsubscribeUrls()).toEqual({
       "news@example.com": "https://u/1",
     });
     expect(dropped.map((e) => e.key)).toEqual(["old"]);
-    expect(feed.metadata.emails.map((e) => e.key)).toEqual(["new"]);
+    expect(feed.emails.map((e) => e.key)).toEqual(["new"]);
+  });
+
+  it("always keeps the just-ingested entry, even when it alone is oversized", () => {
+    const feed = Feed.reconstitute(
+      FID,
+      { title: "T", language: "en", created_at: 0 },
+      { emails: [] },
+    );
+
+    const { dropped } = feed.ingest(entry({ key: "huge", size: 999 }), {
+      maxBytes: 1,
+    });
+
+    expect(dropped).toEqual([]);
+    expect(feed.emails.map((e) => e.key)).toEqual(["huge"]);
   });
 });
 
@@ -169,7 +193,7 @@ describe("Feed.removeEmails", () => {
 
     const { removed } = feed.removeEmails(["k1", "k3", "missing"]);
     expect(removed.map((e) => e.key).sort()).toEqual(["k1", "k3"]);
-    expect(feed.metadata.emails.map((e) => e.key)).toEqual(["k2"]);
+    expect(feed.emails.map((e) => e.key)).toEqual(["k2"]);
   });
 });
 
@@ -196,14 +220,14 @@ describe("Feed events", () => {
     ]);
   });
 
-  it("emits no events for editDetails / edit / removeEmails", () => {
+  it("emits no events for edit / removeEmails", () => {
     const feed = Feed.reconstitute(
       FID,
       { title: "T", language: "en", created_at: 0, expires_at: 9_999_999_999 },
       { emails: [entry({ key: "k1" })] },
       fixedClock(1000),
     );
-    feed.editDetails({ title: "X" });
+    feed.edit({ title: "X" }, { recomputeExpiry: false });
     feed.edit({ description: "Y" }, { recomputeExpiry: false });
     feed.removeEmails(["k1"]);
     expect(feed.pullEvents()).toEqual([]);
@@ -218,15 +242,13 @@ describe("FeedRepository.load / save round-trip", () => {
 
     const loaded = await repo.load(FID);
     expect(loaded).not.toBeNull();
-    expect(loaded!.config.title).toBe("Round");
+    expect(loaded!.title).toBe("Round");
 
     loaded!.ingest(entry({ key: "feed:a.b.42:1" }), { maxBytes: 1_000_000 });
     await repo.saveMetadata(loaded!);
 
     const reloaded = await repo.load(FID);
-    expect(reloaded!.metadata.emails.map((e) => e.key)).toEqual([
-      "feed:a.b.42:1",
-    ]);
+    expect(reloaded!.emails.map((e) => e.key)).toEqual(["feed:a.b.42:1"]);
   });
 
   it("returns null when the feed has no config", async () => {

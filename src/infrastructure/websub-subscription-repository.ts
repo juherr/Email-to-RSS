@@ -1,5 +1,6 @@
 import { Env, WebSubSubscription } from "../types";
 import { feedKeys } from "../domain/feed-keys";
+import { FeedId } from "../domain/value-objects/feed-id";
 import { logger } from "./logger";
 
 /**
@@ -12,16 +13,19 @@ export class WebSubSubscriptionRepository {
     return new WebSubSubscriptionRepository(env.EMAIL_STORAGE);
   }
 
-  async get(feedId: string): Promise<WebSubSubscription[]> {
-    const raw = await this.kv.get(feedKeys.websub(feedId), "json");
+  async get(feedId: FeedId): Promise<WebSubSubscription[]> {
+    const raw = await this.kv.get(feedKeys.websub(feedId.value), "json");
     return (raw as WebSubSubscription[] | null) ?? [];
   }
 
   async save(
-    feedId: string,
+    feedId: FeedId,
     subscriptions: WebSubSubscription[],
   ): Promise<void> {
-    await this.kv.put(feedKeys.websub(feedId), JSON.stringify(subscriptions));
+    await this.kv.put(
+      feedKeys.websub(feedId.value),
+      JSON.stringify(subscriptions),
+    );
   }
 
   /** Number of feeds that currently hold at least one WebSub subscription. */

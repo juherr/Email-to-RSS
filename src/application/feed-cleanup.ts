@@ -9,7 +9,7 @@ import { FeedId } from "../domain/value-objects/feed-id";
 // attachmentIds.
 export async function deleteAttachmentsForEmails(
   env: Env,
-  emails: EmailMetadata[],
+  emails: readonly EmailMetadata[],
   keys: Iterable<string>,
 ): Promise<void> {
   const keySet = new Set(keys);
@@ -58,16 +58,14 @@ export async function deleteKeysWithConcurrency(
  */
 export async function collectUnsubscribeUrls(
   emailStorage: KVNamespace,
-  feedId: string,
+  feedId: FeedId,
 ): Promise<string[]> {
   try {
-    const metadata = await new FeedRepository(emailStorage).getMetadata(
-      FeedId.fromTrusted(feedId),
-    );
+    const metadata = await new FeedRepository(emailStorage).getMetadata(feedId);
     return Object.values(metadata?.unsubscribe ?? {});
   } catch (error) {
     logger.error("Error reading unsubscribe URLs", {
-      feedId,
+      feedId: feedId.value,
       error: String(error),
     });
     return [];
@@ -76,7 +74,7 @@ export async function collectUnsubscribeUrls(
 
 export async function purgeFeedKeysStep(
   emailStorage: KVNamespace,
-  feedId: string,
+  feedId: FeedId,
   options: { cursor?: string; limit?: number; bucket?: R2Bucket } = {},
 ): Promise<{
   deletedKeys: string[];
@@ -85,15 +83,14 @@ export async function purgeFeedKeysStep(
   listComplete: boolean;
 }> {
   const repo = new FeedRepository(emailStorage);
-  const id = FeedId.fromTrusted(feedId);
-  const listed = await repo.listFeedKeys(id, {
+  const listed = await repo.listFeedKeys(feedId, {
     cursor: options.cursor,
     limit: options.limit,
   });
   const keys = listed.names;
 
   if (options.bucket && keys.length > 0) {
-    const emailKeys = keys.filter((k) => repo.isEmailKey(id, k));
+    const emailKeys = keys.filter((k) => repo.isEmailKey(feedId, k));
     if (emailKeys.length > 0) {
       const emailDataResults = await Promise.allSettled(
         emailKeys.map((k) => repo.getEmail(k)),
@@ -128,7 +125,7 @@ export async function purgeFeedKeysStep(
 
 export async function purgeExpiredFeeds(
   emailStorage: KVNamespace,
-  feedId: string,
+  feedId: FeedId,
   bucket?: R2Bucket,
 ): Promise<void> {
   let cursor: string | undefined;

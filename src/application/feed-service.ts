@@ -45,17 +45,11 @@ export async function createFeedRecord(
   });
 
   await repo.save(feed);
-  await repo.addToList(
-    feed.id,
-    feed.config.title,
-    feed.config.description,
-    feed.config.expires_at,
-  );
 
   // FeedCreated → bumps the feeds_created counter (no background work to schedule).
   await applyFeedEvents(feed.id, feed.pullEvents(), env, () => {});
 
-  return { feedId: feed.id.value, config: feed.config };
+  return { feedId: feed.id.value, config: feed.toConfigSnapshot() };
 }
 
 export type UpdateFeedResult =
@@ -64,28 +58,26 @@ export type UpdateFeedResult =
   | { status: "expired" };
 
 /**
- * In-place edit of title/description only — never touches expiry. Used by the
- * dashboard's minimal edit. Mirrors the new title/description into the list.
+ * Quick-edit of title/description only — never recomputes expiry. Used by the
+ * dashboard's minimal edit. Delegates to the aggregate's single `edit` path, so
+ * an expired feed is rejected here too. The list projection is kept in sync by
+ * the repository on `saveConfig`.
  */
 export async function editFeedDetails(
   env: Env,
-  feedId: string,
+  feedId: FeedId,
   patch: { title?: string; description?: string },
 ): Promise<UpdateFeedResult> {
   const repo = FeedRepository.from(env);
-  const feed = await repo.load(FeedId.fromTrusted(feedId));
+  const feed = await repo.load(feedId);
   if (!feed) return { status: "not_found" };
 
-  feed.editDetails(patch);
+  if (feed.edit(patch, { recomputeExpiry: false }).status === "expired") {
+    return { status: "expired" };
+  }
   await repo.saveConfig(feed);
-  await repo.updateInList(
-    feed.id,
-    feed.config.title,
-    feed.config.description,
-    feed.config.expires_at,
-  );
 
-  return { status: "ok", config: feed.config };
+  return { status: "ok", config: feed.toConfigSnapshot() };
 }
 
 /**
@@ -94,11 +86,11 @@ export async function editFeedDetails(
  */
 export async function editFeed(
   env: Env,
-  feedId: string,
+  feedId: FeedId,
   input: UpdateFeedInput,
 ): Promise<UpdateFeedResult> {
   const repo = FeedRepository.from(env);
-  const feed = await repo.load(FeedId.fromTrusted(feedId));
+  const feed = await repo.load(feedId);
   if (!feed) return { status: "not_found" };
 
   const recomputeExpiry =
@@ -113,14 +105,8 @@ export async function editFeed(
   }
 
   await repo.saveConfig(feed);
-  await repo.updateInList(
-    feed.id,
-    feed.config.title,
-    feed.config.description,
-    feed.config.expires_at,
-  );
 
-  return { status: "ok", config: feed.config };
+  return { status: "ok", config: feed.toConfigSnapshot() };
 }
 
 type DeleteFeedFastResult = {
@@ -136,24 +122,23 @@ type DeleteFeedFastResult = {
  */
 export async function deleteFeedFastDetailed(
   emailStorage: KVNamespace,
-  feedId: string,
+  feedId: FeedId,
 ): Promise<DeleteFeedFastResult> {
   const repo = new FeedRepository(emailStorage);
-  const id = FeedId.fromTrusted(feedId);
 
   const errors: string[] = [];
   let configDeleted = false;
   let metadataDeleted = false;
 
   try {
-    await repo.deleteConfig(id);
+    await repo.deleteConfig(feedId);
     configDeleted = true;
   } catch (error) {
     errors.push(`config delete failed: ${String(error)}`);
   }
 
   try {
-    await repo.deleteMetadata(id);
+    await repo.deleteMetadata(feedId);
     metadataDeleted = true;
   } catch (error) {
     errors.push(`metadata delete failed: ${String(error)}`);
@@ -170,7 +155,7 @@ export async function deleteFeedFastDetailed(
  */
 export async function deleteFeedRecord(
   env: Env,
-  feedId: string,
+  feedId: FeedId,
   schedule: BackgroundScheduler,
 ): Promise<boolean> {
   const emailStorage = env.EMAIL_STORAGE;
@@ -180,7 +165,7 @@ export async function deleteFeedRecord(
   const unsubscribeUrls = await collectUnsubscribeUrls(emailStorage, feedId);
 
   await deleteFeedFastDetailed(emailStorage, feedId);
-  const removed = await repo.removeFromList(FeedId.fromTrusted(feedId));
+  const removed = await repo.removeFromList(feedId);
   if (removed) {
     await bumpCounters(emailStorage, { feeds_deleted: 1 });
   }

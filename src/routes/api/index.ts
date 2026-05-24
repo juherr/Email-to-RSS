@@ -209,8 +209,9 @@ apiApp.openapi(
   async (c) => {
     const env = c.env;
     const { feedId } = c.req.valid("param");
+    const id = FeedId.fromTrusted(feedId);
     const body = c.req.valid("json");
-    const result = await editFeed(env, feedId, {
+    const result = await editFeed(env, id, {
       title: body.title,
       description: body.description,
       language: body.language,
@@ -222,9 +223,7 @@ apiApp.openapi(
       return c.json({ error: "Feed not found" }, 404);
     if (result.status === "expired")
       return c.json({ error: "Feed has expired and cannot be modified" }, 409);
-    const metadata = await FeedRepository.from(env).getMetadata(
-      FeedId.fromTrusted(feedId),
-    );
+    const metadata = await FeedRepository.from(env).getMetadata(id);
     return c.json(
       toFeed(feedId, result.config, metadata?.emails.length ?? 0, env),
       200,
@@ -249,8 +248,10 @@ apiApp.openapi(
   async (c) => {
     const env = c.env;
     const { feedId } = c.req.valid("param");
-    const removed = await deleteFeedRecord(env, feedId, (p) =>
-      waitUntilSafe(c, p),
+    const removed = await deleteFeedRecord(
+      env,
+      FeedId.fromTrusted(feedId),
+      (p) => waitUntilSafe(c, p),
     );
     if (!removed) return c.json({ error: "Feed not found" }, 404);
     return c.json({ ok: true }, 200);
@@ -359,9 +360,7 @@ apiApp.openapi(
     const { feedId, entryId } = c.req.valid("param");
     const receivedAt = parseInt(entryId, 10);
     const feed = await repo.load(FeedId.fromTrusted(feedId));
-    const metaEntry = feed?.metadata.emails.find(
-      (e) => e.receivedAt === receivedAt,
-    );
+    const metaEntry = feed?.emails.find((e) => e.receivedAt === receivedAt);
     if (!feed || !metaEntry) return c.json({ error: "Email not found" }, 404);
 
     await repo.deleteEmail(metaEntry.key);

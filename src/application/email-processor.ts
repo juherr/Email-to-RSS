@@ -95,8 +95,8 @@ async function loadAcceptingFeed(
     logger.warn("Rejected email: sender filter", {
       feedId: feedId.value,
       senders: input.senders,
-      allowedSenders: feed.config.allowed_senders,
-      blockedSenders: feed.config.blocked_senders,
+      allowedSenders: feed.allowedSenders(),
+      blockedSenders: feed.blockedSenders(),
     });
     return { ok: false, reason: "sender_blocked" };
   }
