@@ -11,6 +11,9 @@ export interface FeedState {
   title: string;
   description?: string;
   language: string;
+  /** The feed's inbound mailbox local part (`noun.noun.NN`) — its email address
+   * is `mailboxId@domain`. Decoupled from the feed's `FeedId` (the read id). */
+  mailboxId: string;
   author?: string;
   allowedSenders: string[];
   blockedSenders: string[];

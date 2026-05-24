@@ -42,6 +42,9 @@ export interface EmailData {
 export interface FeedConfig {
   title: string;
   description?: string;
+  // Inbound mailbox local part (noun.noun.NN): the feed's email address is
+  // `mailbox_id@domain`. Decoupled from the feed's id (the opaque read id).
+  mailbox_id: string;
   allowed_senders?: string[];
   blocked_senders?: string[];
   language: string;
@@ -82,6 +85,7 @@ export interface FeedListItem {
   id: string;
   title: string;
   description?: string;
+  mailbox_id: string; // Cached inbound address local part (admin/API display)
   expires_at?: number; // Cached from FeedConfig to avoid per-feed KV reads
 }
 

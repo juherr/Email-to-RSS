@@ -168,6 +168,27 @@ describe("Admin Routes", () => {
         expect(feedConfig).toBeTruthy();
         expect((feedConfig as any).title).toBe("Test Feed");
         expect((feedConfig as any).description).toBe("Test Description");
+
+        // Two-id model: the feed id is an opaque read id; the inbound address is
+        // a separate noun.noun.NN mailbox, mapped via the inbound: index.
+        const mailboxId = (feedConfig as any).mailbox_id as string;
+        expect(mailboxId).toMatch(/^[a-z]+\.[a-z]+\.\d{2}$/);
+        expect(feedId).toMatch(/^[A-Za-z0-9_-]{22}$/);
+        expect(feedId).not.toBe(mailboxId);
+        expect((feedList?.feeds[0] as any).mailbox_id).toBe(mailboxId);
+        expect(
+          await mockEnv.EMAIL_STORAGE.get(`inbound:${mailboxId}`, "text"),
+        ).toBe(feedId);
+
+        // The dashboard shows the inbound address and the opaque feed URL,
+        // distinctly — and never exposes the address as a readable feed URL.
+        const dash = await request("/admin", {
+          headers: { Cookie: authCookie },
+        });
+        const html = await dash.text();
+        expect(html).toContain(`${mailboxId}@test.getmynews.app`);
+        expect(html).toContain(`/rss/${feedId}`);
+        expect(html).not.toContain(`/rss/${mailboxId}`);
       });
 
       it("should reject feed creation with missing title", async () => {
@@ -732,6 +753,15 @@ describe("Admin Routes", () => {
       it("lists attachments with download links on the email detail page", async () => {
         const authCookie = await loginAndGetCookie();
         const feedId = "detail-feed";
+        await mockEnv.EMAIL_STORAGE.put(
+          `feed:${feedId}:config`,
+          JSON.stringify({
+            title: "Detail Feed",
+            mailbox_id: "detail.feed.10",
+            language: "en",
+            created_at: 1,
+          }),
+        );
         const emailKey = `feed:${feedId}:1`;
         await mockEnv.EMAIL_STORAGE.put(
           emailKey,
@@ -769,6 +799,15 @@ describe("Admin Routes", () => {
       it("renders inline cid images in place and hides them from the attachments list", async () => {
         const authCookie = await loginAndGetCookie();
         const feedId = "detail-feed";
+        await mockEnv.EMAIL_STORAGE.put(
+          `feed:${feedId}:config`,
+          JSON.stringify({
+            title: "Detail Feed",
+            mailbox_id: "detail.feed.10",
+            language: "en",
+            created_at: 1,
+          }),
+        );
         const emailKey = `feed:${feedId}:3`;
         await mockEnv.EMAIL_STORAGE.put(
           emailKey,
@@ -814,6 +853,15 @@ describe("Admin Routes", () => {
       it("does not render an attachments section when the email has none", async () => {
         const authCookie = await loginAndGetCookie();
         const feedId = "detail-feed";
+        await mockEnv.EMAIL_STORAGE.put(
+          `feed:${feedId}:config`,
+          JSON.stringify({
+            title: "Detail Feed",
+            mailbox_id: "detail.feed.10",
+            language: "en",
+            created_at: 1,
+          }),
+        );
         const emailKey = `feed:${feedId}:2`;
         await mockEnv.EMAIL_STORAGE.put(
           emailKey,

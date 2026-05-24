@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { http, HttpResponse } from "msw";
 import worker from "../index";
-import { server, createMockEnv, MockR2 } from "../test/setup";
+import { server, createMockEnv, MockR2, seedInboundIndex } from "../test/setup";
 import type { Env } from "../types";
 import type { ForwardEmailPayload } from "../infrastructure/forwardemail";
 
@@ -64,6 +64,7 @@ describe("POST /api/inbound — IP middleware", () => {
       `feed:${VALID_FEED_ID}:config`,
       JSON.stringify({ allowed_senders: [] }),
     );
+    await seedInboundIndex(env, VALID_FEED_ID);
   });
 
   it("returns 401 when IP is not in the ForwardEmail allowlist", async () => {
@@ -99,9 +100,10 @@ describe("POST /api/inbound — IP middleware", () => {
 describe("POST /api/inbound — handler logic", () => {
   let env: Env;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     stubForwardEmailIps();
     env = createMockEnv() as unknown as Env;
+    await seedInboundIndex(env, VALID_FEED_ID);
   });
 
   it("returns 500 on malformed JSON body", async () => {
@@ -232,9 +234,10 @@ describe("POST /api/inbound — handler logic", () => {
 describe("POST /api/inbound — attachment upload", () => {
   let env: Env;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     stubForwardEmailIps();
     env = createMockEnv({ withR2: true }) as unknown as Env;
+    await seedInboundIndex(env, VALID_FEED_ID);
   });
 
   it("uploads attachments to R2 and records ids in metadata", async () => {

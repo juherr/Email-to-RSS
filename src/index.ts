@@ -228,6 +228,7 @@ export default {
       );
     }
     if (expiredIds.length > 0) {
+      // removeFromListBulk also drops each feed's inbound mailbox index.
       await repo.removeFromListBulk(expiredIds);
       await bumpCounters(env.EMAIL_STORAGE, {
         feeds_deleted: expiredIds.length,

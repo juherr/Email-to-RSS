@@ -121,7 +121,7 @@ feedsRouter.post("/create", async (c) => {
       ? parseInt(lifetimeHoursRaw, 10)
       : undefined;
 
-    const { feedId } = await createFeedRecord(env, {
+    const { feedId, mailboxId } = await createFeedRecord(env, {
       title: parsedData.title,
       description: parsedData.description,
       language: parsedData.language,
@@ -133,7 +133,7 @@ feedsRouter.post("/create", async (c) => {
     if (isJson) {
       return c.json({
         feedId,
-        email: feedEmailAddress(feedId, env),
+        email: feedEmailAddress(mailboxId, env),
         feedUrl: feedRssUrl(feedId, env),
       });
     }

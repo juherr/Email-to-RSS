@@ -1,6 +1,7 @@
 import { FeedMetadata, EmailMetadata } from "../types";
 import { FeedState } from "./feed-state";
 import { FeedId } from "./value-objects/feed-id";
+import { MailboxId } from "./value-objects/mailbox-id";
 import { Lifetime } from "./value-objects/lifetime";
 import { SenderPolicy, SenderDecision } from "./value-objects/sender-policy";
 import { Clock, systemClock } from "./clock";
@@ -32,6 +33,8 @@ export interface UpdateFeedInput {
  * applying any server-side `FEED_TTL_HOURS` override — and hands the VO in.
  */
 export interface CreateFeedDeps {
+  /** The feed's inbound mailbox, minted by the application alongside its FeedId. */
+  mailboxId: MailboxId;
   clock?: Clock;
   /** Effective lifetime, already resolved by the application. */
   lifetime?: Lifetime;
@@ -82,7 +85,7 @@ export class Feed {
   static create(
     id: FeedId,
     input: CreateFeedInput,
-    deps: CreateFeedDeps = {},
+    deps: CreateFeedDeps,
   ): Feed {
     const clock = deps.clock ?? systemClock;
     const now = clock.now();
@@ -91,6 +94,7 @@ export class Feed {
       title: input.title,
       description: input.description,
       language: input.language,
+      mailboxId: deps.mailboxId.value,
       allowedSenders: input.allowedSenders,
       blockedSenders: input.blockedSenders,
       createdAt: now,
@@ -128,6 +132,11 @@ export class Feed {
 
   get language(): string {
     return this._state.language;
+  }
+
+  /** The inbound mailbox (`noun.noun.NN`) — the feed's email address is `mailboxId@domain`. */
+  get mailboxId(): MailboxId {
+    return MailboxId.unchecked(this._state.mailboxId);
   }
 
   get createdAt(): number {

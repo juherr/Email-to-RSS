@@ -1,37 +1,8 @@
 import { describe, it, expect } from "vitest";
 import { EmailParser } from "./email-parser";
 
-describe("EmailParser.extractFeedId", () => {
-  it("extracts a valid feed ID from an email address", () => {
-    expect(
-      EmailParser.extractFeedId("river.castle.42@example.com")?.value,
-    ).toBe("river.castle.42");
-  });
-
-  it("is case-insensitive for the local part", () => {
-    expect(
-      EmailParser.extractFeedId("River.Castle.42@example.com")?.value,
-    ).toBe("River.Castle.42");
-  });
-
-  it("returns null for an address with no feed ID format", () => {
-    expect(EmailParser.extractFeedId("user@example.com")).toBeNull();
-  });
-
-  it("returns null for a plain string without @", () => {
-    expect(EmailParser.extractFeedId("notanemail")).toBeNull();
-  });
-
-  it("returns null when the numeric suffix is only one digit", () => {
-    expect(EmailParser.extractFeedId("river.castle.4@example.com")).toBeNull();
-  });
-
-  it("returns null when the numeric suffix has more than two digits", () => {
-    expect(
-      EmailParser.extractFeedId("river.castle.123@example.com"),
-    ).toBeNull();
-  });
-});
+// Inbound mailbox parsing lives on the MailboxId VO (see mailbox-id.test.ts);
+// EmailParser no longer wraps it.
 
 describe("EmailParser.decodeEncodedWords", () => {
   it("returns plain text unchanged", () => {

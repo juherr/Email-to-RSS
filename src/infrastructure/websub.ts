@@ -60,6 +60,7 @@ async function buildFeedXml(
     title: `Newsletter Feed ${feedId.value}`,
     description: "Converted email newsletter",
     language: "en",
+    mailbox_id: "",
     created_at: Date.now(),
   };
 

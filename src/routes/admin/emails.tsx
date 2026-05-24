@@ -169,7 +169,7 @@ emailsRouter.get("/feeds/:feedId/emails", async (c) => {
     return c.text("Feed not found", 404);
   }
 
-  const emailAddress = feedEmailAddress(feedId, env);
+  const emailAddress = feedEmailAddress(feedConfig.mailbox_id, env);
   const rssUrl = feedRssUrl(feedId, env);
   const atomUrl = feedAtomUrl(feedId, env);
 
@@ -466,6 +466,8 @@ emailsRouter.get("/emails/:emailKey", async (c) => {
   if (!emailData) return c.text("Email not found", 404);
 
   const feedId = repo.feedIdFromEmailKey(emailKey);
+  const feedConfig = await repo.getConfig(FeedId.unchecked(feedId));
+  if (!feedConfig) return c.text("Feed not found", 404);
   // Inline images render in place; only downloadable attachments go in the list.
   const attachments = (emailData.attachments ?? []).filter((a) => !a.inline);
 
@@ -584,7 +586,10 @@ emailsRouter.get("/emails/:emailKey", async (c) => {
                 value={new Date(emailData.receivedAt).toLocaleString()}
               />
               <SenderField from={emailData.from} feedId={feedId} />
-              <CopyField label="To:" value={feedEmailAddress(feedId, env)} />
+              <CopyField
+                label="To:"
+                value={feedEmailAddress(feedConfig.mailbox_id, env)}
+              />
             </div>
           </div>
 

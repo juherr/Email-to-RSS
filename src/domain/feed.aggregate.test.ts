@@ -3,12 +3,14 @@ import { createMockEnv } from "../test/setup";
 import { Feed, CreateFeedInput } from "./feed.aggregate";
 import { FeedRepository } from "../infrastructure/feed-repository";
 import { FeedId } from "./value-objects/feed-id";
+import { MailboxId } from "./value-objects/mailbox-id";
 import { Lifetime } from "./value-objects/lifetime";
 import { FeedState } from "./feed-state";
 import { Clock } from "./clock";
 import type { Env, EmailMetadata } from "../types";
 
-const FID = FeedId.unchecked("a.b.42");
+const FID = FeedId.unchecked("opaque-feed-id");
+const MBOX = MailboxId.unchecked("a.b.42");
 
 const mockEnv = () => createMockEnv() as unknown as Env;
 
@@ -27,6 +29,7 @@ const createInput = (
 const state = (overrides: Partial<FeedState> = {}): FeedState => ({
   title: "T",
   language: "en",
+  mailboxId: "a.b.42",
   allowedSenders: [],
   blockedSenders: [],
   createdAt: 0,
@@ -43,8 +46,9 @@ const entry = (overrides: Partial<EmailMetadata> = {}): EmailMetadata => ({
 
 describe("Feed.create", () => {
   it("builds a config with an empty email index and no expiry by default", () => {
-    const feed = Feed.create(FID, createInput());
-    expect(feed.id.value).toBe("a.b.42");
+    const feed = Feed.create(FID, createInput(), { mailboxId: MBOX });
+    expect(feed.id.value).toBe("opaque-feed-id");
+    expect(feed.mailboxId.value).toBe("a.b.42");
     expect(feed.title).toBe("News");
     expect(feed.expiresAt).toBeUndefined();
     expect(feed.emails).toEqual([]);
@@ -53,6 +57,7 @@ describe("Feed.create", () => {
   it("resolves expiry from the supplied lifetime using the injected clock", () => {
     const NOW = 1_000_000;
     const feed = Feed.create(FID, createInput(), {
+      mailboxId: MBOX,
       clock: fixedClock(NOW),
       lifetime: Lifetime.ofHours(2),
     });
@@ -64,18 +69,24 @@ describe("Feed.create", () => {
   it("trusts only deps.lifetime, not the client lifetimeHours field", () => {
     // The aggregate no longer parses lifetime policy: the application resolves
     // the effective Lifetime (env override etc.) and hands it in.
-    const feed = Feed.create(FID, createInput({ lifetimeHours: 9999 }));
+    const feed = Feed.create(FID, createInput({ lifetimeHours: 9999 }), {
+      mailboxId: MBOX,
+    });
     expect(feed.expiresAt).toBeUndefined();
   });
 
   it("treats a non-positive lifetime as no expiry", () => {
     expect(
-      Feed.create(FID, createInput(), { lifetime: Lifetime.ofHours(0) })
-        .expiresAt,
+      Feed.create(FID, createInput(), {
+        mailboxId: MBOX,
+        lifetime: Lifetime.ofHours(0),
+      }).expiresAt,
     ).toBeUndefined();
     expect(
-      Feed.create(FID, createInput(), { lifetime: Lifetime.ofHours(-5) })
-        .expiresAt,
+      Feed.create(FID, createInput(), {
+        mailboxId: MBOX,
+        lifetime: Lifetime.ofHours(-5),
+      }).expiresAt,
     ).toBeUndefined();
   });
 });
@@ -191,7 +202,7 @@ describe("Feed.removeEmails", () => {
 
 describe("Feed events", () => {
   it("records FeedCreated on create and drains it once", () => {
-    const feed = Feed.create(FID, createInput());
+    const feed = Feed.create(FID, createInput(), { mailboxId: MBOX });
     expect(feed.pullEvents()).toEqual([{ type: "FeedCreated", feedId: FID }]);
     // Draining clears: a second pull is empty.
     expect(feed.pullEvents()).toEqual([]);
@@ -225,18 +236,25 @@ describe("Feed events", () => {
 describe("FeedRepository.load / save round-trip", () => {
   it("persists a created feed and reflects later mutations", async () => {
     const repo = new FeedRepository(mockEnv().EMAIL_STORAGE);
-    const created = Feed.create(FID, createInput({ title: "Round" }));
+    const created = Feed.create(FID, createInput({ title: "Round" }), {
+      mailboxId: MBOX,
+    });
     await repo.save(created);
 
     const loaded = await repo.load(FID);
     expect(loaded).not.toBeNull();
     expect(loaded!.title).toBe("Round");
+    expect(loaded!.mailboxId.value).toBe("a.b.42");
 
-    loaded!.ingest(entry({ key: "feed:a.b.42:1" }), { maxBytes: 1_000_000 });
+    loaded!.ingest(entry({ key: "feed:opaque-feed-id:1" }), {
+      maxBytes: 1_000_000,
+    });
     await repo.saveMetadata(loaded!);
 
     const reloaded = await repo.load(FID);
-    expect(reloaded!.emails.map((e) => e.key)).toEqual(["feed:a.b.42:1"]);
+    expect(reloaded!.emails.map((e) => e.key)).toEqual([
+      "feed:opaque-feed-id:1",
+    ]);
   });
 
   it("returns null when the feed has no config", async () => {

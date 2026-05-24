@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { http, HttpResponse } from "msw";
-import { createMockEnv, MockR2, server } from "../test/setup";
+import { createMockEnv, MockR2, seedInboundIndex, server } from "../test/setup";
 import {
   processEmail,
   ProcessEmailInput,
@@ -30,8 +30,10 @@ function makeInput(
 describe("processEmail", () => {
   let env: ReturnType<typeof createMockEnv>;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     env = createMockEnv();
+    // The inbound address resolves to a feed of the same id in these unit tests.
+    await seedInboundIndex(env, VALID_FEED_ID);
   });
 
   it("returns 400 when toAddress has no valid feedId", async () => {
@@ -42,7 +44,18 @@ describe("processEmail", () => {
     expect(res).toMatchObject({ ok: false, reason: "invalid_address" });
   });
 
-  it("returns 404 when feed does not exist", async () => {
+  it("returns mailbox_unknown when no feed claims the inbound address", async () => {
+    // A well-formed mailbox (noun.noun.NN) that was never registered in the
+    // inbound index — distinct from a dangling index pointing at a missing feed.
+    const res = await processEmail(
+      makeInput({ toAddress: "unknown.mailbox.99@test.getmynews.app" }),
+      env as any,
+    );
+    expect(res).toMatchObject({ ok: false, reason: "mailbox_unknown" });
+  });
+
+  it("returns feed_not_found when the index resolves but the feed is gone", async () => {
+    // The inbound index is seeded (beforeEach) but no config exists for it.
     const res = await processEmail(makeInput(), env as any);
     expect(res).toMatchObject({ ok: false, reason: "feed_not_found" });
   });
@@ -319,14 +332,14 @@ describe("processEmail", () => {
       passThroughOnException: () => {},
     } as unknown as ExecutionContext;
 
-    // Feed ID is valid format but config doesn't exist → 404
+    // Well-formed mailbox but not registered → mailbox_unknown (an error path).
     const res = await processEmail(
       makeInput({ toAddress: `no.such.99@test.getmynews.app` }),
       env as any,
       ctx,
     );
 
-    expect(res).toMatchObject({ ok: false, reason: "feed_not_found" });
+    expect(res).toMatchObject({ ok: false, reason: "mailbox_unknown" });
     expect(waitUntilCalled).toBe(false);
   });
 });
@@ -343,6 +356,7 @@ describe("processEmail — attachments", () => {
 
   it("skips R2 upload when ATTACHMENT_BUCKET is not configured", async () => {
     const env = createMockEnv();
+    await seedInboundIndex(env, VALID_FEED_ID);
     await env.EMAIL_STORAGE.put(
       `feed:${VALID_FEED_ID}:config`,
       JSON.stringify({}),
@@ -366,6 +380,7 @@ describe("processEmail — attachments", () => {
 
   it("skips R2 upload when ATTACHMENTS_ENABLED is 'false' even with R2 bound", async () => {
     const env = createMockEnv({ withR2: true });
+    await seedInboundIndex(env, VALID_FEED_ID);
     (env as any).ATTACHMENTS_ENABLED = "false";
     const mockR2 = (env as any).ATTACHMENT_BUCKET as unknown as MockR2;
     await env.EMAIL_STORAGE.put(
@@ -392,6 +407,7 @@ describe("processEmail — attachments", () => {
 
   it("uploads attachments to R2 and stores AttachmentData in emailData", async () => {
     const env = createMockEnv({ withR2: true });
+    await seedInboundIndex(env, VALID_FEED_ID);
     const mockR2 = (env as any).ATTACHMENT_BUCKET as unknown as MockR2;
     await env.EMAIL_STORAGE.put(
       `feed:${VALID_FEED_ID}:config`,
@@ -423,6 +439,7 @@ describe("processEmail — attachments", () => {
 
   it("stores attachmentIds in EmailMetadata for trim-time cleanup", async () => {
     const env = createMockEnv({ withR2: true });
+    await seedInboundIndex(env, VALID_FEED_ID);
     await env.EMAIL_STORAGE.put(
       `feed:${VALID_FEED_ID}:config`,
       JSON.stringify({}),
@@ -439,6 +456,7 @@ describe("processEmail — attachments", () => {
 
   it("classifies a cid-referenced image as inline, not a downloadable attachment", async () => {
     const env = createMockEnv({ withR2: true });
+    await seedInboundIndex(env, VALID_FEED_ID);
     await env.EMAIL_STORAGE.put(
       `feed:${VALID_FEED_ID}:config`,
       JSON.stringify({}),
@@ -484,6 +502,7 @@ describe("processEmail — attachments", () => {
 
   it("deletes inline image R2 objects when a trimmed email had them", async () => {
     const env = createMockEnv({ withR2: true });
+    await seedInboundIndex(env, VALID_FEED_ID);
     const mockR2 = (env as any).ATTACHMENT_BUCKET as unknown as MockR2;
     await env.EMAIL_STORAGE.put(
       `feed:${VALID_FEED_ID}:config`,
@@ -537,6 +556,7 @@ describe("processEmail — attachments", () => {
 
   it("deletes R2 objects when a trimmed email had attachments", async () => {
     const env = createMockEnv({ withR2: true });
+    await seedInboundIndex(env, VALID_FEED_ID);
     const mockR2 = (env as any).ATTACHMENT_BUCKET as unknown as MockR2;
     await env.EMAIL_STORAGE.put(
       `feed:${VALID_FEED_ID}:config`,
@@ -604,6 +624,7 @@ describe("processEmail — deduplication", () => {
       `feed:${VALID_FEED_ID}:config`,
       JSON.stringify({}),
     );
+    await seedInboundIndex(env, VALID_FEED_ID);
   });
 
   it("stores only one email when the same Message-ID is delivered twice", async () => {
@@ -726,6 +747,7 @@ describe("processEmail — deduplication", () => {
 describe("processEmail — monitoring counters", () => {
   it("increments emails_received and sets last_email_at on success", async () => {
     const env = createMockEnv();
+    await seedInboundIndex(env, VALID_FEED_ID);
     await env.EMAIL_STORAGE.put(
       `feed:${VALID_FEED_ID}:config`,
       JSON.stringify({}),
@@ -760,6 +782,7 @@ describe("processEmail — feed icon", () => {
       `feed:${VALID_FEED_ID}:config`,
       JSON.stringify({}),
     );
+    await seedInboundIndex(env, VALID_FEED_ID);
   });
 
   it("persists the latest sender domain on the feed metadata", async () => {
@@ -811,6 +834,7 @@ describe("processEmail — unsubscribe capture", () => {
       `feed:${VALID_FEED_ID}:config`,
       JSON.stringify({}),
     );
+    await seedInboundIndex(env, VALID_FEED_ID);
   });
 
   it("stores the one-click unsubscribe URL on the feed metadata, keyed by sender", async () => {

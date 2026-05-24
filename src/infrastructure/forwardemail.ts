@@ -15,6 +15,8 @@ export function ingestResultToResponse(result: IngestResult): Response {
   switch (result.reason) {
     case "invalid_address":
       return new Response("Invalid email address format", { status: 400 });
+    case "mailbox_unknown":
+      return new Response("No feed for this address", { status: 404 });
     case "feed_not_found":
       return new Response("Feed does not exist", { status: 404 });
     case "feed_expired":

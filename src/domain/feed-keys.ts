@@ -13,6 +13,9 @@ export const feedKeys = {
   config: (feedId: string): string => `feed:${feedId}:config`,
   metadata: (feedId: string): string => `feed:${feedId}:metadata`,
 
+  /** Secondary index: inbound mailbox local part → feed id (resolved at reception). */
+  inbound: (mailboxId: string): string => `inbound:${mailboxId}`,
+
   /** Prefix covering every key owned by a feed (config, metadata, emails). */
   feedPrefix: (feedId: string): string => `feed:${feedId}:`,
 

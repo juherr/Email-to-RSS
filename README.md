@@ -17,6 +17,7 @@ kill-the-news keeps the same workflow while avoiding shared domains and shared d
 - Inline double-confirm delete interactions with toast feedback in the admin dashboard
 - Resizable + sortable table columns in the admin dashboard (Table view)
 - Unique newsletter addresses per feed (for example `apple.mountain.42@yourdomain.com`)
+- **Separate inbound address and feed URL** — the address you subscribe with (`apple.mountain.42@yourdomain.com`) and the public feed URL (`/rss/<opaque-id>`) use **independent** ids, so you can share a feed without leaking the address that feeds it, and an address harvested by a newsletter can't be used to read your feed (`/rss/<your-address>` 404s)
 - Cloudflare Email Workers ingestion (no third-party service)
 - ForwardEmail webhook ingestion with source-IP verification (optional alternative)
 - Optional per-feed sender allowlist (`email@domain.com` or `domain.com`)
@@ -45,9 +46,9 @@ Two ingestion methods are supported — pick one or use both:
 
 Common path:
 
-1. Incoming email arrives at `user@yourdomain.com`.
-2. The Worker resolves the feed from the recipient address and stores the email in KV.
-3. `https://yourdomain.com/rss/:feedId` renders RSS from stored items.
+1. Incoming email arrives at `apple.mountain.42@yourdomain.com` (the feed's inbound address).
+2. The Worker resolves the feed from the recipient address (via the `inbound:` index) and stores the email in KV.
+3. `https://yourdomain.com/rss/<opaque-feed-id>` renders RSS from stored items — note the feed id is a separate opaque token, not the inbound address.
 4. `/admin` provides feed management and email deletion.
 5. `https://yourdomain.com/` shows a public status page with monitoring counters and a link to the admin.
 

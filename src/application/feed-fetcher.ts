@@ -21,6 +21,9 @@ export async function fetchFeedData(
     title: `Newsletter Feed ${feedId.value}`,
     description: "Converted email newsletter",
     language: "en",
+    // Read-model fallback only: the RSS/Atom/JSON path never builds the inbound
+    // address, so an empty mailbox is inert here (the real one lives on config).
+    mailbox_id: "",
     created_at: Date.now(),
   };
 

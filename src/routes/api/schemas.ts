@@ -14,7 +14,9 @@ export const FeedIdParam = z.object({
     .min(1)
     .openapi({
       param: { name: "feedId", in: "path" },
-      example: "happy-otter-1234",
+      description:
+        "The feed's opaque id (the read id in /rss/:feedId), not the inbound address.",
+      example: "kZ8xQ2pLm4nR7vT1wB9yJc",
     }),
 });
 

@@ -7,6 +7,7 @@ import { FeedRepository } from "../infrastructure/feed-repository";
 import { toConfigDTO } from "../infrastructure/feed-mapper";
 import { BackgroundScheduler } from "../infrastructure/worker";
 import { FeedId } from "../domain/value-objects/feed-id";
+import { MailboxId } from "../domain/value-objects/mailbox-id";
 import { Lifetime } from "../domain/value-objects/lifetime";
 import {
   Feed,
@@ -33,24 +34,32 @@ function resolveLifetime(env: Env, requestedHours?: number): Lifetime {
 }
 
 /**
- * Create a feed: write its config + empty metadata, register it in the global
- * list, and bump the `feeds_created` counter. Returns the new feed id + config.
+ * Create a feed: mint an opaque `FeedId` (the read id) and a friendly `MailboxId`
+ * (the inbound address), write its config + empty metadata, register it in the
+ * global list + inbound index, and bump the `feeds_created` counter. Returns the
+ * new feed id, its mailbox, and config.
  */
 export async function createFeedRecord(
   env: Env,
   input: CreateFeedInput,
-): Promise<{ feedId: string; config: FeedConfig }> {
+): Promise<{ feedId: string; mailboxId: string; config: FeedConfig }> {
   const repo = FeedRepository.from(env);
   const feed = Feed.create(FeedId.generate(), input, {
+    mailboxId: MailboxId.generate(),
     lifetime: resolveLifetime(env, input.lifetimeHours),
   });
 
+  // save() also writes the inbound:<mailbox> → feedId index.
   await repo.save(feed);
 
   // FeedCreated → bumps the feeds_created counter (no background work to schedule).
   await dispatchFeedEvents(feed, env, () => {});
 
-  return { feedId: feed.id.value, config: toConfigDTO(feed.state()) };
+  return {
+    feedId: feed.id.value,
+    mailboxId: feed.mailboxId.value,
+    config: toConfigDTO(feed.state()),
+  };
 }
 
 export type UpdateFeedResult =
@@ -118,8 +127,10 @@ type DeleteFeedFastResult = {
 };
 
 /**
- * Delete a feed's config + metadata keys, reporting per-key outcomes. The
- * larger email/attachment cleanup is handled separately via purgeFeedKeysStep.
+ * Delete a feed's config + metadata keys, reporting per-key outcomes. The larger
+ * email/attachment cleanup is handled separately via purgeFeedKeysStep, and the
+ * inbound `inbound:<mailbox>` index is dropped by `removeFromList(Bulk)` (which
+ * every caller invokes next) — symmetric with `save()` writing it.
  */
 export async function deleteFeedFastDetailed(
   emailStorage: KVNamespace,
@@ -166,6 +177,7 @@ export async function deleteFeedRecord(
   const unsubscribeUrls = await collectUnsubscribeUrls(emailStorage, feedId);
 
   await deleteFeedFastDetailed(emailStorage, feedId);
+  // removeFromList also drops the feed's inbound mailbox index.
   const removed = await repo.removeFromList(feedId);
   if (removed) {
     await bumpCounters(emailStorage, { feeds_deleted: 1 });

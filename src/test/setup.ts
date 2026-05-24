@@ -1,5 +1,6 @@
 import { beforeAll, afterAll, afterEach } from "vitest";
 import { setupServer } from "msw/node";
+import { feedKeys } from "../domain/feed-keys";
 
 // Minimal Node.js built-ins used only in this test setup file.
 // Declared locally to avoid pulling in the full @types/node package,
@@ -263,3 +264,16 @@ export const createMockEnv = (options: { withR2?: boolean } = {}) => ({
     ? { ATTACHMENT_BUCKET: new MockR2() as unknown as R2Bucket }
     : {}),
 });
+
+/**
+ * Seed the `inbound:<mailbox> → <feedId>` index that email reception resolves
+ * through. Defaults the feed id to the mailbox (the common unit-test shape where
+ * a feed is keyed by the same string as its inbound address).
+ */
+export async function seedInboundIndex(
+  env: { EMAIL_STORAGE: { put: (k: string, v: string) => Promise<unknown> } },
+  mailboxId: string,
+  feedId: string = mailboxId,
+): Promise<void> {
+  await env.EMAIL_STORAGE.put(feedKeys.inbound(mailboxId), feedId);
+}

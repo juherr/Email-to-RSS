@@ -10,6 +10,7 @@ import { FEEDS_LIST_KEY } from "../config/constants";
 import { feedKeys } from "../domain/feed-keys";
 import { Feed } from "../domain/feed.aggregate";
 import { FeedId } from "../domain/value-objects/feed-id";
+import { MailboxId } from "../domain/value-objects/mailbox-id";
 import { fromConfigDTO, toConfigDTO, toListItemDTO } from "./feed-mapper";
 import { logger } from "./logger";
 
@@ -87,6 +88,7 @@ export class FeedRepository {
       this.putConfig(feed.id, toConfigDTO(feed.state())),
       this.putMetadata(feed.id, feed.toMetadataSnapshot()),
       this.upsertListEntry(toListItemDTO(feed.id, feed.state())),
+      this.putInboundIndex(feed.mailboxId, feed.id),
     ]);
   }
 
@@ -108,7 +110,29 @@ export class FeedRepository {
     await Promise.all([
       this.putConfig(feed.id, toConfigDTO(feed.state())),
       this.upsertListEntry(toListItemDTO(feed.id, feed.state())),
+      this.putInboundIndex(feed.mailboxId, feed.id),
     ]);
+  }
+
+  // ── Inbound mailbox index ─────────────────────────────────────────────────
+  // Secondary index mapping the friendly inbound address (`noun.noun.NN`) to the
+  // feed's opaque id. Resolved only at reception (the write edge), so the public
+  // read id and the inbound address stay decoupled.
+
+  /** Resolve an inbound mailbox to its feed id, or null when no feed claims it. */
+  async resolveInbound(mailboxId: MailboxId): Promise<FeedId | null> {
+    const feedId = await this.kv.get(feedKeys.inbound(mailboxId.value), {
+      type: "text",
+    });
+    return feedId ? FeedId.unchecked(feedId) : null;
+  }
+
+  async putInboundIndex(mailboxId: MailboxId, feedId: FeedId): Promise<void> {
+    await this.kv.put(feedKeys.inbound(mailboxId.value), feedId.value);
+  }
+
+  async deleteInboundIndex(mailboxId: MailboxId): Promise<void> {
+    await this.kv.delete(feedKeys.inbound(mailboxId.value));
   }
 
   // ── Feed config ───────────────────────────────────────────────────────────
@@ -209,11 +233,13 @@ export class FeedRepository {
       if (toRemove.size === 0) return [];
 
       const removed: string[] = [];
+      const droppedMailboxes: string[] = [];
       const nextFeeds: FeedListItem[] = [];
 
       for (const feed of feedList.feeds) {
         if (toRemove.has(feed.id)) {
           removed.push(feed.id);
+          if (feed.mailbox_id) droppedMailboxes.push(feed.mailbox_id);
           continue;
         }
         nextFeeds.push(feed);
@@ -223,6 +249,17 @@ export class FeedRepository {
 
       feedList.feeds = nextFeeds;
       await this.kv.put(FEEDS_LIST_KEY, JSON.stringify(feedList));
+
+      // Drop each removed feed's inbound index — symmetric with save() writing
+      // it. The index lives outside the feed:<id>: prefix the key purge sweeps,
+      // so a deleted feed's address would keep resolving if left behind. The
+      // mailbox is cached on the list item we just removed.
+      await Promise.all(
+        droppedMailboxes.map((mailbox) =>
+          this.deleteInboundIndex(MailboxId.unchecked(mailbox)),
+        ),
+      );
+
       return removed;
     } catch (error) {
       logger.error("Error removing feeds from list", { error: String(error) });

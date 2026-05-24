@@ -1,9 +1,18 @@
 import { describe, it, expect } from "vitest";
 import worker from "./index";
 import { createMockEnv } from "./test/setup";
+import { createFeedRecord } from "./application/feed-service";
+import { FeedRepository } from "./infrastructure/feed-repository";
+import { FeedId } from "./domain/value-objects/feed-id";
+import { MailboxId } from "./domain/value-objects/mailbox-id";
 import type { Env } from "./types";
 
 const env = createMockEnv();
+
+const noopCtx = {
+  waitUntil: () => {},
+  passThroughOnException: () => {},
+} as unknown as ExecutionContext;
 
 function req(path: string, init: RequestInit = {}): Request {
   return new Request(`https://test.getmynews.app${path}`, init);
@@ -52,6 +61,39 @@ describe("CORS middleware", () => {
     );
     expect(res.status).toBe(200);
     expect(res.headers.get("Access-Control-Allow-Origin")).toBe("*");
+  });
+});
+
+describe("scheduled (cron) TTL cleanup", () => {
+  it("drops the inbound mailbox index when an expired feed is purged", async () => {
+    const cronEnv = createMockEnv() as unknown as Env;
+    const { feedId, mailboxId } = await createFeedRecord(cronEnv, {
+      title: "Expiring",
+      language: "en",
+      allowedSenders: [],
+      blockedSenders: [],
+    });
+    const repo = FeedRepository.from(cronEnv);
+
+    // The address resolves to the feed before the cron runs.
+    expect(
+      (await repo.resolveInbound(MailboxId.unchecked(mailboxId)))?.value,
+    ).toBe(feedId);
+
+    // Backdate the feed so the cron treats it as expired.
+    const list = (await cronEnv.EMAIL_STORAGE.get("feeds:list", "json")) as {
+      feeds: Array<{ id: string; expires_at?: number; mailbox_id?: string }>;
+    };
+    list.feeds[0].expires_at = Date.now() - 1000;
+    await cronEnv.EMAIL_STORAGE.put("feeds:list", JSON.stringify(list));
+
+    await worker.scheduled({} as ScheduledEvent, cronEnv, noopCtx);
+
+    // The feed is gone AND its inbound address no longer resolves.
+    expect(await repo.getConfig(FeedId.unchecked(feedId))).toBeNull();
+    expect(
+      await repo.resolveInbound(MailboxId.unchecked(mailboxId)),
+    ).toBeNull();
   });
 });
 

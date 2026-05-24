@@ -3,6 +3,7 @@ import { createMockEnv } from "../test/setup";
 import { FeedRepository } from "./feed-repository";
 import { Feed } from "../domain/feed.aggregate";
 import { FeedId } from "../domain/value-objects/feed-id";
+import { MailboxId } from "../domain/value-objects/mailbox-id";
 import type { Env, FeedConfig, FeedMetadata, EmailData } from "../types";
 
 const mockEnv = () => createMockEnv() as unknown as Env;
@@ -11,6 +12,7 @@ const fid = (value: string) => FeedId.unchecked(value);
 const sampleConfig = (overrides: Partial<FeedConfig> = {}): FeedConfig => ({
   title: "Test Feed",
   language: "en",
+  mailbox_id: "test.feed.42",
   created_at: 1000,
   ...overrides,
 });
@@ -43,6 +45,44 @@ describe("FeedRepository key schema", () => {
   it("recovers the feed id from an email key", () => {
     const repo = new FeedRepository(mockEnv().EMAIL_STORAGE);
     expect(repo.feedIdFromEmailKey("feed:a.b.42:1700000000000")).toBe("a.b.42");
+  });
+});
+
+describe("FeedRepository inbound index", () => {
+  const mbox = (v: string) => MailboxId.unchecked(v);
+
+  it("resolves a mailbox to its feed id and back to null after delete", async () => {
+    const repo = new FeedRepository(mockEnv().EMAIL_STORAGE);
+    expect(await repo.resolveInbound(mbox("river.castle.42"))).toBeNull();
+
+    await repo.putInboundIndex(mbox("river.castle.42"), fid("opaque-id-1"));
+    expect((await repo.resolveInbound(mbox("river.castle.42")))?.value).toBe(
+      "opaque-id-1",
+    );
+
+    await repo.deleteInboundIndex(mbox("river.castle.42"));
+    expect(await repo.resolveInbound(mbox("river.castle.42"))).toBeNull();
+  });
+
+  it("save() writes the inbound index from the aggregate's mailbox", async () => {
+    const repo = new FeedRepository(mockEnv().EMAIL_STORAGE);
+    await repo.save(
+      Feed.reconstitute(
+        fid("opaque-id-2"),
+        {
+          title: "T",
+          language: "en",
+          mailboxId: "lake.tower.77",
+          allowedSenders: [],
+          blockedSenders: [],
+          createdAt: 1000,
+        },
+        { emails: [] },
+      ),
+    );
+    expect((await repo.resolveInbound(mbox("lake.tower.77")))?.value).toBe(
+      "opaque-id-2",
+    );
   });
 });
 
@@ -106,6 +146,7 @@ describe("FeedRepository feed list", () => {
       {
         title,
         language: "en",
+        mailboxId: `${id}.mbox`,
         allowedSenders: [],
         blockedSenders: [],
         createdAt: 1000,
@@ -152,5 +193,24 @@ describe("FeedRepository feed list", () => {
     const removed = await repo.removeFromListBulk(["a.b.42", "e.f.10", "nope"]);
     expect(removed.sort()).toEqual(["a.b.42", "e.f.10"]);
     expect((await repo.listFeeds()).map((f) => f.id)).toEqual(["c.d.99"]);
+  });
+
+  it("drops each removed feed's inbound index (symmetric with save)", async () => {
+    const repo = new FeedRepository(mockEnv().EMAIL_STORAGE);
+    const mbox = (v: string) => MailboxId.unchecked(v);
+    await repo.save(feedWith("a.b.42", "One"));
+    await repo.save(feedWith("c.d.99", "Two"));
+
+    // Both addresses resolve before removal.
+    expect(await repo.resolveInbound(mbox("a.b.42.mbox"))).not.toBeNull();
+    expect(await repo.resolveInbound(mbox("c.d.99.mbox"))).not.toBeNull();
+
+    await repo.removeFromListBulk(["a.b.42"]);
+
+    // The removed feed's address stops resolving; the survivor's still does.
+    expect(await repo.resolveInbound(mbox("a.b.42.mbox"))).toBeNull();
+    expect((await repo.resolveInbound(mbox("c.d.99.mbox")))?.value).toBe(
+      "c.d.99",
+    );
   });
 });

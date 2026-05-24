@@ -68,6 +68,7 @@ export async function handleCloudflareEmail(
 // dropped so a real newsletter never leaks into the fallback inbox.
 const FORWARDABLE_REASONS = new Set<IngestRejectionReason>([
   "invalid_address",
+  "mailbox_unknown",
   "feed_not_found",
 ]);
 

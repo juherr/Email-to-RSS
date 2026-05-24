@@ -1,8 +1,15 @@
 import { describe, it, expect } from "vitest";
 import { createMockEnv } from "../test/setup";
-import { createFeedRecord, editFeed } from "./feed-service";
+import {
+  createFeedRecord,
+  editFeed,
+  deleteFeedRecord,
+  deleteFeedFastDetailed,
+} from "./feed-service";
 import { getCounters } from "./stats";
+import { FeedRepository } from "../infrastructure/feed-repository";
 import { FeedId } from "../domain/value-objects/feed-id";
+import { MailboxId } from "../domain/value-objects/mailbox-id";
 import type { Env } from "../types";
 
 const mkEnv = (overrides: Partial<Env> = {}) =>
@@ -51,6 +58,40 @@ describe("createFeedRecord — TTL policy", () => {
     const counters = await getCounters(env.EMAIL_STORAGE);
     expect(counters.feeds_created).toBe(1);
     expect(counters.last_feed_created_at).toBeDefined();
+  });
+});
+
+describe("deleting a feed drops its inbound mailbox index", () => {
+  it("deleteFeedRecord removes the inbound index so the address stops resolving", async () => {
+    const env = mkEnv();
+    const { feedId, mailboxId } = await createFeedRecord(env, { ...baseInput });
+    const repo = FeedRepository.from(env);
+
+    // Sanity: the address resolves to the feed before deletion.
+    expect(
+      (await repo.resolveInbound(MailboxId.unchecked(mailboxId)))?.value,
+    ).toBe(feedId);
+
+    await deleteFeedRecord(env, FeedId.unchecked(feedId), () => {});
+
+    expect(
+      await repo.resolveInbound(MailboxId.unchecked(mailboxId)),
+    ).toBeNull();
+  });
+
+  it("the bulk path (deleteFeedFastDetailed + removeFromListBulk) clears the inbound index", async () => {
+    const env = mkEnv();
+    const { feedId, mailboxId } = await createFeedRecord(env, { ...baseInput });
+    const repo = FeedRepository.from(env);
+
+    // The bulk admin path drops config/metadata, then removes from the list —
+    // the latter is what clears the inbound index (symmetric with save()).
+    await deleteFeedFastDetailed(env.EMAIL_STORAGE, FeedId.unchecked(feedId));
+    await repo.removeFromListBulk([feedId]);
+
+    expect(
+      await repo.resolveInbound(MailboxId.unchecked(mailboxId)),
+    ).toBeNull();
   });
 });
 

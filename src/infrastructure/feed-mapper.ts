@@ -16,6 +16,7 @@ export function fromConfigDTO(dto: FeedConfig): FeedState {
     title: dto.title,
     description: dto.description,
     language: dto.language,
+    mailboxId: dto.mailbox_id,
     author: dto.author,
     allowedSenders: dto.allowed_senders ?? [],
     blockedSenders: dto.blocked_senders ?? [],
@@ -31,6 +32,7 @@ export function toConfigDTO(state: FeedState): FeedConfig {
     title: state.title,
     description: state.description,
     language: state.language,
+    mailbox_id: state.mailboxId,
     author: state.author,
     allowed_senders: state.allowedSenders,
     blocked_senders: state.blockedSenders,
@@ -46,6 +48,7 @@ export function toListItemDTO(id: FeedId, state: FeedState): FeedListItem {
     id: id.value,
     title: state.title,
     description: state.description,
+    mailbox_id: state.mailboxId,
     expires_at: state.expiresAt,
   };
 }

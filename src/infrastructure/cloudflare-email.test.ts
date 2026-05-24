@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import "../test/setup";
-import { createMockEnv } from "../test/setup";
+import { createMockEnv, seedInboundIndex } from "../test/setup";
 import { handleCloudflareEmail } from "./cloudflare-email";
 import { getCounters } from "../application/stats";
 
@@ -62,8 +62,9 @@ const FALLBACK = "fallback@personal.example";
 describe("handleCloudflareEmail", () => {
   let env: ReturnType<typeof createMockEnv>;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     env = createMockEnv();
+    await seedInboundIndex(env, VALID_FEED_ID);
   });
 
   it("stores email in KV when feed exists", async () => {

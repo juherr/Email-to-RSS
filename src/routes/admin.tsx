@@ -666,7 +666,10 @@ app.get("/", async (c) => {
                   </thead>
                   <tbody id="feed-table-body">
                     {feedsWithConfig.map((feed) => {
-                      const emailAddress = feedEmailAddress(feed.id, env);
+                      const emailAddress = feedEmailAddress(
+                        feed.mailbox_id,
+                        env,
+                      );
                       const rssUrl = feedRssUrl(feed.id, env);
                       const atomUrl = feedAtomUrl(feed.id, env);
                       const titleDisplay = clampText(feed.title, 160);
@@ -823,7 +826,7 @@ app.get("/", async (c) => {
 
             <ul class="feed-list">
               {feedsWithConfig.map((feed) => {
-                const emailAddress = feedEmailAddress(feed.id, env);
+                const emailAddress = feedEmailAddress(feed.mailbox_id, env);
                 const rssUrl = feedRssUrl(feed.id, env);
                 const atomUrl = feedAtomUrl(feed.id, env);
                 const titleDisplay = clampText(feed.title, 140);

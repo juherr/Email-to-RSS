@@ -1,17 +1,6 @@
 import { EmailData } from "../types";
-import { FeedId } from "./value-objects/feed-id";
 
 export class EmailParser {
-  /**
-   * Extract the feed id from an inbound recipient address. Returns a validated
-   * `FeedId` value object (not a raw string) so the most untrusted input in the
-   * system — an address typed by a sender — is guarded at the parse boundary and
-   * never needs `FeedId.unchecked` downstream.
-   */
-  static extractFeedId(emailAddress: string): FeedId | null {
-    return FeedId.parse(emailAddress);
-  }
-
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   static parseForwardEmailPayload(payload: any): EmailData {
     if (!payload) {

@@ -1,4 +1,4 @@
-import { EmailParser } from "../domain/email-parser";
+import { MailboxId } from "../domain/value-objects/mailbox-id";
 import { AttachmentData, EmailMetadata, Env } from "../types";
 import { bumpCounters } from "../application/stats";
 import { dispatchFeedEvents } from "../application/feed-events";
@@ -33,6 +33,7 @@ export interface ProcessEmailInput {
 
 export type IngestRejectionReason =
   | "invalid_address"
+  | "mailbox_unknown"
   | "feed_not_found"
   | "feed_expired"
   | "sender_blocked";
@@ -79,17 +80,33 @@ async function loadAcceptingFeed(
 ): Promise<
   { ok: true; feed: Feed } | { ok: false; reason: IngestRejectionReason }
 > {
-  const feedId = EmailParser.extractFeedId(input.toAddress);
-  if (!feedId) {
+  // MailboxId.parse is the single boundary where an untrusted inbound address
+  // (the most untrusted input in the system) becomes a validated mailbox.
+  const mailbox = MailboxId.parse(input.toAddress);
+  if (!mailbox) {
     logger.error("Invalid email address format", {
       toAddress: input.toAddress,
     });
     return { ok: false, reason: "invalid_address" };
   }
 
-  const feed = await FeedRepository.from(env).load(feedId);
+  // Resolve the inbound mailbox to the feed's opaque id (decoupled identities).
+  const repo = FeedRepository.from(env);
+  const feedId = await repo.resolveInbound(mailbox);
+  if (!feedId) {
+    // No feed claims this address — the common "wrong/unknown alias" case.
+    logger.error("Unknown inbound mailbox", { mailbox: mailbox.value });
+    return { ok: false, reason: "mailbox_unknown" };
+  }
+
+  const feed = await repo.load(feedId);
   if (!feed) {
-    logger.error("Feed not found", { feedId: feedId.value });
+    // The index resolved but the feed is gone — a dangling index (should be
+    // near-impossible now the index is dropped on feed deletion).
+    logger.error("Feed not found", {
+      mailbox: mailbox.value,
+      feedId: feedId.value,
+    });
     return { ok: false, reason: "feed_not_found" };
   }
   if (feed.isExpired()) {

@@ -54,6 +54,60 @@ describe("RSS Feed Route", () => {
     });
   });
 
+  describe("read/write id decoupling", () => {
+    const OPAQUE_ID = "kZ8xQ2pLm4nR7vT1wB9yJc";
+    const MAILBOX = "river.castle.42";
+    const RECEIVED_AT = 1700000002000;
+
+    beforeEach(async () => {
+      const emailKey = `feed:${OPAQUE_ID}:${RECEIVED_AT}`;
+      await mockEnv.EMAIL_STORAGE.put(
+        emailKey,
+        JSON.stringify({
+          subject: "Private",
+          from: "Sender <sender@example.com>",
+          content: "<p>secret body</p>",
+          receivedAt: RECEIVED_AT,
+          headers: {},
+        }),
+      );
+      await mockEnv.EMAIL_STORAGE.put(
+        `feed:${OPAQUE_ID}:metadata`,
+        JSON.stringify({
+          emails: [
+            { key: emailKey, subject: "Private", receivedAt: RECEIVED_AT },
+          ],
+        }),
+      );
+      await mockEnv.EMAIL_STORAGE.put(
+        `feed:${OPAQUE_ID}:config`,
+        JSON.stringify({
+          title: "Decoupled Feed",
+          language: "en",
+          mailbox_id: MAILBOX,
+          created_at: 1700000000000,
+        }),
+      );
+      // The inbound index points the address at the feed (reception only).
+      await mockEnv.EMAIL_STORAGE.put(`inbound:${MAILBOX}`, OPAQUE_ID);
+    });
+
+    it("serves the feed by its opaque read id", async () => {
+      const res = await testApp.request(`/${OPAQUE_ID}`, {}, mockEnv);
+      expect(res.status).toBe(200);
+    });
+
+    it("returns 404 when read by the inbound mailbox (no coupling)", async () => {
+      const res = await testApp.request(`/${MAILBOX}`, {}, mockEnv);
+      expect(res.status).toBe(404);
+    });
+
+    it("never leaks the inbound mailbox in the feed body", async () => {
+      const res = await testApp.request(`/${OPAQUE_ID}`, {}, mockEnv);
+      expect(await res.text()).not.toContain(MAILBOX);
+    });
+  });
+
   describe("conditional GET (ETag + Last-Modified)", () => {
     const FEED_ID = "test-feed-rss-cget";
     const EMAIL_RECEIVED_AT = 1700000001000;

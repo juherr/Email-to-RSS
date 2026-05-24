@@ -43,8 +43,9 @@ function buildFeed(
     // Computed dynamically so the id is always canonical regardless of what
     // was stored in KV at feed-creation time (which may have used a stale domain).
     id: `${baseUrl}/rss/${feedId}`,
-    // Link points to the admin emails page — the "website" this feed represents.
-    link: `${baseUrl}/admin/feeds/${feedId}/emails`,
+    // Public "website" for this feed: its own read URL (never the inbound address
+    // or an auth-gated admin path, so the feed output leaks neither).
+    link: `${baseUrl}/rss/${feedId}`,
     language: feedConfig.language,
     updated: new Date(),
     generator: "kill-the-news",

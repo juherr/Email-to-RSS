@@ -63,7 +63,7 @@ function toFeed(
     updatedAt: config.updated_at,
     expiresAt: config.expires_at,
     emailCount,
-    emailAddress: feedEmailAddress(id, env),
+    emailAddress: feedEmailAddress(config.mailbox_id, env),
     rssUrl: feedRssUrl(id, env),
     atomUrl: feedAtomUrl(id, env),
   };
@@ -117,7 +117,7 @@ apiApp.openapi(
           title: f.title,
           description: f.description,
           expiresAt: f.expires_at,
-          emailAddress: feedEmailAddress(f.id, env),
+          emailAddress: feedEmailAddress(f.mailbox_id, env),
           rssUrl: feedRssUrl(f.id, env),
           atomUrl: feedAtomUrl(f.id, env),
         })),

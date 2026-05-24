@@ -10,6 +10,7 @@ const mockFeedConfig: FeedConfig = {
   title: "Test Newsletter",
   description: "A test feed",
   language: "en",
+  mailbox_id: "test.news.42",
   created_at: 1700000000000,
 };
 
@@ -146,14 +147,15 @@ describe("generateRssFeed", () => {
     expect(result).not.toContain("<item>");
   });
 
-  it("feed link points to admin emails page", () => {
+  it("feed link points to the public read URL, never an admin path", () => {
     const result = generateRssFeed(
       mockFeedConfig,
       mockEmails,
       BASE_URL,
       FEED_ID,
     );
-    expect(result).toContain(`${BASE_URL}/admin/feeds/${FEED_ID}/emails`);
+    expect(result).toContain(`<link>${BASE_URL}/rss/${FEED_ID}</link>`);
+    expect(result).not.toContain("/admin/");
   });
 
   it("strips html/head/body wrapper from item description", () => {
@@ -263,14 +265,15 @@ describe("generateAtomFeed", () => {
     expect(result).not.toContain("<entry>");
   });
 
-  it("feed link points to admin emails page", () => {
+  it("feed link points to the public read URL, never an admin path", () => {
     const result = generateAtomFeed(
       mockFeedConfig,
       mockEmails,
       BASE_URL,
       FEED_ID,
     );
-    expect(result).toContain(`${BASE_URL}/admin/feeds/${FEED_ID}/emails`);
+    expect(result).toContain(`${BASE_URL}/rss/${FEED_ID}`);
+    expect(result).not.toContain("/admin/");
   });
 
   it("strips html/head/body wrapper from entry content", () => {

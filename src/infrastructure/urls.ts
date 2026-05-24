@@ -1,4 +1,5 @@
 import { Env } from "../types";
+import { MailboxId } from "../domain/value-objects/mailbox-id";
 
 export function baseUrl(env: Env): string {
   return `https://${env.DOMAIN}`;
@@ -20,8 +21,11 @@ export function feedUrl(
   return format === "rss" ? feedRssUrl(feedId, env) : feedAtomUrl(feedId, env);
 }
 
-export function feedEmailAddress(feedId: string, env: Env): string {
-  return `${feedId}@${env.EMAIL_DOMAIN ?? env.DOMAIN}`;
+export function feedEmailAddress(mailboxId: string, env: Env): string {
+  // The mailbox→address shape lives on the VO; this edge only resolves the domain.
+  return MailboxId.unchecked(mailboxId).emailAddress(
+    env.EMAIL_DOMAIN ?? env.DOMAIN,
+  );
 }
 
 export function feedTopicPattern(env: Env): RegExp {

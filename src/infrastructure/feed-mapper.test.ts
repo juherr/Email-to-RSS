@@ -7,6 +7,7 @@ const fullConfig: FeedConfig = {
   title: "News",
   description: "desc",
   language: "en",
+  mailbox_id: "a.b.42",
   author: "Jane",
   allowed_senders: ["a@x.com"],
   blocked_senders: ["b@y.com"],
@@ -24,6 +25,7 @@ describe("feed-mapper", () => {
     const state = fromConfigDTO({
       title: "T",
       language: "en",
+      mailbox_id: "t.t.42",
       created_at: 1,
     });
     expect(state.allowedSenders).toEqual([]);
@@ -39,6 +41,7 @@ describe("feed-mapper", () => {
       id: "a.b.42",
       title: "News",
       description: "desc",
+      mailbox_id: "a.b.42",
       expires_at: 3000,
     });
   });

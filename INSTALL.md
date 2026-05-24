@@ -137,6 +137,15 @@ What gets forwarded vs dropped:
 
 Expired feeds and blocked senders are dropped on purpose, so a real newsletter never leaks into your fallback inbox. Leave the variable unset to keep the original drop-and-log behavior.
 
+### Inbound address vs feed URL
+
+Each feed has **two independent identifiers**, on purpose:
+
+- a friendly **inbound address** you subscribe newsletters with — `noun.noun.NN@yourdomain.com` (e.g. `apple.mountain.42@yourdomain.com`);
+- an **opaque feed URL** for your reader — `https://yourdomain.com/rss/<random-id>` (also `/atom/<id>`, `/json/<id>`).
+
+They are not derivable from each other. This means you can hand someone a feed URL without revealing the address that feeds it, and an address harvested by a newsletter sender can't be turned into your feed (requesting `/rss/<your-address>` returns 404). The admin dashboard shows both per feed; copy the address into signup forms and the feed URL into your reader. (Internally the inbound address is mapped to the feed by an `inbound:<address>` KV entry, resolved only when mail arrives.)
+
 ### Feed size limit
 
 By default the worker keeps emails until the feed's stored data exceeds **512 KB**, then drops the oldest entries (and their KV records) to stay under the limit. This is more robust than a fixed entry count for HTML-heavy newsletters.
