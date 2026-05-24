@@ -173,6 +173,43 @@ describe("Feed.removeEmails", () => {
   });
 });
 
+describe("Feed events", () => {
+  it("records FeedCreated on create and drains it once", () => {
+    const feed = Feed.create(FID, createInput());
+    expect(feed.pullEvents()).toEqual([{ type: "FeedCreated" }]);
+    // Draining clears: a second pull is empty.
+    expect(feed.pullEvents()).toEqual([]);
+  });
+
+  it("records EmailIngested (with icon domain) on ingest", () => {
+    const feed = Feed.reconstitute(
+      FID,
+      { title: "T", language: "en", created_at: 0 },
+      { emails: [] },
+    );
+    feed.ingest(entry({ key: "k" }), {
+      maxBytes: 1_000_000,
+      iconDomain: "example.com",
+    });
+    expect(feed.pullEvents()).toEqual([
+      { type: "EmailIngested", iconDomain: "example.com" },
+    ]);
+  });
+
+  it("emits no events for editDetails / edit / removeEmails", () => {
+    const feed = Feed.reconstitute(
+      FID,
+      { title: "T", language: "en", created_at: 0, expires_at: 9_999_999_999 },
+      { emails: [entry({ key: "k1" })] },
+      fixedClock(1000),
+    );
+    feed.editDetails({ title: "X" });
+    feed.edit({ description: "Y" }, { recomputeExpiry: false });
+    feed.removeEmails(["k1"]);
+    expect(feed.pullEvents()).toEqual([]);
+  });
+});
+
 describe("FeedRepository.load / save round-trip", () => {
   it("persists a created feed and reflects later mutations", async () => {
     const repo = new FeedRepository(mockEnv().EMAIL_STORAGE);

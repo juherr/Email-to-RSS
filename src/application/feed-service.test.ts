@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { createMockEnv } from "../test/setup";
 import { createFeedRecord, editFeed } from "./feed-service";
+import { getCounters } from "./stats";
 import type { Env } from "../types";
 
 const mkEnv = (overrides: Partial<Env> = {}) =>
@@ -41,6 +42,14 @@ describe("createFeedRecord — TTL policy", () => {
     });
     // 1h (server) wins over 9999h (client).
     expect(config.expires_at!).toBeLessThan(before + TWO_HOURS);
+  });
+
+  it("bumps the feeds_created counter via the FeedCreated domain event", async () => {
+    const env = mkEnv();
+    await createFeedRecord(env, { ...baseInput });
+    const counters = await getCounters(env.EMAIL_STORAGE);
+    expect(counters.feeds_created).toBe(1);
+    expect(counters.last_feed_created_at).toBeDefined();
   });
 });
 

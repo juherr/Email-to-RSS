@@ -2,6 +2,7 @@ import { FeedConfig, FeedMetadata, EmailMetadata } from "../types";
 import { FeedId } from "./value-objects/feed-id";
 import { SenderPolicy, SenderDecision } from "./value-objects/sender-policy";
 import { Clock, systemClock } from "./clock";
+import { FeedEvent } from "./events";
 import { resolveExpiresAt, isExpired, trimToByteBudget } from "./feed";
 
 export interface CreateFeedInput {
@@ -65,6 +66,8 @@ export interface IngestOptions {
  * concurrent writers (see email-processor.ts).
  */
 export class Feed {
+  private readonly _events: FeedEvent[] = [];
+
   private constructor(
     readonly id: FeedId,
     private _config: FeedConfig,
@@ -91,7 +94,9 @@ export class Feed {
       updated_at: now,
       ...(expiresAt !== undefined ? { expires_at: expiresAt } : {}),
     };
-    return new Feed(id, config, { emails: [] }, clock);
+    const feed = new Feed(id, config, { emails: [] }, clock);
+    feed._events.push({ type: "FeedCreated" });
+    return feed;
   }
 
   /** Rebuild an aggregate from persisted state. */
@@ -110,6 +115,16 @@ export class Feed {
 
   get metadata(): Readonly<FeedMetadata> {
     return this._metadata;
+  }
+
+  /**
+   * Drain the domain events recorded since the last pull. The application layer
+   * calls this after persisting and feeds them to a dispatcher that runs the
+   * side effects (counters, WebSub, favicon). Clearing on read keeps a long-lived
+   * aggregate from re-emitting.
+   */
+  pullEvents(): FeedEvent[] {
+    return this._events.splice(0, this._events.length);
   }
 
   isExpired(now: number = this.clock.now()): boolean {
@@ -145,6 +160,7 @@ export class Feed {
       };
     }
 
+    this._events.push({ type: "EmailIngested", iconDomain: opts.iconDomain });
     return trimToByteBudget(this._metadata, opts.maxBytes);
   }
 

@@ -1,8 +1,10 @@
 import { Env, FeedConfig } from "../types";
 import { bumpCounters } from "../application/stats";
+import { applyFeedEvents } from "./feed-events";
 import { sendUnsubscribes } from "../infrastructure/unsubscribe";
 import { getAttachmentBucket } from "../infrastructure/attachments";
 import { FeedRepository } from "../infrastructure/feed-repository";
+import { BackgroundScheduler } from "../infrastructure/worker";
 import { FeedId } from "../domain/value-objects/feed-id";
 import {
   Feed,
@@ -50,10 +52,8 @@ export async function createFeedRecord(
     feed.config.expires_at,
   );
 
-  await bumpCounters(env.EMAIL_STORAGE, {
-    feeds_created: 1,
-    last_feed_created_at: new Date().toISOString(),
-  });
+  // FeedCreated → bumps the feeds_created counter (no background work to schedule).
+  await applyFeedEvents(feed.id, feed.pullEvents(), env, () => {});
 
   return { feedId: feed.id.value, config: feed.config };
 }
@@ -161,13 +161,6 @@ export async function deleteFeedFastDetailed(
 
   return { ok: configDeleted, configDeleted, metadataDeleted, errors };
 }
-
-/**
- * Schedules a fire-and-forget background task. The HTTP edge passes an adapter
- * over `ctx.waitUntil` (e.g. `(p) => waitUntilSafe(c, p)`); keeping it a plain
- * function means the application layer never imports Hono's `Context`.
- */
-export type BackgroundScheduler = (task: Promise<unknown>) => void;
 
 /**
  * Delete a single feed end-to-end: capture unsubscribe URLs, drop its config +

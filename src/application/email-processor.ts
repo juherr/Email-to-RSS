@@ -1,14 +1,12 @@
 import { EmailParser } from "../domain/email-parser";
 import { AttachmentData, EmailMetadata, Env } from "../types";
-import { notifySubscribers } from "../infrastructure/websub";
 import { bumpCounters } from "../application/stats";
-import {
-  cacheFaviconForDomain,
-  extractEmailDomain,
-} from "../infrastructure/favicon-fetcher";
+import { applyFeedEvents } from "../application/feed-events";
+import { extractEmailDomain } from "../infrastructure/favicon-fetcher";
 import { parseOneClickUnsubscribe } from "../infrastructure/unsubscribe";
 import { getAttachmentBucket } from "../infrastructure/attachments";
 import { FeedRepository } from "../infrastructure/feed-repository";
+import { BackgroundScheduler } from "../infrastructure/worker";
 import { Feed } from "../domain/feed.aggregate";
 import { logger } from "../infrastructure/logger";
 import { FEED_MAX_BYTES } from "../config/constants";
@@ -183,12 +181,14 @@ async function storeEmail(
   ]);
 
   logger.info("Email processed", { feedId: feed.id.value });
-  if (ctx) {
-    ctx.waitUntil(notifySubscribers(feed.id.value, env));
-    if (iconDomain) {
-      ctx.waitUntil(cacheFaviconForDomain(iconDomain, env));
-    }
-  }
+
+  // The aggregate recorded an EmailIngested event; the dispatcher applies its
+  // side effects (received counter, WebSub ping, favicon fetch). Background work
+  // rides on ctx.waitUntil when present, and is skipped in its absence (tests).
+  const schedule: BackgroundScheduler = ctx
+    ? (p) => ctx.waitUntil(p)
+    : () => {};
+  await applyFeedEvents(feed.id, feed.pullEvents(), env, schedule);
 }
 
 export async function processEmail(
@@ -203,9 +203,5 @@ export async function processEmail(
   }
 
   await storeEmail(validation.feed, input, env, ctx);
-  await bumpCounters(env.EMAIL_STORAGE, {
-    emails_received: 1,
-    last_email_at: new Date().toISOString(),
-  });
   return { ok: true, feedId: validation.feed.id.value };
 }

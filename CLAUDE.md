@@ -61,12 +61,14 @@ src/
     feed.ts                 # Pure invariant functions (expiry, sender policy, byte budget) the aggregate delegates to
     feed-keys.ts            # The KV key schema (pure string builders), shared by every repository
     clock.ts                # Clock port (systemClock) — injected into the aggregate; no ambient Date.now()
+    events.ts               # FeedEvent union (FeedCreated, EmailIngested) recorded by the aggregate
     email-parser.ts         # Email parsing (addresses, headers, encoded words)
     format.ts               # Pure formatting helpers (formatBytes)
     value-objects/          # FeedId, EmailAddress, Domain, SenderPolicy (immutable, self-validating)
   application/              # Use-cases / orchestration (wires domain + infrastructure)
     feed-service.ts         # createFeedRecord / editFeedDetails / editFeed / deleteFeedRecord (admin UI + REST API)
     feed-cleanup.ts         # Feed/email storage cleanup: purgeFeedKeysStep, collectUnsubscribeUrls, attachment+key deletion
+    feed-events.ts          # Dispatcher: maps aggregate FeedEvents to side effects (counters, WebSub, favicon)
     email-processor.ts      # Core ingestion: load aggregate → accepts? → feed.ingest → persist
     feed-fetcher.ts         # Read model for RSS/Atom rendering (config + email bodies; bypasses the aggregate)
     stats.ts                # Monitoring counters increment policy + storage scans
@@ -140,6 +142,7 @@ The KV key schema lives in `src/domain/feed-keys.ts` (pure, framework-agnostic) 
 - **The `Feed` aggregate is the only writer of feed config + the email index.** Load it with `FeedRepository.load(feedId)`, mutate via its methods (`ingest`, `removeEmails`, `editDetails`, `edit`), then persist with `save`/`saveMetadata`/`saveConfig`. No route or service mutates `metadata.emails` directly. Email **bodies** are large blobs outside the aggregate — flush them (`putEmail`/`deleteEmail`) alongside the metadata save.
   - Read-only RSS/Atom rendering uses the `feed-fetcher` read model, not the aggregate (no invariant to enforce on the hot path).
   - KV has no multi-key transaction; the aggregate is the seam a future Durable Object would wrap to serialise concurrent ingests (see `email-processor.ts`).
+  - **Side effects via domain events.** Mutations with consequences record a `FeedEvent` (`FeedCreated`, `EmailIngested`). After persisting, the caller `pullEvents()` and passes them to `application/feed-events.applyFeedEvents`, which runs the counters/WebSub/favicon. Don't inline those side effects at call sites. Side effects with no aggregate mutation (a rejected email, feed deletion that bypasses the aggregate, bulk admin ops, the cron) stay imperative — they have no event to ride on.
 - **`FeedId`** is the type used by the domain (`Feed.id`) and every single-feed `FeedRepository` method. Wrap a raw id string with `FeedId.fromTrusted(value)` at the call site; keep `.value` (string) for URLs, logs, JSON and the feed-list registry. Mint new ids with `FeedId.generate()`.
 
 ### Worker bindings (`Env`)
