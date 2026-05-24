@@ -18,6 +18,7 @@ import { processEmailContent } from "../../infrastructure/html-processor";
 import { formatBytes } from "../../domain/format";
 import { EmailAddress } from "../../domain/value-objects/email-address";
 import { emailsPageScript } from "../../scripts/generated/emails-page";
+import emailPreviewCss from "../../styles/email-preview.css";
 
 type AppEnv = { Bindings: Env };
 
@@ -476,7 +477,7 @@ emailsRouter.get("/emails/:emailKey", async (c) => {
     emailData.attachments,
     baseUrl(env),
   );
-  const htmlContent = `<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><style>body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','SF Pro Display','Helvetica Neue',Arial,sans-serif;line-height:1.5;padding:16px;margin:0;color:#333;box-sizing:border-box}img{max-width:100%;height:auto}a{color:#0070f3}@media(prefers-color-scheme:dark){body{background-color:#1c1c1e;color:#ffffff}a{color:#0a84ff}}</style></head><body>${renderedBody}</body></html>`;
+  const htmlContent = `<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><style>${emailPreviewCss}</style></head><body>${renderedBody}</body></html>`;
 
   const encodedHtmlContent = (() => {
     const encoder = new TextEncoder();

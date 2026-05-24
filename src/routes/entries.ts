@@ -6,6 +6,7 @@ import { formatBytes } from "../domain/format";
 import { FeedRepository } from "../infrastructure/feed-repository";
 import { FeedId } from "../domain/value-objects/feed-id";
 import { isExpired } from "../domain/feed";
+import entryCss from "../styles/entry.css";
 
 export async function handle(c: Context<{ Bindings: Env }>): Promise<Response> {
   const feedId = c.req.param("feedId");
@@ -80,49 +81,7 @@ export async function handle(c: Context<{ Bindings: Env }>): Promise<Response> {
           <title>${emailData.subject}</title>
           <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
           <style>
-            body {
-              font-family: sans-serif;
-              max-width: 800px;
-              margin: 0 auto;
-              padding: 1rem;
-            }
-            .meta {
-              color: #666;
-              font-size: 0.875rem;
-              margin-bottom: 1.5rem;
-              border-bottom: 1px solid #eee;
-              padding-bottom: 0.75rem;
-            }
-            .meta dt {
-              display: inline;
-              font-weight: bold;
-            }
-            .meta dd {
-              display: inline;
-              margin: 0 1rem 0 0.25rem;
-            }
-            .attachments {
-              margin-top: 2rem;
-              border-top: 1px solid #eee;
-              padding-top: 1rem;
-            }
-            .attachments h2 {
-              font-size: 1rem;
-              margin: 0 0 0.5rem;
-            }
-            .attachments ul {
-              list-style: none;
-              padding: 0;
-              margin: 0;
-            }
-            .attachments li {
-              margin: 0.25rem 0;
-            }
-            .attachments .size {
-              color: #666;
-              font-size: 0.875rem;
-              margin-left: 0.5rem;
-            }
+            ${raw(entryCss)}
           </style>
         </head>
         <body>
