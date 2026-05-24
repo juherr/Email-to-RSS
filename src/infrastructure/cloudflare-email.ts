@@ -5,6 +5,7 @@ import {
   RawAttachment,
   IngestRejectionReason,
 } from "../application/email-processor";
+import { bumpCounters } from "../application/stats";
 import { normalizeCid } from "../infrastructure/html-processor";
 import { logger } from "./logger";
 
@@ -80,6 +81,9 @@ async function maybeForwardFallback(
 
   try {
     await message.forward(fallback);
+    // Counted as a subset of emails_rejected (already bumped in processEmail);
+    // the dropped count is derived as emails_rejected − emails_forwarded.
+    await bumpCounters(env.EMAIL_STORAGE, { emails_forwarded: 1 });
   } catch (error) {
     logger.warn("Fallback forward failed", {
       to: message.to,

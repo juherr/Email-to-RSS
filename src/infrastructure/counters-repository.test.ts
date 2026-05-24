@@ -14,6 +14,7 @@ describe("CountersRepository", () => {
       feeds_deleted: 0,
       emails_received: 2,
       emails_rejected: 0,
+      emails_forwarded: 0,
       unsubscribes_sent: 0,
     });
     expect(await repo.getRaw()).toMatchObject({ emails_received: 2 });

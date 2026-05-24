@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach } from "vitest";
 import "../test/setup";
 import { createMockEnv } from "../test/setup";
 import { handleCloudflareEmail } from "./cloudflare-email";
+import { getCounters } from "../application/stats";
 
 const VALID_FEED_ID = "apple.mountain.42";
 const DOMAIN = "test.getmynews.app";
@@ -244,6 +245,54 @@ describe("handleCloudflareEmail", () => {
           { waitUntil: () => {} } as any,
         ),
       ).resolves.toBeUndefined();
+    });
+
+    it("increments the emails_forwarded counter on a successful forward", async () => {
+      const { forward } = spyForward();
+      env.FALLBACK_FORWARD_ADDRESS = FALLBACK;
+
+      await handleCloudflareEmail(
+        makeMessage({ forward }),
+        env as any,
+        { waitUntil: () => {} } as any,
+      );
+
+      const counters = await getCounters(env.EMAIL_STORAGE as any);
+      expect(counters.emails_forwarded).toBe(1);
+    });
+
+    it("does not increment emails_forwarded when the forward fails", async () => {
+      env.FALLBACK_FORWARD_ADDRESS = FALLBACK;
+      const forward = async () => {
+        throw new Error("destination address not verified");
+      };
+
+      await handleCloudflareEmail(
+        makeMessage({ forward }),
+        env as any,
+        { waitUntil: () => {} } as any,
+      );
+
+      const counters = await getCounters(env.EMAIL_STORAGE as any);
+      expect(counters.emails_forwarded).toBe(0);
+    });
+
+    it("does not increment emails_forwarded for dropped reasons", async () => {
+      const { forward } = spyForward();
+      env.FALLBACK_FORWARD_ADDRESS = FALLBACK;
+      await env.EMAIL_STORAGE.put(
+        `feed:${VALID_FEED_ID}:config`,
+        JSON.stringify({ expires_at: Date.now() - 1000 }),
+      );
+
+      await handleCloudflareEmail(
+        makeMessage({ forward }),
+        env as any,
+        { waitUntil: () => {} } as any,
+      );
+
+      const counters = await getCounters(env.EMAIL_STORAGE as any);
+      expect(counters.emails_forwarded).toBe(0);
     });
   });
 });

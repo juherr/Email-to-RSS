@@ -138,6 +138,7 @@ export const StatsSchema = z
     feeds_deleted: z.number(),
     emails_received: z.number(),
     emails_rejected: z.number(),
+    emails_forwarded: z.number(),
     unsubscribes_sent: z.number(),
     active_feeds: z.number(),
     websub_subscriptions_active: z.number(),

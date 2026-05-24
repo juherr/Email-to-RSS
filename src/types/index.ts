@@ -89,6 +89,9 @@ export interface Counters {
   feeds_deleted: number;
   emails_received: number;
   emails_rejected: number;
+  // Subset of emails_rejected: non-feed mail forwarded to FALLBACK_FORWARD_ADDRESS
+  // instead of dropped. Dropped count = emails_rejected − emails_forwarded.
+  emails_forwarded: number;
   unsubscribes_sent: number;
   last_email_at?: string; // ISO 8601
   last_feed_created_at?: string; // ISO 8601
