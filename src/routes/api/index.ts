@@ -325,13 +325,15 @@ apiApp.openapi(
         from: data.from,
         receivedAt: data.receivedAt,
         content: data.content,
-        attachments: (data.attachments ?? []).map((a) => ({
-          id: a.id,
-          filename: a.filename,
-          contentType: a.contentType,
-          size: a.size,
-          url: `/files/${a.id}/${encodeURIComponent(a.filename)}`,
-        })),
+        attachments: (data.attachments ?? [])
+          .filter((a) => !a.inline)
+          .map((a) => ({
+            id: a.id,
+            filename: a.filename,
+            contentType: a.contentType,
+            size: a.size,
+            url: `/files/${a.id}/${encodeURIComponent(a.filename)}`,
+          })),
       },
       200,
     );

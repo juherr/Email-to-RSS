@@ -19,6 +19,10 @@ export interface AttachmentData {
   contentType: string;
   size: number;
   contentId?: string; // Normalized Content-ID (no <>) used to resolve inline cid: refs
+  // True when this attachment is an inline image referenced by a cid: URL in the
+  // email body. Inline attachments render in place and are hidden from the
+  // downloadable attachment lists, but are still stored in R2 and cleaned up.
+  inline?: boolean;
 }
 
 // Email interface for stored emails
@@ -59,7 +63,8 @@ export interface EmailMetadata {
   subject: string;
   receivedAt: number;
   size?: number;
-  attachmentIds?: string[];
+  attachmentIds?: string[]; // Downloadable attachments (shown to the user)
+  inlineAttachmentIds?: string[]; // Inline images: hidden from lists, still cleaned up
 }
 
 // Feed list interface

@@ -5,6 +5,8 @@ import { dispatchFeedEvents } from "../application/feed-events";
 import { extractEmailDomain } from "../infrastructure/favicon-fetcher";
 import { parseOneClickUnsubscribe } from "../infrastructure/unsubscribe";
 import { getAttachmentBucket } from "../infrastructure/attachments";
+import { extractInlineCids } from "../infrastructure/html-processor";
+import { attachmentIdsForCleanup } from "./feed-cleanup";
 import { FeedRepository } from "../infrastructure/feed-repository";
 import { BackgroundScheduler } from "../infrastructure/worker";
 import { Feed } from "../domain/feed.aggregate";
@@ -47,14 +49,16 @@ export type IngestResult =
 async function uploadAttachments(
   attachments: RawAttachment[],
   bucket: R2Bucket,
+  inlineCids: Set<string>,
 ): Promise<AttachmentData[]> {
   return Promise.all(
     attachments.map(async (att) => {
       const id = crypto.randomUUID();
+      const inline = att.contentId ? inlineCids.has(att.contentId) : false;
       await bucket.put(id, att.content, {
         httpMetadata: {
           contentType: att.contentType,
-          contentDisposition: `attachment; filename="${att.filename}"`,
+          contentDisposition: `${inline ? "inline" : "attachment"}; filename="${att.filename}"`,
         },
       });
       return {
@@ -63,6 +67,7 @@ async function uploadAttachments(
         contentType: att.contentType,
         size: att.content.byteLength,
         ...(att.contentId ? { contentId: att.contentId } : {}),
+        ...(inline ? { inline: true } : {}),
       };
     }),
   );
@@ -111,9 +116,10 @@ async function storeEmail(
   ctx?: ExecutionContext,
 ): Promise<void> {
   const attachmentBucket = getAttachmentBucket(env);
+  const inlineCids = extractInlineCids(input.content);
   const storedAttachments: AttachmentData[] =
     attachmentBucket && input.attachments?.length
-      ? await uploadAttachments(input.attachments, attachmentBucket)
+      ? await uploadAttachments(input.attachments, attachmentBucket, inlineCids)
       : [];
 
   const emailData = {
@@ -132,14 +138,17 @@ async function storeEmail(
   const serialisedSize = new TextEncoder().encode(
     JSON.stringify(emailData),
   ).byteLength;
+  const downloadableIds = storedAttachments
+    .filter((a) => !a.inline)
+    .map((a) => a.id);
+  const inlineIds = storedAttachments.filter((a) => a.inline).map((a) => a.id);
   const newEntry: EmailMetadata = {
     key: emailKey,
     subject: emailData.subject,
     receivedAt: emailData.receivedAt,
     size: serialisedSize,
-    ...(storedAttachments.length > 0
-      ? { attachmentIds: storedAttachments.map((a) => a.id) }
-      : {}),
+    ...(downloadableIds.length > 0 ? { attachmentIds: downloadableIds } : {}),
+    ...(inlineIds.length > 0 ? { inlineAttachmentIds: inlineIds } : {}),
   };
 
   // Track the latest sender's domain (feed icon) and capture the RFC 8058
@@ -166,7 +175,7 @@ async function storeEmail(
   const r2Deletions =
     attachmentBucket && dropped.length > 0
       ? dropped
-          .flatMap((e) => e.attachmentIds ?? [])
+          .flatMap((e) => attachmentIdsForCleanup(e))
           .map((id) => attachmentBucket.delete(id))
       : [];
 

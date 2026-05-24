@@ -12,7 +12,9 @@ import {
   feedRssUrl,
   feedAtomUrl,
   feedEmailAddress,
+  baseUrl,
 } from "../../infrastructure/urls";
+import { processEmailContent } from "../../infrastructure/html-processor";
 import { formatBytes } from "../../domain/format";
 import { EmailAddress } from "../../domain/value-objects/email-address";
 import { emailsPageScript } from "../../scripts/generated/emails-page";
@@ -463,9 +465,18 @@ emailsRouter.get("/emails/:emailKey", async (c) => {
   if (!emailData) return c.text("Email not found", 404);
 
   const feedId = repo.feedIdFromEmailKey(emailKey);
-  const attachments = emailData.attachments ?? [];
+  // Inline images render in place; only downloadable attachments go in the list.
+  const attachments = (emailData.attachments ?? []).filter((a) => !a.inline);
 
-  const htmlContent = `<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><style>body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','SF Pro Display','Helvetica Neue',Arial,sans-serif;line-height:1.5;padding:16px;margin:0;color:#333;box-sizing:border-box}img{max-width:100%;height:auto}a{color:#0070f3}@media(prefers-color-scheme:dark){body{background-color:#1c1c1e;color:#ffffff}a{color:#0a84ff}}</style></head><body>${emailData.content}</body></html>`;
+  // The rendered preview lives in a `data:` iframe, which has no origin to
+  // resolve relative URLs against — so cid: refs must be rewritten to absolute
+  // /files URLs (and the content sanitized) before embedding.
+  const renderedBody = processEmailContent(
+    emailData.content,
+    emailData.attachments,
+    baseUrl(env),
+  );
+  const htmlContent = `<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><style>body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','SF Pro Display','Helvetica Neue',Arial,sans-serif;line-height:1.5;padding:16px;margin:0;color:#333;box-sizing:border-box}img{max-width:100%;height:auto}a{color:#0070f3}@media(prefers-color-scheme:dark){body{background-color:#1c1c1e;color:#ffffff}a{color:#0a84ff}}</style></head><body>${renderedBody}</body></html>`;
 
   const encodedHtmlContent = (() => {
     const encoder = new TextEncoder();

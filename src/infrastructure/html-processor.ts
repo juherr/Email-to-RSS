@@ -12,6 +12,22 @@ export function normalizeCid(
   return trimmed || undefined;
 }
 
+// Collect the normalized Content-IDs referenced by `cid:` image sources in the
+// email body — exactly the set rewriteCidSrc would turn into inline <img> URLs.
+// Used at ingest to flag those attachments as inline (rendered in place, hidden
+// from the downloadable attachment lists).
+export function extractInlineCids(content: string): Set<string> {
+  const cids = new Set<string>();
+  if (!content || isPlainText(content)) return cids;
+  const { document } = parseHTML(content);
+  document.querySelectorAll("[src]").forEach((el: Element) => {
+    const match = (el.getAttribute("src") ?? "").match(/^\s*cid:(.+)$/i);
+    const cid = match ? normalizeCid(match[1]) : undefined;
+    if (cid) cids.add(cid);
+  });
+  return cids;
+}
+
 function cleanMsoStyles(style: string): string {
   return style
     .split(";")

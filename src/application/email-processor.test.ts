@@ -437,6 +437,104 @@ describe("processEmail — attachments", () => {
     expect(typeof metadata.emails[0].attachmentIds[0]).toBe("string");
   });
 
+  it("classifies a cid-referenced image as inline, not a downloadable attachment", async () => {
+    const env = createMockEnv({ withR2: true });
+    await env.EMAIL_STORAGE.put(
+      `feed:${VALID_FEED_ID}:config`,
+      JSON.stringify({}),
+    );
+
+    const inlineImage: RawAttachment = {
+      filename: "logo.png",
+      contentType: "image/png",
+      content: new TextEncoder().encode("PNG").buffer as ArrayBuffer,
+      contentId: "logo123",
+    };
+
+    await processEmail(
+      makeInput({
+        content: '<p>Hi</p><img src="cid:logo123"/>',
+        attachments: [inlineImage, pdfAttachment],
+      }),
+      env as any,
+    );
+
+    const metadata = await env.EMAIL_STORAGE.get(
+      `feed:${VALID_FEED_ID}:metadata`,
+      "json",
+    );
+    const emailData = await env.EMAIL_STORAGE.get(
+      metadata.emails[0].key,
+      "json",
+    );
+
+    const inline = emailData.attachments.find(
+      (a: any) => a.filename === "logo.png",
+    );
+    const pdf = emailData.attachments.find(
+      (a: any) => a.filename === "report.pdf",
+    );
+    expect(inline.inline).toBe(true);
+    expect(pdf.inline).toBeUndefined();
+
+    // Metadata splits ids: the pdf is downloadable, the logo is inline-only.
+    expect(metadata.emails[0].attachmentIds).toEqual([pdf.id]);
+    expect(metadata.emails[0].inlineAttachmentIds).toEqual([inline.id]);
+  });
+
+  it("deletes inline image R2 objects when a trimmed email had them", async () => {
+    const env = createMockEnv({ withR2: true });
+    const mockR2 = (env as any).ATTACHMENT_BUCKET as unknown as MockR2;
+    await env.EMAIL_STORAGE.put(
+      `feed:${VALID_FEED_ID}:config`,
+      JSON.stringify({}),
+    );
+
+    const oldKey = `feed:${VALID_FEED_ID}:111`;
+    const inlineId = "old-inline-uuid";
+    const oldEmail = JSON.stringify({
+      subject: "Old",
+      from: "a@b.com",
+      content: "x".repeat(200) + '<img src="cid:c"/>',
+      receivedAt: 111,
+      headers: {},
+      attachments: [
+        {
+          id: inlineId,
+          filename: "logo.png",
+          contentType: "image/png",
+          size: 100,
+          contentId: "c",
+          inline: true,
+        },
+      ],
+    });
+    await env.EMAIL_STORAGE.put(oldKey, oldEmail);
+    await mockR2.put(inlineId, new ArrayBuffer(100));
+    await env.EMAIL_STORAGE.put(
+      `feed:${VALID_FEED_ID}:metadata`,
+      JSON.stringify({
+        emails: [
+          {
+            key: oldKey,
+            subject: "Old",
+            receivedAt: 111,
+            size: oldEmail.length,
+            inlineAttachmentIds: [inlineId],
+          },
+        ],
+      }),
+    );
+
+    const tinyEnv = { ...env, FEED_MAX_SIZE_BYTES: "50" };
+    const res = await processEmail(
+      makeInput({ subject: "New" }),
+      tinyEnv as any,
+    );
+    expect(res.ok).toBe(true);
+    expect(mockR2._has(inlineId)).toBe(false);
+  });
+
   it("deletes R2 objects when a trimmed email had attachments", async () => {
     const env = createMockEnv({ withR2: true });
     const mockR2 = (env as any).ATTACHMENT_BUCKET as unknown as MockR2;

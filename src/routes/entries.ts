@@ -46,7 +46,9 @@ export async function handle(c: Context<{ Bindings: Env }>): Promise<Response> {
     "default-src 'none'; style-src 'unsafe-inline'; img-src *; frame-src 'none'",
   );
 
-  const attachments = emailData.attachments ?? [];
+  // Inline images render in place (cid: refs are rewritten by processEmailContent);
+  // only genuine, downloadable attachments belong in the list below.
+  const attachments = (emailData.attachments ?? []).filter((a) => !a.inline);
   const attachmentsSection = attachments.length
     ? html`<section class="attachments">
         <h2>Attachments</h2>

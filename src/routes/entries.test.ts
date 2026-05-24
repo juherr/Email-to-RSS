@@ -20,14 +20,17 @@ async function seedFeed(
     filename: string;
     contentType: string;
     size: number;
+    contentId?: string;
+    inline?: boolean;
   }[],
+  content = "<p>Email body</p>",
 ) {
   await env.EMAIL_STORAGE.put(
     EMAIL_KEY,
     JSON.stringify({
       subject: "Test Subject",
       from: "sender@example.com",
-      content: "<p>Email body</p>",
+      content,
       receivedAt: RECEIVED_AT,
       headers: {},
       ...(attachments ? { attachments } : {}),
@@ -124,6 +127,31 @@ describe("GET /entries/:feedId/:entryId", () => {
       `/files/att-123/${encodeURIComponent("report final.pdf")}`,
     );
     expect(body).toContain("2.0 KB");
+  });
+
+  it("renders inline images in place and omits them from the attachments list", async () => {
+    await seedFeed(
+      env,
+      [
+        {
+          id: "img-1",
+          filename: "logo.png",
+          contentType: "image/png",
+          size: 512,
+          contentId: "logo123",
+          inline: true,
+        },
+      ],
+      '<p>Body</p><img src="cid:logo123"/>',
+    );
+    const app = makeApp();
+    const res = await app.request(`/${FEED_ID}/${RECEIVED_AT}`, {}, env as any);
+    const body = await res.text();
+    // The cid: ref is rewritten to the stored file URL (rendered in place)…
+    expect(body).toContain('src="/files/img-1/logo.png"');
+    expect(body).not.toContain("cid:logo123");
+    // …and the image is not listed as a downloadable attachment.
+    expect(body).not.toContain("Attachments");
   });
 
   it("does not render an attachments section when there are none", async () => {

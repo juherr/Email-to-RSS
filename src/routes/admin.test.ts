@@ -766,6 +766,51 @@ describe("Admin Routes", () => {
         expect(body).toContain("2.0 KB");
       });
 
+      it("renders inline cid images in place and hides them from the attachments list", async () => {
+        const authCookie = await loginAndGetCookie();
+        const feedId = "detail-feed";
+        const emailKey = `feed:${feedId}:3`;
+        await mockEnv.EMAIL_STORAGE.put(
+          emailKey,
+          JSON.stringify({
+            subject: "With inline image",
+            from: "sender@example.com",
+            content: '<p>hello</p><img src="cid:logo123"/>',
+            receivedAt: 3,
+            headers: {},
+            attachments: [
+              {
+                id: "img-1",
+                filename: "logo.png",
+                contentType: "image/png",
+                size: 512,
+                contentId: "logo123",
+                inline: true,
+              },
+            ],
+          }),
+        );
+
+        const res = await request(`/admin/emails/${emailKey}`, {
+          headers: { Cookie: authCookie },
+        });
+        expect(res.status).toBe(200);
+        const body = await res.text();
+
+        // The rendered preview is a base64 data: iframe; decode and inspect it.
+        const match = body.match(/data:text\/html;base64,([A-Za-z0-9+/=]+)/);
+        expect(match).not.toBeNull();
+        const decoded = Buffer.from(match![1], "base64").toString("utf-8");
+        // cid: is rewritten to an absolute /files URL so it resolves in the iframe.
+        expect(decoded).toContain(
+          "https://test.getmynews.app/files/img-1/logo.png",
+        );
+        expect(decoded).not.toContain("cid:logo123");
+
+        // Inline image is not surfaced as a downloadable attachment.
+        expect(body).not.toContain("Attachments");
+      });
+
       it("does not render an attachments section when the email has none", async () => {
         const authCookie = await loginAndGetCookie();
         const feedId = "detail-feed";

@@ -4,9 +4,16 @@ import { getAttachmentBucket } from "../infrastructure/attachments";
 import { FeedRepository } from "../infrastructure/feed-repository";
 import { FeedId } from "../domain/value-objects/feed-id";
 
+// All R2 object ids an email owns — both downloadable attachments and inline
+// images. Inline images are hidden from the user-facing lists but must still be
+// purged from the bucket when the email is deleted.
+export function attachmentIdsForCleanup(e: EmailMetadata): string[] {
+  return [...(e.attachmentIds ?? []), ...(e.inlineAttachmentIds ?? [])];
+}
+
 // Delete the R2 attachments belonging to the given email keys. Call before the
 // emails are removed from feed metadata, while `emails` still carries their
-// attachmentIds.
+// attachment ids.
 export async function deleteAttachmentsForEmails(
   env: Env,
   emails: readonly EmailMetadata[],
@@ -15,7 +22,7 @@ export async function deleteAttachmentsForEmails(
   const keySet = new Set(keys);
   const attachmentIds = emails
     .filter((e) => keySet.has(e.key))
-    .flatMap((e) => e.attachmentIds ?? []);
+    .flatMap((e) => attachmentIdsForCleanup(e));
   if (attachmentIds.length === 0) return;
 
   const bucket = getAttachmentBucket(env);

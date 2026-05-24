@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { processEmailContent } from "./html-processor";
+import { processEmailContent, extractInlineCids } from "./html-processor";
 import type { AttachmentData } from "../types";
 
 describe("processEmailContent — body extraction", () => {
@@ -194,5 +194,25 @@ describe("processEmailContent — inline cid: rewriting", () => {
     const html = '<body><img src="https://example.com/a.png"/></body>';
     const result = processEmailContent(html, [attachment()]);
     expect(result).toContain('src="https://example.com/a.png"');
+  });
+});
+
+describe("extractInlineCids", () => {
+  it("collects normalized cids referenced by cid: image sources", () => {
+    const html = '<body><img src="cid:ii_abc"/><img src="CID:ii_def"/></body>';
+    expect(extractInlineCids(html)).toEqual(new Set(["ii_abc", "ii_def"]));
+  });
+
+  it("ignores non-cid sources", () => {
+    const html = '<body><img src="https://example.com/a.png"/></body>';
+    expect(extractInlineCids(html).size).toBe(0);
+  });
+
+  it("returns an empty set for plain text", () => {
+    expect(extractInlineCids("just text, no html").size).toBe(0);
+  });
+
+  it("returns an empty set for empty input", () => {
+    expect(extractInlineCids("").size).toBe(0);
   });
 });

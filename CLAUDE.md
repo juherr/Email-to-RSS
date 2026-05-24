@@ -126,15 +126,15 @@ src/
 
 All data lives in the `EMAIL_STORAGE` KV namespace:
 
-| Key                         | Value                                                                    |
-| --------------------------- | ------------------------------------------------------------------------ |
-| `feeds:list`                | `{ feeds: Array<{ id, title, description?, expires_at? }> }`             |
-| `feed:<feedId>:config`      | `FeedConfig`                                                             |
-| `feed:<feedId>:metadata`    | `{ emails: Array<{ key, subject, receivedAt, size?, attachmentIds? }> }` |
-| `feed:<feedId>:<timestamp>` | Full `EmailData`                                                         |
-| `websub:subs:<feedId>`      | `WebSubSubscription[]` (per-feed subscriber list)                        |
-| `icon:<domain>`             | Cached favicon record (base64 + content type; negative entries allowed)  |
-| `stats:counters`            | `Counters` (cumulative monitoring counters singleton)                    |
+| Key                         | Value                                                                                          |
+| --------------------------- | ---------------------------------------------------------------------------------------------- |
+| `feeds:list`                | `{ feeds: Array<{ id, title, description?, expires_at? }> }`                                   |
+| `feed:<feedId>:config`      | `FeedConfig`                                                                                   |
+| `feed:<feedId>:metadata`    | `{ emails: Array<{ key, subject, receivedAt, size?, attachmentIds?, inlineAttachmentIds? }> }` |
+| `feed:<feedId>:<timestamp>` | Full `EmailData`                                                                               |
+| `websub:subs:<feedId>`      | `WebSubSubscription[]` (per-feed subscriber list)                                              |
+| `icon:<domain>`             | Cached favicon record (base64 + content type; negative entries allowed)                        |
+| `stats:counters`            | `Counters` (cumulative monitoring counters singleton)                                          |
 
 The KV key schema lives in `src/domain/feed-keys.ts` (pure, framework-agnostic) — never inline a `feed:`/`feeds:list`/`websub:`/`icon:`/`stats:counters` key string anywhere else. KV access is owned by four repository **adapters** in `src/infrastructure/`, each for one concern: `FeedRepository` (the Feed aggregate + global list + email bodies), `IconRepository` (`icon:*`), `WebSubSubscriptionRepository` (`websub:subs:*`), and `CountersRepository` (`stats:counters`). Go through a repository, never `env.EMAIL_STORAGE.get/put` directly. The domain depends only on the key schema, not on these adapters.
 

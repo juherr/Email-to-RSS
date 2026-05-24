@@ -128,6 +128,8 @@ FEED_MAX_SIZE_BYTES = "524288"   # 512 KB — adjust as needed
 
 When an incoming email contains attachments, the Worker can store them in a Cloudflare R2 bucket and expose them as `<enclosure>` elements in the RSS feed (and `<link rel="enclosure">` in Atom). Each attachment is served at `/files/{id}/{filename}` with an immutable cache header. Attachments are also listed with download links on the admin email detail page and the public entry view.
 
+Inline images (the ones an email references with `src="cid:…"`) are handled separately: they are still stored in R2 (and deleted with the email), but instead of appearing in the attachment list they render in place — the `cid:` reference is rewritten to the stored `/files/{id}/{filename}` URL in the feed, the admin preview, and the public entry view.
+
 This feature is **optional**. If no R2 bucket is bound, attachments are silently ignored and nothing else changes.
 
 **Setup (automated):** `setup.sh` now asks _"Enable email attachments stored in R2?"_. Answer yes and it creates the buckets (`<worker>-attachments` and `<worker>-attachments-preview`) and wires the binding into the generated `wrangler.toml` for you.

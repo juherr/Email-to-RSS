@@ -54,7 +54,8 @@ function buildFeed(
 
   for (const email of emails) {
     const entryUrl = `${baseUrl}/entries/${feedId}/${email.receivedAt}`;
-    const firstAttachment = email.attachments?.[0];
+    // Inline images are rendered in the body, not surfaced as an enclosure.
+    const firstAttachment = email.attachments?.find((a) => !a.inline);
     const bodyContent = processEmailContent(
       email.content,
       email.attachments,
