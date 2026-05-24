@@ -139,14 +139,14 @@ function setupFeedTableResizing(): void {
     title: 220,
     feedId: 120,
     email: 160,
-    rss: 160,
+    formats: 200,
     actions: 160,
   };
   const defaultWidths: Record<string, number> = {
     title: 340,
     feedId: 160,
     email: 220,
-    rss: 220,
+    formats: 230,
     actions: 200,
   };
 

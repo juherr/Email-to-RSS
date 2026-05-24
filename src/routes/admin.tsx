@@ -12,9 +12,10 @@ import { FeedRepository } from "../infrastructure/feed-repository";
 import { FeedId } from "../domain/value-objects/feed-id";
 import { editFeedDetails } from "../application/feed-service";
 import {
-  feedRssUrl,
-  feedAtomUrl,
   feedEmailAddress,
+  feedFormatUrl,
+  feedValidatorUrl,
+  type FeedFormat,
 } from "../infrastructure/urls";
 import { feedsRouter } from "./admin/feeds";
 import { emailsRouter } from "./admin/emails";
@@ -251,6 +252,122 @@ const CopyFieldInline = ({ value }: CopyFieldInlineProps) => (
         <CopyIcon />
         <CheckIcon />
       </div>
+    </div>
+  </div>
+);
+
+const OpenIcon = () => (
+  <svg
+    class="chip-icon"
+    width="14"
+    height="14"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    stroke-width="2"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+    aria-hidden="true"
+  >
+    <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+    <polyline points="15 3 21 3 21 9"></polyline>
+    <line x1="10" y1="14" x2="21" y2="3"></line>
+  </svg>
+);
+
+const ValidateIcon = () => (
+  <svg
+    class="chip-icon"
+    width="14"
+    height="14"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    stroke-width="2"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+    aria-hidden="true"
+  >
+    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+    <polyline points="22 4 12 14.01 9 11.01"></polyline>
+  </svg>
+);
+
+const FORMAT_LABELS: Record<FeedFormat, string> = {
+  rss: "RSS",
+  atom: "Atom",
+  json: "JSON",
+};
+
+const FormatChip = ({
+  format,
+  feedId,
+  env,
+}: {
+  format: FeedFormat;
+  feedId: string;
+  env: Env;
+}) => {
+  const url = feedFormatUrl(format, feedId, env);
+  const validateUrl = feedValidatorUrl(format, feedId, env);
+  const label = FORMAT_LABELS[format];
+  return (
+    <div class="format-chip" data-format={format}>
+      <span class="format-chip-label">{label}</span>
+      <span class="format-chip-actions">
+        <span class="copyable copyable-chip">
+          <span
+            class="copyable-content"
+            title={`Copy ${label} feed URL`}
+            aria-label={`Copy ${label} feed URL`}
+          >
+            <span class="copyable-value" data-copy={url} hidden></span>
+            <span class="copy-icon-container">
+              <CopyIcon />
+              <CheckIcon />
+            </span>
+          </span>
+        </span>
+        <a
+          class="chip-action"
+          href={url}
+          target="_blank"
+          rel="noopener noreferrer"
+          title={`Open ${label} feed in a new tab`}
+          aria-label={`Open ${label} feed in a new tab`}
+        >
+          <OpenIcon />
+        </a>
+        <a
+          class="chip-action"
+          href={validateUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          title={`Validate ${label} feed`}
+          aria-label={`Validate ${label} feed`}
+        >
+          <ValidateIcon />
+        </a>
+      </span>
+    </div>
+  );
+};
+
+const FeedFormats = ({
+  feedId,
+  env,
+  compact,
+}: {
+  feedId: string;
+  env: Env;
+  compact?: boolean;
+}) => (
+  <div class={`feed-formats${compact ? " feed-formats-compact" : ""}`}>
+    {!compact && <span class="feed-formats-label">Subscribe</span>}
+    <div class="feed-formats-chips">
+      <FormatChip format="rss" feedId={feedId} env={env} />
+      <FormatChip format="atom" feedId={feedId} env={env} />
+      <FormatChip format="json" feedId={feedId} env={env} />
     </div>
   </div>
 );
@@ -522,8 +639,7 @@ app.get("/", async (c) => {
                     <col data-col="title" style="width: 280px;" />
                     <col data-col="feedId" style="width: 150px;" />
                     <col data-col="email" style="width: 200px;" />
-                    <col data-col="rss" style="width: 190px;" />
-                    <col data-col="atom" style="width: 190px;" />
+                    <col data-col="formats" style="width: 230px;" />
                     <col data-col="expires" style="width: 130px;" />
                     <col data-col="actions" style="width: 170px;" />
                   </colgroup>
@@ -602,47 +718,11 @@ app.get("/", async (c) => {
                           title="Resize"
                         ></div>
                       </th>
-                      <th
-                        class="th-resizable"
-                        data-sort-key="rss"
-                        aria-sort="none"
-                      >
-                        <button
-                          type="button"
-                          class="th-button"
-                          data-sort-key="rss"
-                        >
-                          RSS
-                          <span
-                            class="sort-indicator"
-                            aria-hidden="true"
-                          ></span>
-                        </button>
+                      <th class="th-resizable">
+                        <span>Formats</span>
                         <div
                           class="col-resizer"
-                          data-col="rss"
-                          title="Resize"
-                        ></div>
-                      </th>
-                      <th
-                        class="th-resizable"
-                        data-sort-key="atom"
-                        aria-sort="none"
-                      >
-                        <button
-                          type="button"
-                          class="th-button"
-                          data-sort-key="atom"
-                        >
-                          Atom
-                          <span
-                            class="sort-indicator"
-                            aria-hidden="true"
-                          ></span>
-                        </button>
-                        <div
-                          class="col-resizer"
-                          data-col="atom"
+                          data-col="formats"
                           title="Resize"
                         ></div>
                       </th>
@@ -670,15 +750,11 @@ app.get("/", async (c) => {
                         feed.mailbox_id,
                         env,
                       );
-                      const rssUrl = feedRssUrl(feed.id, env);
-                      const atomUrl = feedAtomUrl(feed.id, env);
                       const titleDisplay = clampText(feed.title, 160);
                       const titleHover = clampText(feed.title, 1000);
                       const sortTitle = titleHover.toLowerCase();
                       const sortFeedId = feed.id.toLowerCase();
                       const sortEmail = emailAddress.toLowerCase();
-                      const sortRss = rssUrl.toLowerCase();
-                      const sortAtom = atomUrl.toLowerCase();
                       const descDisplay = clampText(
                         feed.description || "",
                         220,
@@ -698,8 +774,6 @@ app.get("/", async (c) => {
                           data-sort-title={sortTitle}
                           data-sort-feed-id={sortFeedId}
                           data-sort-email={sortEmail}
-                          data-sort-rss={sortRss}
-                          data-sort-atom={sortAtom}
                         >
                           <td>
                             <input
@@ -743,10 +817,7 @@ app.get("/", async (c) => {
                             <CopyFieldInline value={emailAddress} />
                           </td>
                           <td>
-                            <CopyFieldInline value={rssUrl} />
-                          </td>
-                          <td>
-                            <CopyFieldInline value={atomUrl} />
+                            <FeedFormats feedId={feed.id} env={env} compact />
                           </td>
                           <td>
                             {feed.expires_at ? (
@@ -827,8 +898,6 @@ app.get("/", async (c) => {
             <ul class="feed-list">
               {feedsWithConfig.map((feed) => {
                 const emailAddress = feedEmailAddress(feed.mailbox_id, env);
-                const rssUrl = feedRssUrl(feed.id, env);
-                const atomUrl = feedAtomUrl(feed.id, env);
                 const titleDisplay = clampText(feed.title, 140);
                 const titleHover = clampText(feed.title, 1000);
                 const descDisplay = clampText(feed.description || "", 240);
@@ -884,38 +953,7 @@ app.get("/", async (c) => {
                           </div>
                         </div>
                       </div>
-                      <div class="copyable">
-                        <span class="copyable-label">RSS Feed:</span>
-                        <div class="copyable-content">
-                          <span
-                            class="copyable-value"
-                            data-copy={rssUrl}
-                            title={rssUrl}
-                          >
-                            {rssUrl}
-                          </span>
-                          <div class="copy-icon-container">
-                            <CopyIcon />
-                            <CheckIcon />
-                          </div>
-                        </div>
-                      </div>
-                      <div class="copyable">
-                        <span class="copyable-label">Atom Feed:</span>
-                        <div class="copyable-content">
-                          <span
-                            class="copyable-value"
-                            data-copy={atomUrl}
-                            title={atomUrl}
-                          >
-                            {atomUrl}
-                          </span>
-                          <div class="copy-icon-container">
-                            <CopyIcon />
-                            <CheckIcon />
-                          </div>
-                        </div>
-                      </div>
+                      <FeedFormats feedId={feed.id} env={env} />
                     </div>
 
                     <div class="feed-buttons">

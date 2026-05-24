@@ -16,6 +16,7 @@ kill-the-news keeps the same workflow while avoiding shared domains and shared d
 - Bulk feed/email deletion from the admin dashboard (safe checkbox-based flow)
 - Inline double-confirm delete interactions with toast feedback in the admin dashboard
 - Resizable + sortable table columns in the admin dashboard (Table view)
+- Per-feed "Subscribe" chips in the admin dashboard — copy, open, or validate the feed in one click for each of RSS, Atom, and JSON Feed (validation via the W3C Feed Validator and validator.jsonfeed.org)
 - Unique newsletter addresses per feed (for example `apple.mountain.42@yourdomain.com`)
 - **Separate inbound address and feed URL** — the address you subscribe with (`apple.mountain.42@yourdomain.com`) and the public feed URL (`/rss/<opaque-id>`) use **independent** ids, so you can share a feed without leaking the address that feeds it, and an address harvested by a newsletter can't be used to read your feed (`/rss/<your-address>` 404s)
 - Cloudflare Email Workers ingestion (no third-party service)

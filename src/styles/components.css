@@ -887,6 +887,103 @@ table.table code {
   flex-wrap: wrap;
 }
 
+/* ── Feed format chips ("Subscribe" block) ── */
+.feed-formats {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+}
+
+.feed-formats-label {
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  user-select: none;
+}
+
+.feed-formats-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-sm);
+}
+
+.format-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  padding: 4px 6px 4px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background-color: rgba(60, 60, 67, 0.06);
+  transition:
+    border-color var(--transition-fast),
+    background-color var(--transition-fast);
+}
+
+.format-chip:hover {
+  border-color: var(--color-primary);
+}
+
+.format-chip-label {
+  font-weight: var(--font-weight-semibold);
+  font-size: var(--font-size-sm);
+  letter-spacing: 0.02em;
+  user-select: none;
+}
+
+.format-chip-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.chip-action,
+.copyable.copyable-chip .copyable-content {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border-radius: var(--radius-sm);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition:
+    background-color var(--transition-fast),
+    color var(--transition-fast);
+}
+
+.chip-action:hover,
+.copyable.copyable-chip .copyable-content:hover {
+  background-color: rgba(60, 60, 67, 0.18);
+  color: var(--color-primary);
+}
+
+/* Strip the boxed wrapper styling so only the icon button shows in a chip */
+.copyable.copyable-chip {
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  border: none;
+}
+
+.copyable.copyable-chip .copyable-content {
+  flex: 0 0 auto;
+}
+
+.chip-icon {
+  flex: 0 0 auto;
+}
+
+/* Compact variant for the feeds table cell */
+.feed-formats-compact .feed-formats-chips {
+  gap: 6px;
+}
+
+.feed-formats-compact .format-chip {
+  padding: 2px 4px 2px 8px;
+}
+
 .button-delete {
   transition:
     background-color 180ms ease,

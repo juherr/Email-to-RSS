@@ -189,6 +189,13 @@ describe("Admin Routes", () => {
         expect(html).toContain(`${mailboxId}@test.getmynews.app`);
         expect(html).toContain(`/rss/${feedId}`);
         expect(html).not.toContain(`/rss/${mailboxId}`);
+
+        // The feed-formats block surfaces all three formats (incl. JSON Feed)
+        // plus per-format validator links.
+        expect(html).toContain(`/atom/${feedId}`);
+        expect(html).toContain(`/json/${feedId}`);
+        expect(html).toContain("validator.jsonfeed.org");
+        expect(html).toContain("validator.w3.org/feed");
       });
 
       it("should reject feed creation with missing title", async () => {
