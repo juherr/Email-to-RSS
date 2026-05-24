@@ -14,7 +14,7 @@ import { handleCloudflareEmail } from "./infrastructure/cloudflare-email";
 import { Env } from "./types";
 import { logger } from "./infrastructure/logger";
 import { FeedRepository } from "./infrastructure/feed-repository";
-import { purgeExpiredFeeds } from "./routes/admin/helpers";
+import { purgeExpiredFeeds } from "./application/feed-cleanup";
 import {
   bumpCounters,
   scanR2Usage,

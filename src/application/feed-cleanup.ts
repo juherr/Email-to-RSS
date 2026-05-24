@@ -1,8 +1,8 @@
-import { EmailData, EmailMetadata, Env } from "../../types";
-import { logger } from "../../infrastructure/logger";
-import { getAttachmentBucket } from "../../infrastructure/attachments";
-import { FeedRepository } from "../../infrastructure/feed-repository";
-import { FeedId } from "../../domain/value-objects/feed-id";
+import { EmailData, EmailMetadata, Env } from "../types";
+import { logger } from "../infrastructure/logger";
+import { getAttachmentBucket } from "../infrastructure/attachments";
+import { FeedRepository } from "../infrastructure/feed-repository";
+import { FeedId } from "../domain/value-objects/feed-id";
 
 // Delete the R2 attachments belonging to the given email keys. Call before the
 // emails are removed from feed metadata, while `emails` still carries their

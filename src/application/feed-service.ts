@@ -1,7 +1,5 @@
-import { Context } from "hono";
 import { Env, FeedConfig } from "../types";
 import { bumpCounters } from "../application/stats";
-import { waitUntilSafe } from "../infrastructure/worker";
 import { sendUnsubscribes } from "../infrastructure/unsubscribe";
 import { getAttachmentBucket } from "../infrastructure/attachments";
 import { FeedRepository } from "../infrastructure/feed-repository";
@@ -11,10 +9,7 @@ import {
   CreateFeedInput,
   UpdateFeedInput,
 } from "../domain/feed.aggregate";
-import {
-  purgeFeedKeysStep,
-  collectUnsubscribeUrls,
-} from "../routes/admin/helpers";
+import { purgeFeedKeysStep, collectUnsubscribeUrls } from "./feed-cleanup";
 
 export type { CreateFeedInput, UpdateFeedInput };
 
@@ -72,7 +67,7 @@ export type UpdateFeedResult =
  * In-place edit of title/description only — never touches expiry. Used by the
  * dashboard's minimal edit. Mirrors the new title/description into the list.
  */
-export async function renameFeed(
+export async function editFeedDetails(
   env: Env,
   feedId: string,
   patch: { title?: string; description?: string },
@@ -81,7 +76,7 @@ export async function renameFeed(
   const feed = await repo.load(FeedId.fromTrusted(feedId));
   if (!feed) return { status: "not_found" };
 
-  feed.rename(patch);
+  feed.editDetails(patch);
   await repo.saveConfig(feed);
   await repo.updateInList(
     feed.id,
@@ -168,15 +163,22 @@ export async function deleteFeedFastDetailed(
 }
 
 /**
+ * Schedules a fire-and-forget background task. The HTTP edge passes an adapter
+ * over `ctx.waitUntil` (e.g. `(p) => waitUntilSafe(c, p)`); keeping it a plain
+ * function means the application layer never imports Hono's `Context`.
+ */
+export type BackgroundScheduler = (task: Promise<unknown>) => void;
+
+/**
  * Delete a single feed end-to-end: capture unsubscribe URLs, drop its config +
- * metadata, remove it from the list, bump the counter, and schedule background
- * unsubscribe requests + key purge via ctx.waitUntil. Returns whether the feed
- * was present in the global list.
+ * metadata, remove it from the list, bump the counter, and hand the background
+ * unsubscribe requests + key purge to the supplied scheduler. Returns whether
+ * the feed was present in the global list.
  */
 export async function deleteFeedRecord(
-  c: Context<{ Bindings: Env }>,
   env: Env,
   feedId: string,
+  schedule: BackgroundScheduler,
 ): Promise<boolean> {
   const emailStorage = env.EMAIL_STORAGE;
   const repo = new FeedRepository(emailStorage);
@@ -191,11 +193,10 @@ export async function deleteFeedRecord(
   }
 
   if (unsubscribeUrls.length > 0) {
-    waitUntilSafe(c, sendUnsubscribes(unsubscribeUrls, env));
+    schedule(sendUnsubscribes(unsubscribeUrls, env));
   }
 
-  waitUntilSafe(
-    c,
+  schedule(
     purgeFeedKeysStep(emailStorage, feedId, {
       bucket: getAttachmentBucket(env),
     }),

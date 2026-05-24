@@ -164,10 +164,10 @@ export class Feed {
   }
 
   /**
-   * In-place edit of the presentational fields only. Never touches expiry or the
-   * sender policy — used by the dashboard's minimal title/description edit.
+   * In-place edit of the presentational fields only (title + description). Never
+   * touches expiry or the sender policy — used by the dashboard's minimal edit.
    */
-  rename(patch: { title?: string; description?: string }): void {
+  editDetails(patch: { title?: string; description?: string }): void {
     if (patch.title !== undefined) this._config.title = patch.title;
     if (patch.description !== undefined) {
       this._config.description = patch.description;

@@ -8,7 +8,10 @@ import { logger } from "../../infrastructure/logger";
 import { sendUnsubscribes } from "../../infrastructure/unsubscribe";
 import { getAttachmentBucket } from "../../infrastructure/attachments";
 import { Layout } from "./ui";
-import { purgeFeedKeysStep, collectUnsubscribeUrls } from "./helpers";
+import {
+  purgeFeedKeysStep,
+  collectUnsubscribeUrls,
+} from "../../application/feed-cleanup";
 import { FeedRepository } from "../../infrastructure/feed-repository";
 import { FeedId } from "../../domain/value-objects/feed-id";
 import {
@@ -419,7 +422,7 @@ feedsRouter.post("/:feedId/delete", async (c) => {
   const wantsJson = (c.req.header("Accept") || "").includes("application/json");
 
   try {
-    await deleteFeedRecord(c, env, feedId);
+    await deleteFeedRecord(env, feedId, (p) => waitUntilSafe(c, p));
 
     if (wantsJson) {
       return c.json({ ok: true, feedId });

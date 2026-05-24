@@ -5,7 +5,7 @@ import { Layout, clampText } from "./ui";
 import {
   deleteAttachmentsForEmails,
   deleteKeysWithConcurrency,
-} from "./helpers";
+} from "../../application/feed-cleanup";
 import { FeedRepository } from "../../infrastructure/feed-repository";
 import { FeedId } from "../../domain/value-objects/feed-id";
 import {

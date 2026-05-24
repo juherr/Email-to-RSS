@@ -8,7 +8,8 @@ import {
   editFeed,
   deleteFeedRecord,
 } from "../../application/feed-service";
-import { deleteAttachmentsForEmails } from "../admin/helpers";
+import { deleteAttachmentsForEmails } from "../../application/feed-cleanup";
+import { waitUntilSafe } from "../../infrastructure/worker";
 import { FeedRepository } from "../../infrastructure/feed-repository";
 import { FeedId } from "../../domain/value-objects/feed-id";
 import { getStats } from "../../application/stats";
@@ -248,7 +249,9 @@ apiApp.openapi(
   async (c) => {
     const env = c.env;
     const { feedId } = c.req.valid("param");
-    const removed = await deleteFeedRecord(c, env, feedId);
+    const removed = await deleteFeedRecord(env, feedId, (p) =>
+      waitUntilSafe(c, p),
+    );
     if (!removed) return c.json({ error: "Feed not found" }, 404);
     return c.json({ ok: true }, 200);
   },
