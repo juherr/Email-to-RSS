@@ -7,7 +7,7 @@ import {
 import { waitUntilSafe } from "../infrastructure/worker";
 import { DEFAULT_LEASE_SECONDS, MAX_LEASE_SECONDS } from "../config/constants";
 import { feedTopicPattern } from "../infrastructure/urls";
-import { FeedRepository } from "../domain/feed-repository";
+import { FeedRepository } from "../infrastructure/feed-repository";
 import { FeedId } from "../domain/value-objects/feed-id";
 
 type AppEnv = { Bindings: Env };

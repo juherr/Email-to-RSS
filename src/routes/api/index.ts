@@ -9,7 +9,7 @@ import {
   deleteFeedRecord,
 } from "../../application/feed-service";
 import { deleteAttachmentsForEmails } from "../admin/helpers";
-import { FeedRepository } from "../../domain/feed-repository";
+import { FeedRepository } from "../../infrastructure/feed-repository";
 import { FeedId } from "../../domain/value-objects/feed-id";
 import { getStats } from "../../application/stats";
 import {

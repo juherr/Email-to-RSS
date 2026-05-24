@@ -13,7 +13,7 @@ import { apiApp } from "./routes/api";
 import { handleCloudflareEmail } from "./infrastructure/cloudflare-email";
 import { Env } from "./types";
 import { logger } from "./infrastructure/logger";
-import { FeedRepository } from "./domain/feed-repository";
+import { FeedRepository } from "./infrastructure/feed-repository";
 import { purgeExpiredFeeds } from "./routes/admin/helpers";
 import {
   bumpCounters,

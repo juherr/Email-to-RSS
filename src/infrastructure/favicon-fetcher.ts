@@ -4,9 +4,9 @@ import {
   ICON_TTL_SECONDS,
   MAX_ICON_BYTES,
 } from "../config/constants";
-import { IconRepository } from "../domain/icon-repository";
+import { IconRepository } from "./icon-repository";
 import { EmailAddress } from "../domain/value-objects/email-address";
-import { logger } from "../infrastructure/logger";
+import { logger } from "./logger";
 
 interface IconRecord {
   data: string | null; // base64 icon bytes, or null for a negative cache entry

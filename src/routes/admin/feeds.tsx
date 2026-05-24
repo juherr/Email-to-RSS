@@ -9,7 +9,7 @@ import { sendUnsubscribes } from "../../infrastructure/unsubscribe";
 import { getAttachmentBucket } from "../../infrastructure/attachments";
 import { Layout } from "./ui";
 import { purgeFeedKeysStep, collectUnsubscribeUrls } from "./helpers";
-import { FeedRepository } from "../../domain/feed-repository";
+import { FeedRepository } from "../../infrastructure/feed-repository";
 import { FeedId } from "../../domain/value-objects/feed-id";
 import {
   createFeedRecord,

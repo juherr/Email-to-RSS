@@ -4,7 +4,7 @@ import { bumpCounters } from "../application/stats";
 import { waitUntilSafe } from "../infrastructure/worker";
 import { sendUnsubscribes } from "../infrastructure/unsubscribe";
 import { getAttachmentBucket } from "../infrastructure/attachments";
-import { FeedRepository } from "../domain/feed-repository";
+import { FeedRepository } from "../infrastructure/feed-repository";
 import { FeedId } from "../domain/value-objects/feed-id";
 import {
   Feed,

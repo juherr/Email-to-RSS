@@ -56,17 +56,14 @@ src/
   index.ts                  # App entrypoint: CORS, IP middleware, route mounting, email handler export
   config/constants.ts       # Shared constants (TTLs, limits)
   types/index.ts            # Env, FeedConfig, EmailData, WebSubSubscription, etc.
-  domain/                   # Framework-agnostic core (no Hono imports leak out)
+  domain/                   # Framework-agnostic core (no Hono/infra imports leak out)
     feed.aggregate.ts       # Feed aggregate: consistency boundary; all config/metadata mutations go through it
     feed.ts                 # Pure invariant functions (expiry, sender policy, byte budget) the aggregate delegates to
     feed-keys.ts            # The KV key schema (pure string builders), shared by every repository
-    feed-repository.ts      # KV access for the Feed aggregate + global feed list + email bodies (load/save)
-    icon-repository.ts      # KV access for cached favicons (icon:*)
-    websub-subscription-repository.ts # KV access for WebSub subscriber lists (websub:subs:*)
-    counters-repository.ts  # KV access for the monitoring counters singleton (stats:counters)
+    clock.ts                # Clock port (systemClock) — injected into the aggregate; no ambient Date.now()
     email-parser.ts         # Email parsing (addresses, headers, encoded words)
     format.ts               # Pure formatting helpers (formatBytes)
-    value-objects/          # FeedId, EmailAddress, Domain (immutable, self-validating)
+    value-objects/          # FeedId, EmailAddress, Domain, SenderPolicy (immutable, self-validating)
   application/              # Use-cases / orchestration (wires domain + infrastructure)
     feed-service.ts         # createFeedRecord / renameFeed / editFeed / deleteFeedRecord (admin UI + REST API)
     email-processor.ts      # Core ingestion: load aggregate → accepts? → feed.ingest → persist
@@ -74,6 +71,10 @@ src/
     stats.ts                # Monitoring counters increment policy + storage scans
   infrastructure/          # Adapters: KV/R2, outbound HTTP, logging, framework glue
     logger.ts               # JSON structured logger
+    feed-repository.ts      # KV adapter for the Feed aggregate + global feed list + email bodies (load/save)
+    icon-repository.ts      # KV adapter for cached favicons (icon:*)
+    websub-subscription-repository.ts # KV adapter for WebSub subscriber lists (websub:subs:*)
+    counters-repository.ts  # KV adapter for the monitoring counters singleton (stats:counters)
     auth.ts                 # timingSafeEqual, proxy-auth check, API bearer middleware
     cloudflare-email.ts     # Cloudflare Email routing handler
     forwardemail.ts         # ForwardEmail webhook types/parsing
@@ -130,7 +131,7 @@ All data lives in the `EMAIL_STORAGE` KV namespace:
 | `icon:<domain>`             | Cached favicon record (base64 + content type; negative entries allowed)  |
 | `stats:counters`            | `Counters` (cumulative monitoring counters singleton)                    |
 
-The KV key schema lives in `src/domain/feed-keys.ts` — never inline a `feed:`/`feeds:list`/`websub:`/`icon:`/`stats:counters` key string anywhere else. KV access is owned by four repositories, each for one concern: `FeedRepository` (the Feed aggregate + global list + email bodies), `IconRepository` (`icon:*`), `WebSubSubscriptionRepository` (`websub:subs:*`), and `CountersRepository` (`stats:counters`). Go through a repository, never `env.EMAIL_STORAGE.get/put` directly.
+The KV key schema lives in `src/domain/feed-keys.ts` (pure, framework-agnostic) — never inline a `feed:`/`feeds:list`/`websub:`/`icon:`/`stats:counters` key string anywhere else. KV access is owned by four repository **adapters** in `src/infrastructure/`, each for one concern: `FeedRepository` (the Feed aggregate + global list + email bodies), `IconRepository` (`icon:*`), `WebSubSubscriptionRepository` (`websub:subs:*`), and `CountersRepository` (`stats:counters`). Go through a repository, never `env.EMAIL_STORAGE.get/put` directly. The domain depends only on the key schema, not on these adapters.
 
 ### Domain & layering rules
 

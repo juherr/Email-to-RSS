@@ -8,9 +8,8 @@ import {
 } from "../infrastructure/favicon-fetcher";
 import { parseOneClickUnsubscribe } from "../infrastructure/unsubscribe";
 import { getAttachmentBucket } from "../infrastructure/attachments";
-import { FeedRepository } from "../domain/feed-repository";
+import { FeedRepository } from "../infrastructure/feed-repository";
 import { Feed } from "../domain/feed.aggregate";
-import { FeedId } from "../domain/value-objects/feed-id";
 import { logger } from "../infrastructure/logger";
 import { FEED_MAX_BYTES } from "../config/constants";
 
@@ -85,18 +84,18 @@ async function loadAcceptingFeed(
     return { ok: false, reason: "invalid_address" };
   }
 
-  const feed = await FeedRepository.from(env).load(FeedId.fromTrusted(feedId));
+  const feed = await FeedRepository.from(env).load(feedId);
   if (!feed) {
-    logger.error("Feed not found", { feedId });
+    logger.error("Feed not found", { feedId: feedId.value });
     return { ok: false, reason: "feed_not_found" };
   }
   if (feed.isExpired()) {
-    logger.warn("Rejected email: feed expired", { feedId });
+    logger.warn("Rejected email: feed expired", { feedId: feedId.value });
     return { ok: false, reason: "feed_expired" };
   }
   if (feed.accepts(input.senders) === "blocked") {
     logger.warn("Rejected email: sender filter", {
-      feedId,
+      feedId: feedId.value,
       senders: input.senders,
       allowedSenders: feed.config.allowed_senders,
       blockedSenders: feed.config.blocked_senders,

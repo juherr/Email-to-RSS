@@ -1,10 +1,15 @@
 import { EmailData } from "../types";
-import { FeedId } from "../domain/value-objects/feed-id";
+import { FeedId } from "./value-objects/feed-id";
 
 export class EmailParser {
-  // Matches noun1.noun2.XY (the feed ID format) before the @ symbol
-  static extractFeedId(emailAddress: string): string | null {
-    return FeedId.parse(emailAddress)?.value ?? null;
+  /**
+   * Extract the feed id from an inbound recipient address. Returns a validated
+   * `FeedId` value object (not a raw string) so the most untrusted input in the
+   * system — an address typed by a sender — is guarded at the parse boundary and
+   * never needs `FeedId.fromTrusted` downstream.
+   */
+  static extractFeedId(emailAddress: string): FeedId | null {
+    return FeedId.parse(emailAddress);
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

@@ -1,6 +1,6 @@
 import { Context } from "hono";
 import { Env } from "../types";
-import { FeedRepository } from "../domain/feed-repository";
+import { FeedRepository } from "../infrastructure/feed-repository";
 import { FeedId } from "../domain/value-objects/feed-id";
 import {
   cacheFaviconForDomain,

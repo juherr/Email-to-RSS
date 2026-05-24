@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { createMockEnv } from "../test/setup";
 import { FeedRepository } from "./feed-repository";
-import { FeedId } from "./value-objects/feed-id";
+import { FeedId } from "../domain/value-objects/feed-id";
 import type { Env, FeedConfig, FeedMetadata, EmailData } from "../types";
 
 const mockEnv = () => createMockEnv() as unknown as Env;

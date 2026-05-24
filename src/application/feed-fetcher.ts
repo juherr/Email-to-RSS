@@ -1,6 +1,6 @@
 import { Env, FeedConfig, EmailData } from "../types";
 import { MAX_FEED_ITEMS } from "../config/constants";
-import { FeedRepository } from "../domain/feed-repository";
+import { FeedRepository } from "../infrastructure/feed-repository";
 import { FeedId } from "../domain/value-objects/feed-id";
 
 export interface FeedData {

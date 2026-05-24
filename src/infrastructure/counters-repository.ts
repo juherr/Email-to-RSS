@@ -1,5 +1,5 @@
 import { Counters, Env } from "../types";
-import { STATS_KEY } from "./feed-keys";
+import { STATS_KEY } from "../domain/feed-keys";
 
 /**
  * KV access for the monitoring counters singleton (`stats:counters`). The

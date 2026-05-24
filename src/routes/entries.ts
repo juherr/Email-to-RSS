@@ -3,7 +3,7 @@ import { html, raw } from "hono/html";
 import { Env } from "../types";
 import { processEmailContent } from "../infrastructure/html-processor";
 import { formatBytes } from "../domain/format";
-import { FeedRepository } from "../domain/feed-repository";
+import { FeedRepository } from "../infrastructure/feed-repository";
 import { FeedId } from "../domain/value-objects/feed-id";
 import { isExpired } from "../domain/feed";
 

@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { createMockEnv } from "../test/setup";
 import { Feed, CreateFeedInput } from "./feed.aggregate";
-import { FeedRepository } from "./feed-repository";
+import { FeedRepository } from "../infrastructure/feed-repository";
 import { FeedId } from "./value-objects/feed-id";
 import { Clock } from "./clock";
 import type { Env, EmailMetadata } from "../types";

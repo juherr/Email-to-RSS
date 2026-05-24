@@ -1,8 +1,8 @@
 import { Env, FeedConfig, EmailData, WebSubSubscription } from "../types";
 import { generateRssFeed, generateAtomFeed } from "./feed-generator";
 import { baseUrl, feedRssUrl, feedAtomUrl, feedUrl } from "./urls";
-import { FeedRepository } from "../domain/feed-repository";
-import { WebSubSubscriptionRepository } from "../domain/websub-subscription-repository";
+import { FeedRepository } from "./feed-repository";
+import { WebSubSubscriptionRepository } from "./websub-subscription-repository";
 import { FeedId } from "../domain/value-objects/feed-id";
 
 export async function getSubscriptions(

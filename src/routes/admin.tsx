@@ -8,7 +8,7 @@ import { ADMIN_COOKIE_MAX_AGE } from "../config/constants";
 import { logger } from "../infrastructure/logger";
 import { timingSafeEqual, checkProxyAuth } from "../infrastructure/auth";
 import { Layout, clampText } from "./admin/ui";
-import { FeedRepository } from "../domain/feed-repository";
+import { FeedRepository } from "../infrastructure/feed-repository";
 import { renameFeed } from "../application/feed-service";
 import {
   feedRssUrl,

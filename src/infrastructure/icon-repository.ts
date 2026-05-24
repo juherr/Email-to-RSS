@@ -1,5 +1,5 @@
 import { Env } from "../types";
-import { feedKeys } from "./feed-keys";
+import { feedKeys } from "../domain/feed-keys";
 
 /**
  * KV access for cached per-domain favicons (`icon:<domain>`). Entries may be

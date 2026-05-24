@@ -6,7 +6,7 @@ import {
   deleteAttachmentsForEmails,
   deleteKeysWithConcurrency,
 } from "./helpers";
-import { FeedRepository } from "../../domain/feed-repository";
+import { FeedRepository } from "../../infrastructure/feed-repository";
 import { FeedId } from "../../domain/value-objects/feed-id";
 import {
   feedRssUrl,

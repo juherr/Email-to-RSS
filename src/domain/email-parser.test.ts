@@ -3,15 +3,15 @@ import { EmailParser } from "./email-parser";
 
 describe("EmailParser.extractFeedId", () => {
   it("extracts a valid feed ID from an email address", () => {
-    expect(EmailParser.extractFeedId("river.castle.42@example.com")).toBe(
-      "river.castle.42",
-    );
+    expect(
+      EmailParser.extractFeedId("river.castle.42@example.com")?.value,
+    ).toBe("river.castle.42");
   });
 
   it("is case-insensitive for the local part", () => {
-    expect(EmailParser.extractFeedId("River.Castle.42@example.com")).toBe(
-      "River.Castle.42",
-    );
+    expect(
+      EmailParser.extractFeedId("River.Castle.42@example.com")?.value,
+    ).toBe("River.Castle.42");
   });
 
   it("returns null for an address with no feed ID format", () => {

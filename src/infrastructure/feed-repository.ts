@@ -7,10 +7,10 @@ import {
   FeedMetadata,
 } from "../types";
 import { FEEDS_LIST_KEY } from "../config/constants";
-import { feedKeys } from "./feed-keys";
-import { Feed } from "./feed.aggregate";
-import { FeedId } from "./value-objects/feed-id";
-import { logger } from "../infrastructure/logger";
+import { feedKeys } from "../domain/feed-keys";
+import { Feed } from "../domain/feed.aggregate";
+import { FeedId } from "../domain/value-objects/feed-id";
+import { logger } from "./logger";
 
 /**
  * Single source of truth for KV access to the Feed aggregate. The key schema
