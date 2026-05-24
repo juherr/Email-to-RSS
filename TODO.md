@@ -2,52 +2,178 @@
 
 Feature gaps identified by comparing with [kill-the-newsletter](https://github.com/leafac/kill-the-newsletter).
 
+> **Origin tags.** Every idea carries an `_origin:_` reference so we can notify the source when it ships.
+>
+> - `ktn#N` → a [kill-the-newsletter issue/PR](https://github.com/leafac/kill-the-newsletter/issues) — **comment there when implemented** to close the loop with the requester.
+> - A tool/spec URL → external inspiration (a competitor or standard); no individual to notify, but the rationale is traceable.
+> - `internal` → our own design/code audit; no external requester.
+
+> **Priority × size.** Each idea is tagged `Pn·Size`. Priority by user value: **P1** (high) / **P2** (medium) / **P3** (nice-to-have). Effort by implementation size: **S** (hours) / **M** (~1–2 days) / **L** (several days) / **XL** (week+). Done items keep the tag as a retrospective estimate.
+
 ## Quick wins
 
-- [x] **Author field in RSS entries** — expose the `from` address as `<author>` in each RSS `<item>`. The value is already stored in KV, just not rendered in the feed XML.
+- [x] `P1·S` **Author field in RSS entries** — expose the `from` address as `<author>` in each RSS `<item>`. The value is already stored in KV, just not rendered in the feed XML. — _origin: [ktn#102](https://github.com/leafac/kill-the-newsletter/issues/102) (ktn CHANGELOG 2.0.6 "author to entry")_
 
-- [x] **HTML view for individual entries** — serve each email as an HTML page at e.g. `/entries/:feedId/:timestamp`. Useful for reading emails outside a feed reader and for debugging. kill-the-newsletter serves these at `/feeds/{feedId}/entries/{entryId}.html` with a Content-Security-Policy header.
+- [x] `P1·M` **HTML view for individual entries** — serve each email as an HTML page at e.g. `/entries/:feedId/:timestamp`. Useful for reading emails outside a feed reader and for debugging. kill-the-newsletter serves these at `/feeds/{feedId}/entries/{entryId}.html` with a Content-Security-Policy header. — _origin: upstream alternate-HTML view; gives each item a valid URL ([ktn#17](https://github.com/leafac/kill-the-newsletter/issues/17), [ktn#40](https://github.com/leafac/kill-the-newsletter/issues/40))_
 
-- [x] **JSON API for feed creation** — accept `Content-Type: application/json` on `POST /admin/feeds` and return `{ feedId, email, feedUrl }`. Useful for automation (e.g. Tofu/OpenTofu provisioning).
+- [x] `P2·S` **JSON API for feed creation** — accept `Content-Type: application/json` on `POST /admin/feeds` and return `{ feedId, email, feedUrl }`. Useful for automation (e.g. Tofu/OpenTofu provisioning). — _origin: [ktn#43](https://github.com/leafac/kill-the-newsletter/issues/43) (ktn CHANGELOG 2.0.5)_
 
-- [x] **Project favicon** — serve a single bundled icon at `/favicon.ico` and add a `<link rel="icon">` in the shared `Layout` so the admin UI, status page, and entry views stop 404-ing. Doubles as the default/fallback icon for the per-feed favicon feature below.
+- [x] `P2·S` **Project favicon** — serve a single bundled icon at `/favicon.ico` and add a `<link rel="icon">` in the shared `Layout` so the admin UI, status page, and entry views stop 404-ing. Doubles as the default/fallback icon for the per-feed favicon feature below. — _origin: internal (404 fix); related [ktn#131](https://github.com/leafac/kill-the-newsletter/issues/131)_
 
 ## Medium effort
 
-- [x] **Size-based feed trimming** — instead of a fixed 50-entry cap, drop the oldest entries when the feed exceeds a size threshold (kill-the-newsletter uses ~512 KB). More robust for HTML-heavy newsletters where one entry can dominate.
+- [x] `P2·M` **Size-based feed trimming** — instead of a fixed 50-entry cap, drop the oldest entries when the feed exceeds a size threshold (kill-the-newsletter uses ~512 KB). More robust for HTML-heavy newsletters where one entry can dominate. — _origin: upstream size limit (ktn CHANGELOG 2.0.8); related [ktn#59](https://github.com/leafac/kill-the-newsletter/issues/59), [ktn#115](https://github.com/leafac/kill-the-newsletter/issues/115)_
 
-- [x] **Atom feed format** — expose feeds as Atom (`application/atom+xml`) in addition to or instead of RSS 2.0. Atom has better native support for HTML content and author metadata.
+- [x] `P1·M` **Atom feed format** — expose feeds as Atom (`application/atom+xml`) in addition to or instead of RSS 2.0. Atom has better native support for HTML content and author metadata. — _origin: upstream (Atom-native product) / internal parity_
 
-- [x] **Authelia / external auth provider support** — allow delegating admin authentication to an external identity provider (e.g. Authelia, Authentik) via a trusted header (`Remote-User`, `X-Forwarded-User`) set by a reverse proxy. The Worker would accept the header as proof of authentication instead of checking the cookie, with a configurable secret or IP allowlist to trust only the proxy.
+- [x] `P3·M` **Authelia / external auth provider support** — allow delegating admin authentication to an external identity provider (e.g. Authelia, Authentik) via a trusted header (`Remote-User`, `X-Forwarded-User`) set by a reverse proxy. The Worker would accept the header as proof of authentication instead of checking the cookie, with a configurable secret or IP allowlist to trust only the proxy. — _origin: internal_
 
-- [x] **Per-feed favicon from the last sender's domain** — give each feed an icon by fetching the favicon of the last sender's domain, so feeds are visually distinguishable in readers and the admin UI. Resolve the domain from the most recent email's `from`, fetch its favicon (e.g. `https://<domain>/favicon.ico` or a parsed `<link rel="icon">`, with a fallback service), and cache the result aggressively (KV/R2 + Cache API with a long TTL) so it isn't re-fetched on every request. Expose it via the RSS `<image>` / Atom `<icon>` and the admin feed list.
+- [x] `P2·M` **Per-feed favicon from the last sender's domain** — give each feed an icon by fetching the favicon of the last sender's domain, so feeds are visually distinguishable in readers and the admin UI. Resolve the domain from the most recent email's `from`, fetch its favicon (e.g. `https://<domain>/favicon.ico` or a parsed `<link rel="icon">`, with a fallback service), and cache the result aggressively (KV/R2 + Cache API with a long TTL) so it isn't re-fetched on every request. Expose it via the RSS `<image>` / Atom `<icon>` and the admin feed list. — _origin: [ktn#92](https://github.com/leafac/kill-the-newsletter/issues/92) (ktn CHANGELOG 2.0.6/2.0.7)_
 
-- [x] **RFC 8058 one-click unsubscribe on feed deletion** — when a feed is deleted, automatically unsubscribe from the newsletters that fed it so messages stop arriving at the now-dead address. Parse and store the `List-Unsubscribe` / `List-Unsubscribe-Post` headers ([RFC 8058](https://www.rfc-editor.org/rfc/rfc8058.txt)) from incoming emails, then on deletion POST `List-Unsubscribe=One-Click` to each stored unsubscribe URL. Requires capturing the headers during ingestion (`src/lib/email-processor.ts`) and firing the outbound requests from the feed-delete paths (`src/routes/admin/feeds.tsx`), ideally via `ctx.waitUntil`.
+- [x] `P2·M` **RFC 8058 one-click unsubscribe on feed deletion** — when a feed is deleted, automatically unsubscribe from the newsletters that fed it so messages stop arriving at the now-dead address. Parse and store the `List-Unsubscribe` / `List-Unsubscribe-Post` headers ([RFC 8058](https://www.rfc-editor.org/rfc/rfc8058.txt)) from incoming emails, then on deletion POST `List-Unsubscribe=One-Click` to each stored unsubscribe URL. Requires capturing the headers during ingestion (`src/lib/email-processor.ts`) and firing the outbound requests from the feed-delete paths (`src/routes/admin/feeds.tsx`), ideally via `ctx.waitUntil`. — _origin: internal ([RFC 8058](https://www.rfc-editor.org/rfc/rfc8058.txt))_
 
 ## Heavy
 
-- [x] **Email attachments as RSS enclosures** — store attachments in Cloudflare R2 and expose them as `<enclosure>` elements in the feed. kill-the-newsletter serves them at `/files/{enclosureId}/{filename}`.
+- [x] `P1·L` **Email attachments as RSS enclosures** — store attachments in Cloudflare R2 and expose them as `<enclosure>` elements in the feed. kill-the-newsletter serves them at `/files/{enclosureId}/{filename}`. — _origin: [ktn#66](https://github.com/leafac/kill-the-newsletter/issues/66), [ktn#86](https://github.com/leafac/kill-the-newsletter/issues/86) (ktn CHANGELOG 2.0.5)_
 
-- [x] **WebSub (PubSubHubbub) push notifications** — notify subscribers in real time when a new email arrives, instead of requiring them to poll the feed. Requires either integrating a public WebSub hub or implementing the hub protocol directly.
+- [x] `P2·L` **WebSub (PubSubHubbub) push notifications** — notify subscribers in real time when a new email arrives, instead of requiring them to poll the feed. Requires either integrating a public WebSub hub or implementing the hub protocol directly. — _origin: [ktn#68](https://github.com/leafac/kill-the-newsletter/issues/68) (ktn CHANGELOG 2.0.4)_
 
-- [x] **Rate limiting via Cloudflare WAF rules** — protect `/api/inbound` and `/admin` against abuse. Configure WAF custom rules in the Cloudflare dashboard (or via Terraform): rate-limit `/api/inbound` to ~60 req/min per IP, and `/admin` to ~20 req/min per IP. No code changes required; this is pure infrastructure configuration.
+- [x] `P2·S` **Rate limiting via Cloudflare WAF rules** — protect `/api/inbound` and `/admin` against abuse. Configure WAF custom rules in the Cloudflare dashboard (or via Terraform): rate-limit `/api/inbound` to ~60 req/min per IP, and `/admin` to ~20 req/min per IP. No code changes required; this is pure infrastructure configuration. — _origin: upstream parity (ktn CHANGELOG 2.0.3) / internal_
 
-- [x] **REST API with OpenAPI description** — expose a documented, machine-consumable REST API for feed/email management (create/list/update/delete feeds, list/read/delete emails, read stats) so the service can be automated without scraping the admin UI. Implemented as a versioned `/api/v1/*` surface (Bearer-token auth with the admin password, plus the existing proxy-auth) built on `@hono/zod-openapi`; the OpenAPI 3.1 spec is served at `/api/openapi.json` with a Scalar docs page at `/api/docs`. Feed create/update/delete logic was extracted into `src/lib/feed-service.ts` so the admin UI and the REST API share a single source of truth.
+- [x] `P2·L` **REST API with OpenAPI description** — expose a documented, machine-consumable REST API for feed/email management (create/list/update/delete feeds, list/read/delete emails, read stats) so the service can be automated without scraping the admin UI. Implemented as a versioned `/api/v1/*` surface (Bearer-token auth with the admin password, plus the existing proxy-auth) built on `@hono/zod-openapi`; the OpenAPI 3.1 spec is served at `/api/openapi.json` with a Scalar docs page at `/api/docs`. Feed create/update/delete logic was extracted into `src/lib/feed-service.ts` so the admin UI and the REST API share a single source of truth. — _origin: [ktn#43](https://github.com/leafac/kill-the-newsletter/issues/43)_
 
-- [ ] **Migrate feed metadata to Durable Objects for atomic writes** — the current KV-based metadata store has a read-modify-write race condition: two concurrent emails to the same feed can silently overwrite each other's changes. Cloudflare Durable Objects serialise access per feed and eliminate the race entirely. Requires replacing `feed:<feedId>:metadata` KV writes in `src/lib/email-processor.ts` with a Durable Object that exposes an `appendEmail()` RPC, updating `wrangler.toml` with a DO binding, and migrating existing metadata at deploy time.
+- [ ] `P3·XL` **Migrate feed metadata to Durable Objects for atomic writes** — the current KV-based metadata store has a read-modify-write race condition: two concurrent emails to the same feed can silently overwrite each other's changes. Cloudflare Durable Objects serialise access per feed and eliminate the race entirely. Requires replacing `feed:<feedId>:metadata` KV writes in `src/lib/email-processor.ts` with a Durable Object that exposes an `appendEmail()` RPC, updating `wrangler.toml` with a DO binding, and migrating existing metadata at deploy time. — _origin: internal; same race behind [ktn#6](https://github.com/leafac/kill-the-newsletter/issues/6), [ktn#31](https://github.com/leafac/kill-the-newsletter/issues/31)_
+
+## From upstream issues/PRs (2026-05-24 review)
+
+Gaps found by reading every open/closed issue + PR on [kill-the-newsletter](https://github.com/leafac/kill-the-newsletter/issues). These are requests we do **not** yet satisfy (many other recurring requests — dark mode, copy buttons, favicon, expiration, attachments, API, WebSub, sender-in-author — we already cover).
+
+- [ ] `P1·M` **Subscription confirmation handling** — _the single most recurring upstream request_ ([#5](https://github.com/leafac/kill-the-newsletter/issues/5), [#23](https://github.com/leafac/kill-the-newsletter/issues/23), [#57](https://github.com/leafac/kill-the-newsletter/issues/57), [#73](https://github.com/leafac/kill-the-newsletter/issues/73), [#89](https://github.com/leafac/kill-the-newsletter/issues/89), [#95](https://github.com/leafac/kill-the-newsletter/issues/95), [#97](https://github.com/leafac/kill-the-newsletter/issues/97)). Newsletters require a "click to confirm your email" step; users can't easily find/click the link buried in a feed reader. Our admin already lists emails, but nothing **surfaces** the confirmation link or shows the first email inline right after feed creation. Low effort, high payoff (admin UX in `src/routes/admin/feeds.tsx` + maybe extract candidate confirm links during ingestion in `src/application/email-processor.ts`).
+
+- [ ] `P1·M` **Separate write (email) / read (feed) IDs** — _most-requested privacy gap, still open upstream_ ([#114](https://github.com/leafac/kill-the-newsletter/issues/114), [#93](https://github.com/leafac/kill-the-newsletter/issues/93), [#75](https://github.com/leafac/kill-the-newsletter/issues/75)). Today `feedEmailAddress = <feedId>@domain` and `/rss/<feedId>` reuse the **same** id (`src/infrastructure/urls.ts`), so anyone with the inbound address can read the feed (and vice-versa) — you can't share a feed without leaking its subscribe address. Add a distinct read id alongside the write id: touch `FeedState`, id generation (`FeedId`), `urls.ts`, the `inbound` parse, and the feed-list/registry. Medium effort.
+
+- [ ] `P2·M` **Proxy/prefetch remote images** ([#69](https://github.com/leafac/kill-the-newsletter/issues/69)). We already proxy inline `cid:` images via R2, but remote `<img src="https://…">` stay remote → tracking pixels fire on read. Extend `src/infrastructure/html-processor.ts` to rewrite remote image src through a worker proxy/cache endpoint (reuse the R2 + Cache API pattern from favicons).
+
+- [ ] `P3·M` **Tracking-link redirect resolver** ([#36](https://github.com/leafac/kill-the-newsletter/issues/36)). Unwrap marketing/tracking URLs (e.g. `click.convertkit-mail…`) to their final destination so the redirect/tracking happens server-side (or is stripped) instead of from the reader. Lives in `src/infrastructure/html-processor.ts`. Mind SSRF/abuse surface when following redirects.
+
+- [ ] `P2·S` **Strip-styles / plaintext rendering option** ([#74](https://github.com/leafac/kill-the-newsletter/issues/74), [#119](https://github.com/leafac/kill-the-newsletter/issues/119)). Some readers render newsletter HTML/CSS poorly. Offer an opt-in to strip `<style>` + inline styles (keeping links), or to prefer the `text/plain` part. Per-feed setting + `src/infrastructure/html-processor.ts`.
+
+- [ ] `P2·S` **Optional sender in entry title** ([#123 — open PR upstream](https://github.com/leafac/kill-the-newsletter/pull/123), [#124](https://github.com/leafac/kill-the-newsletter/issues/124)). We already emit `<author>`, but some users want `[Sender] Subject` as the entry title for at-a-glance scanning in the reader. Per-feed toggle + `src/infrastructure/feed-generator.ts`.
+
+- [ ] `P2·S` **Detect a newsletter's native Atom/RSS feed** — _top item on upstream's own [TODO](https://github.com/leafac/kill-the-newsletter/blob/main/TODO.md), not yet built there_. When an incoming email's HTML contains `<link rel="alternate" type="application/atom+xml">` (or `application/rss+xml`), surface it: "this newsletter already publishes a feed — subscribe to it directly instead." We already parse HTML with linkedom in `src/infrastructure/html-processor.ts`, so detection is cheap; store the discovered URL on the feed and show it in the admin UI / a feed entry. A genuine differentiator — we'd ship it before upstream.
+
+- [ ] `P1·S` **`X-Robots-Tag: none` on feed + entry routes** ([#33](https://github.com/leafac/kill-the-newsletter/issues/33)). Private feeds/emails should never be search-indexed. Upstream sets `X-Robots-Tag: none` on its responses; we set a CSP on `/entries` but **no** robots header anywhere. Add `X-Robots-Tag: noindex` to `rss.ts`, `atom.ts`, `entries.ts`, `files.ts` (and optionally a `/robots.txt`). Low effort, real privacy gap.
+
+## From similar projects & RSS readers (2026-05-24 review)
+
+Ideas from competitors (Feedbin, Readwise Reader, Inoreader, Omnivore, LetterFeed, Mailbrew, mail2rss) and from what leading readers (NetNewsWire, Reeder, Feedly, Inoreader, NewsBlur, Miniflux, FreshRSS) can consume. Deduplicated against the upstream-issues section above. Tagged **[table-stakes]** vs **[differentiating]**.
+
+### Feed-output enrichments (small XML wins — we use the `feed` lib, which already emits `content:encoded`, `atom:link rel="self"`, stable `<guid>`)
+
+- [ ] `P2·S` **JSON Feed 1.1 endpoint** `GET /json/:feedId` **[differentiating, cheap]** — the `feed` lib already supports `.json1()`; we only expose `.rss2()`/`.atom1()` (`src/infrastructure/feed-generator.ts`). Natively consumed by NetNewsWire, Reeder, NewsBlur, Feedly. ~1 route + 1 generator fn. — _origin: [JSON Feed 1.1 spec](https://www.jsonfeed.org/version/1.1/) (reader ecosystem)_
+
+- [ ] `P2·M` **Per-item `<category>` + per-feed tags/categories** **[differentiating]** — we set no categories today. Tag entries by sender (or a user-set feed category) so readers (Inoreader, Feedly, NewsBlur) can filter/mute subsets. Pairs with the filtering item below; touches `FeedState`, `feed-generator.ts`. — _origin: [RSS best practices (kevincox)](https://kevincox.ca/2022/05/06/rss-feed-best-practices/); Inoreader/Feedly filtering_
+
+- [ ] `P3·S` **Reader cadence hints: `<ttl>` + `sy:updatePeriod`/`sy:updateFrequency`** **[table-stakes, niche]** — advertise the feed's real update rhythm so pollers (FreshRSS, Miniflux, Inoreader) back off; complements our WebSub push. Support is uneven, so keep it as a hint alongside WebSub. Also advertise the WebSub hub link _inside_ the XML (`<atom:link rel="hub">`), not only the HTTP `Link` header. — _origin: [FreshRSS TTL #6721](https://github.com/FreshRSS/FreshRSS/issues/6721)_
+
+- [ ] `P2·M` **Media RSS lead image (`<media:content>`/`<media:thumbnail>`)** **[differentiating]** — extract the first image of each email as a thumbnail so card/story layouts (Feedly, Inoreader, NewsBlur) show a preview. The `feed` lib doesn't emit Media RSS, so this needs post-processing or a custom serializer. — _origin: [Media RSS spec](https://www.rssboard.org/media-rss); Feedly/Inoreader consume it_
+
+### Ingestion & processing
+
+- [ ] `P2·M` **Keyword/subject filtering rules (keep/drop)** **[differentiating]** — we already have _sender_ allow/block (`SenderPolicy`), but no content rules. Add per-feed keep/drop rules by subject or body keyword (Inoreader/Omnivore-style), applied in `src/application/email-processor.ts` at the same gate as the sender policy. — _origin: [Inoreader rules](https://www.inoreader.com/blog/2020/02/declutter-your-inbox-subscribe-to-email-newsletters-straight-into-inoreader.html); Omnivore filters_
+
+- [ ] `P2·M` **Confirmation-code relay** **[differentiating]** — _extends the "Subscription confirmation handling" item above_. Readwise Reader auto-detects "reply with code X" / "click to confirm" emails and surfaces (or relays) the code. Beyond just showing the link: detect the confirm pattern and present a one-tap action in admin. — _origin: [Readwise Reader docs](https://docs.readwise.io/reader/docs/faqs/email-newsletters); also [ktn#89](https://github.com/leafac/kill-the-newsletter/issues/89) (reply-to-confirm)_
+
+- [ ] `P3·XL` **IMAP-pull ingestion option** **[differentiating for self-hosters]** — alternative to the ForwardEmail/Cloudflare-Email webhook: poll an existing IMAP mailbox and route allow-listed senders to feeds (LetterFeed model). Big lift on a Worker (needs a scheduled fetch + IMAP over a TCP socket / external relay); evaluate feasibility before committing. — _origin: [LetterFeed](https://github.com/LeonMusCoden/LetterFeed); also [ktn#26](https://github.com/leafac/kill-the-newsletter/issues/26) (use IMAP instead of hosting a mail server)_
+
+### Reading experience
+
+- [ ] `P2·S` **OPML export** `GET /opml` **[table-stakes, easy]** — export all feeds as an OPML outline so users can bulk-import every feed into their reader in one shot. Every reader imports OPML; strong onboarding/migration win. Pure read over the feed registry. — _origin: reader ecosystem ([NetNewsWire](https://github.com/Ranchero-Software/NetNewsWire/)); Feedbin OPML export_
+
+- [ ] `P2·L` **Full-text search across received emails** **[differentiating]** — admin-side search over subjects + bodies (Omnivore/Feedbin have this). On KV this means an index or scan; consider scope (subject-only first) before building. — _origin: [Omnivore](https://www.timeatlas.com/omnivore-newsletters/); Feedbin search_
+
+- [ ] `P3·L` **Readability / clean-text view toggle** **[differentiating]** — _related to "strip-styles" above but distinct_: run a readability extraction (article body only) as an opt-in per feed, remembered per sender (Readwise pattern), rather than just stripping CSS. — _origin: [Readwise Reader feed docs](https://docs.readwise.io/reader/docs/faqs/feed)_
+
+### Greenfield differentiators
+
+- [ ] `P2·L` **AI per-newsletter summarization** **[differentiating]** — generate a short TL;DR per email (or a daily digest summary) using Cloudflare Workers AI (no new vendor, no key to manage). Almost no competitor ships this well. Add an `AI` binding + an opt-in per-feed flag; render the summary atop the entry content. — _origin: [Precis](https://github.com/leozqin/precis), [babarot AI reader](https://dev.to/babarot/i-built-a-self-hosted-rss-reader-with-ai-summarization-translation-and-an-mcp-server-316c)_
+
+- [ ] `P3·L` **Digest / bundling mode** **[differentiating]** — for low-volume feeds, batch N emails into a single periodic digest entry (Mailbrew model) so readers aren't flooded. Per-feed cadence setting; runs on the existing cron. — _origin: [Mailbrew](https://www.readless.app/blog/mailbrew-pricing-2026)_
+
+## Robustness, delivery, auth & integrations (2026-05-24 deep dig)
+
+Verified-missing in our code, deduplicated against the sections above. From a code audit + a sweep of niche/recent tools (Precis, changedetection.io+Apprise, MailCast email-to-podcast, FreshRSS/Miniflux token auth, RFC 5005, postly dedup).
+
+### Delivery / bandwidth
+
+- [ ] `P2·S` **Conditional GET on feeds (ETag + Last-Modified + 304)** **[table-stakes, easy]** — `rss.ts`/`atom.ts` only send `Cache-Control: max-age=1800`; no validators. Emit a strong `ETag` (hash of the latest entry id + count) and `Last-Modified` (newest `receivedAt`), and return `304 Not Modified` on `If-None-Match`/`If-Modified-Since`. Cuts bandwidth for every polling reader. Generate the ETag _before_ compression. — _origin: internal code audit ([RFC 9110 conditional requests](https://www.rfc-editor.org/rfc/rfc9110#name-conditional-requests))_
+
+- [ ] `P3·L` **RFC 5005 paged / archived feeds** **[differentiating, niche]** — readers only ever see the capped current window; older entries vanish. Mark the subscription document `fh:complete` and expose `prev-archive` pages so readers can backfill history. Pairs naturally with our expiring-feed model (an expired feed = a sealed archive). ([RFC 5005](https://www.rfc-editor.org/rfc/rfc5005.html))
+
+### Ingestion robustness
+
+- [ ] `P1·M` **Duplicate-send dedup** **[differentiating]** — the same newsletter resent (or delivered twice) creates two entries today (key = `receivedAt`). Dedup by `Message-ID` first, then a SHA-256 of normalized subject+body within a short window, in `src/application/email-processor.ts`. Fixes the upstream "duplicate posts" complaint ([#31](https://github.com/leafac/kill-the-newsletter/issues/31), [#6](https://github.com/leafac/kill-the-newsletter/issues/6)).
+
+- [ ] `P3·M` **Calendar (.ics) invite extraction** **[differentiating, novel]** — no email→feed tool does this. Detect `text/calendar` parts, parse the event, and surface it in the entry (summary + an `.ics` enclosure / add-to-calendar link). Useful for event/booking newsletters. — _origin: internal (novel; no external requester)_
+
+- [ ] `P2·S` **`FALLBACK_FORWARD_ADDRESS` — catch-all fallback forwarding** **[differentiating for self-hosters]** — today `handleCloudflareEmail` silently drops (just `logger.warn`) any address that isn't a feed, so you can't point a domain's _catch-all_ at KTN without swallowing your personal mail. Add an optional `FALLBACK_FORWARD_ADDRESS` env var: after `processEmail`, forward non-feed mail to it based on `result.reason` — **forward** on `invalid_address` (not a `noun.noun.NN` address) and `feed_not_found` (well-formed but no such feed); **drop** on `feed_expired` and `sender_blocked` (don't leak a newsletter to the fallback box); nothing on `ok`. Unset env → current drop+log behavior unchanged. The destination must be a _verified_ Cloudflare Email Routing address or `message.forward()` fails; `await` it in a `try/catch` (`logger.warn` on failure), forward at most once. Touch: `Env` (`src/types/index.ts`), `src/infrastructure/cloudflare-email.ts` (`result.reason` already available), `cloudflare-email.test.ts` (forwarded for `feed_not_found`/`invalid_address` when set; not for `feed_expired`/`sender_blocked`; not when unset), `wrangler-example.toml` (commented `# FALLBACK_FORWARD_ADDRESS` under `[vars]`), `INSTALL.md` ("Catch-all fallback forwarding" section: verified-destination prerequisite + use case). — _origin: internal (juherr — self-host on juherr.dev catch-all); generic "use KTN as my domain's catch-all"_
+
+### Auth & privacy
+
+- [ ] `P2·M` **Scoped / multiple API tokens** **[security]** — the REST API currently accepts the single `ADMIN_PASSWORD` as the bearer (`src/infrastructure/auth.ts`). Add named, independently-revocable tokens (optionally read-only or feed-scoped) so automation doesn't hold the master password. — _origin: internal security audit_
+
+- [ ] `P2·M` **Token-protected private feeds** **[security, differentiating]** — `/rss` and `/atom` are public-by-obscurity (anyone with the URL reads it). Offer an opt-in `?token=…` (FreshRSS-style) or HMAC-signed, optionally expiring URL (fits our expiring-feed model) so a feed can be truly private and shareable without leaking the inbound address. Complements the _separate write/read IDs_ item above. ([FreshRSS](https://freshrss.github.io/FreshRSS/en/admins/09_AccessControl.html))
+
+### Push & integrations
+
+- [ ] `P2·L` **Push new items to chat (per-feed)** **[differentiating]** — for users who don't run a reader, push each new email to Telegram / Discord / ntfy / a generic webhook, routed per feed, instant-vs-digest toggle (Precis / changedetection.io+Apprise pattern). Fires from the existing event dispatcher (`src/application/feed-events.ts`) via `ctx.waitUntil`. ([Precis](https://github.com/leozqin/precis))
+
+### Novel / stretch (Cloudflare-native)
+
+- [ ] `P3·M` **MCP server over your feeds** **[differentiating, novel]** — expose feeds/emails to AI agents via a Model Context Protocol endpoint on the Worker, so an assistant can read/search a user's newsletters. Cheap to add on a Worker, genuinely new in this space. — _origin: [babarot AI reader + MCP](https://dev.to/babarot/i-built-a-self-hosted-rss-reader-with-ai-summarization-translation-and-an-mcp-server-316c)_
+
+- [ ] `P3·L` **Email-to-podcast (TTS audio enclosure)** **[differentiating, novel]** — opt-in: synthesize each newsletter to audio (Cloudflare Workers AI TTS), store in R2, attach as an `<enclosure>` so the feed doubles as a private podcast. Reframes feed item = audio. ([prior art](https://github.com/tcanfarotta/email-to-podcast-rss))
+
+> Framing notes (no code, worth surfacing in docs/landing): we already deliver several things competitors charge for — **full-body capture bypasses Substack/"read more" truncation** (we ingest the email, not the scraped page), and each feed's inbound address is effectively a **burnable alias** (delete the feed + RFC 8058 one-click unsubscribe already kills the sender). Market these explicitly.
+
+## Feed namespaces & reader-rendering correctness (2026-05-24 deep dig)
+
+Two final angles: (1) less-common RSS/Atom namespaces that visibly improve feeds in real readers, and (2) generator-side correctness fixes that stop feeds breaking in self-hosted readers. The `feed` lib emits `content:encoded`/`atom:link rel=self`/stable `<guid>` but does **not** handle the items below — they need its custom-namespace/extension hooks or a post-process pass.
+
+### Namespaces worth emitting
+
+- [ ] `P2·S` **WebFeeds branding (`webfeeds:accentColor`, `webfeeds:icon`, `webfeeds:logo`, `webfeeds:cover`)** **[differentiating, high visible payoff]** — Feedly puts your SVG logo on every story and recolors links to your accent color. We already derive a per-feed favicon; add an accent + logo for branded-looking feeds. — _origin: [Working With Web Feeds (CSS-Tricks)](https://css-tricks.com/working-with-web-feeds-its-more-than-rss/)_
+
+- [ ] `P2·M` **Media RSS thumbnail/credit (`media:thumbnail`, `media:description`, `media:credit`)** **[differentiating]** — richer than the lead-image item above: gives readers a card image, alt text, and attribution. — _origin: [Media RSS spec](https://www.rssboard.org/media-rss)_
+
+- [ ] `P3·S` **Dublin Core `dc:creator`** **[niche, cheap]** — credits the newsletter sender **without** an email address (RSS `<author>` requires one); safer than a synthetic `noreply@`. — _origin: [RSS Best Practices Profile](https://www.rssboard.org/rss-profile), [mod_dublincore](https://www.oreilly.com/library/view/developing-feeds-with/0596008813/re08.html)_
+
+- [ ] `P3·M` **Podcast namespace (`itunes:*` + `podcast:transcript`/`chapters`)** **[stretch]** — only if the email-to-podcast item ships; turns the audio feed into a real Podcasting 2.0 feed. — _origin: [Podcast Namespace](https://podcasting2.org/docs/podcast-namespace)_
+
+### Reader-rendering correctness (turn these into hardening tasks)
+
+- [ ] `P1·S` **Rewrite relative URLs in content to absolute** **[correctness]** — most readers ignore `xml:base`; relative `src`/`href` in `content:encoded` break in Miniflux/NetNewsWire. Absolutize every link/image before emitting (`src/infrastructure/html-processor.ts`). — _origin: [W3C ContainsRelRef](https://validator.w3.org/feed/docs/warning/ContainsRelRef.html)_
+
+- [ ] `P1·S` **Promote lazy-loaded images (`data-src` → `src`, strip `loading="lazy"`)** **[correctness]** — newsletters with lazy images render blank in readers. — _origin: [Hugo RSS & lazy images](https://brainbaking.com/post/2021/01/hugo-rss-feeds-and-lazy-image-loading/)_
+
+- [ ] `P1·S` **Strip XML-illegal control chars + guarantee valid UTF-8** **[correctness]** — a single bad codepoint fails the _whole_ feed parse in strict readers (newsboat). Sanitize before serialization. — _origin: [newsboat #2328](https://github.com/newsboat/newsboat/issues/2328), [W3C SAXError](https://validator.w3.org/feed/docs/error/SAXError.html); upstream hit this too ([ktn#1](https://github.com/leafac/kill-the-newsletter/issues/1) cyrillic, [ktn#9](https://github.com/leafac/kill-the-newsletter/issues/9) invalid XML char)_
+
+- [ ] `P2·S` **Real `enclosure` byte length + correct type (never `length="0"`)** **[correctness]** — zero/missing length makes podcast clients reject the enclosure; use the actual R2 object size. — _origin: [AzuraCast #7809](https://github.com/AzuraCast/AzuraCast/issues/7809)_
+
+- [ ] `P1·S` **Plain-text `<title>` (strip HTML, decode entities)** **[correctness]** — raw tags in titles show literally in readers; keep markup only in `content`. — _origin: [RSS.app feed output guide](https://help.rss.app/en/articles/10769849-guide-to-feed-output); upstream [ktn#11](https://github.com/leafac/kill-the-newsletter/issues/11) (subject placed as link)_
 
 ## Per-feed favicon — design notes
 
-Breakdown of the _"Per-feed favicon from the last sender's domain"_ item above. Goal: each feed shows an icon derived from its newsletter source, fetched once and cached so it never re-fetches on a normal request.
+Breakdown of the _"Per-feed favicon from the last sender's domain"_ item above (the parent is `P2·M`; these sub-tasks are each ~`S`). Goal: each feed shows an icon derived from its newsletter source, fetched once and cached so it never re-fetches on a normal request.
 
-- [x] **Resolve the sender domain** — on ingestion, extract the domain from the latest email's `from` address (`extractEmailDomain` in `src/utils/favicon-fetcher.ts`) and persist it as `iconDomain` on the feed metadata so the icon tracks the most recent sender.
+- [x] `P2·S` **Resolve the sender domain** — on ingestion, extract the domain from the latest email's `from` address (`extractEmailDomain` in `src/utils/favicon-fetcher.ts`) and persist it as `iconDomain` on the feed metadata so the icon tracks the most recent sender.
 
-- [x] **Fetch the favicon** — resolve an icon URL for the domain: try `https://<domain>/favicon.ico`, then fall back to `https://icons.duckduckgo.com/ip3/<domain>.ico`. Runs async via `ctx.waitUntil` so it never blocks email processing.
+- [x] `P2·S` **Fetch the favicon** — resolve an icon URL for the domain: try `https://<domain>/favicon.ico`, then fall back to `https://icons.duckduckgo.com/ip3/<domain>.ico`. Runs async via `ctx.waitUntil` so it never blocks email processing.
 
-- [x] **Cache aggressively** — store the fetched bytes (base64) keyed by domain in KV with a 1-week TTL (`ICON_TTL_SECONDS`). The domain is the cache key so feeds from the same sender share one fetch; the fetch only fires when the cache entry is absent/expired.
+- [x] `P2·S` **Cache aggressively** — store the fetched bytes (base64) keyed by domain in KV with a 1-week TTL (`ICON_TTL_SECONDS`). The domain is the cache key so feeds from the same sender share one fetch; the fetch only fires when the cache entry is absent/expired.
 
-- [x] **Serve endpoint** — `GET /favicon/:feedId` returns the cached bytes with the correct `Content-Type` and a long `Cache-Control`, falling back to the project favicon when no domain icon is found.
+- [x] `P2·S` **Serve endpoint** — `GET /favicon/:feedId` returns the cached bytes with the correct `Content-Type` and a long `Cache-Control`, falling back to the project favicon when no domain icon is found.
 
-- [x] **Expose in outputs** — the icon is referenced from the RSS `<image>` and Atom `<icon>`/`<logo>` in `src/utils/feed-generator.ts`, and rendered next to each feed in the admin list/table (`src/routes/admin.tsx`).
+- [x] `P2·S` **Expose in outputs** — the icon is referenced from the RSS `<image>` and Atom `<icon>`/`<logo>` in `src/utils/feed-generator.ts`, and rendered next to each feed in the admin list/table (`src/routes/admin.tsx`).
 
-- [x] **Failure handling** — missing/blocked favicons degrade gracefully to the project favicon fallback (negative cache entry); icon fetch errors never surface to ingestion or feed rendering.
+- [x] `P2·S` **Failure handling** — missing/blocked favicons degrade gracefully to the project favicon fallback (negative cache entry); icon fetch errors never surface to ingestion or feed rendering.
