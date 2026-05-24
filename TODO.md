@@ -177,3 +177,56 @@ Breakdown of the _"Per-feed favicon from the last sender's domain"_ item above (
 - [x] `P2·S` **Expose in outputs** — the icon is referenced from the RSS `<image>` and Atom `<icon>`/`<logo>` in `src/utils/feed-generator.ts`, and rendered next to each feed in the admin list/table (`src/routes/admin.tsx`).
 
 - [x] `P2·S` **Failure handling** — missing/blocked favicons degrade gracefully to the project favicon fallback (negative cache entry); icon fetch errors never surface to ingestion or feed rendering.
+
+## Epic: Pluggable runtime, storage & ingestion (off-Cloudflare support)
+
+`P2·XL` **Run KTN off Cloudflare from one codebase, adapter-selected by config.** Reference non-CF target: **Clever Cloud** (container + Cellar S3 + a KV/SQL add-on) with **Sweego** inbound for email. — _origin: internal (broader audience / reduced lock-in)_
+
+**Context / motivation.** KTN is Cloudflare-native: Workers runtime, KV + R2 bindings, Email Workers, cron triggers. The v0.2.0 DDD refactor already introduced the seams that make portability tractable — KV access is behind repository adapters (`FeedRepository`, `IconRepository`, `WebSubSubscriptionRepository`, `CountersRepository`), ingestion is transport-agnostic (`processEmail` is decoupled from the CF email handler, and a webhook path `/api/inbound` already exists), HTTP is Hono (runtime-agnostic), and background work is abstracted behind `BackgroundScheduler`. This epic turns those seams into selectable adapters so KTN can run on a plain Node/container host with non-CF storage and email ingestion.
+
+**Goal / outcome.** KTN runs on two reference profiles from one codebase:
+
+- **A — CF-native (today):** Workers + KV + R2 + Cloudflare Email Routing.
+- **B — Clever+Sweego:** Node container + Cellar (S3 blob) + KV-store add-on + Sweego inbound webhook + Node scheduler.
+
+Adapter chosen by config (env), no code change. Same test suite green on both.
+
+**Coupling points → adapters.**
+
+| Area               | CF-native (today)                                      | New adapter (target B)                                         |
+| ------------------ | ------------------------------------------------------ | -------------------------------------------------------------- |
+| Runtime/entrypoint | `export default { fetch, email, scheduled }`           | Node entrypoint (`@hono/node-server`) + Dockerfile             |
+| HTTP               | Hono (portable)                                        | Hono (no change; abstract CF-only globals)                     |
+| KV store           | `KVNamespace` binding                                  | SQL (Postgres/SQLite) or Redis (Materia KV) adapter            |
+| Blob/attachments   | `R2Bucket` binding                                     | S3-compatible (Cellar) via aws4fetch/S3 client                 |
+| Email ingestion    | CF Email Worker (`ForwardableEmailMessage`)            | Sweego inbound webhook → `/api/inbound`                        |
+| Cron cleanup       | CF cron trigger                                        | Node scheduler (node-cron) or external trigger                 |
+| Background         | `ctx.waitUntil` (already behind `BackgroundScheduler`) | run-and-await Node impl                                        |
+| Config/DI          | CF bindings on `Env`                                   | driver-selection layer (`*_DRIVER` envs) wiring repos→backends |
+
+**Sub-tasks (deliverable independently).**
+
+- [ ] `P2·M` **Storage driver abstraction + config layer** — formalize the repository interfaces already implied by `FeedRepository` et al.; add a DI/config layer selecting backends from env. Foundation; no behavior change on CF. — _origin: internal_
+- [ ] `P2·M` **Blob adapter: S3-compatible (Cellar)** — put attachments behind a `BlobStore` interface; CF R2 + S3 (aws4fetch, works on Workers and Node). Lowest risk, immediately reusable. — _origin: internal_
+- [ ] `P2·L` **KV-store adapter for self-host** — implement the key schema over SQL (recommended: Postgres/SQLite for list-by-prefix semantics) and/or Redis. ⚠ If targeting Materia KV, confirm KTN never relies on `RENAME` (Materia lacks it — see consumer's ADR-0011); audit the single key schema. — _origin: internal_
+- [ ] `P2·L` **Node runtime entrypoint + container** — `@hono/node-server`, Dockerfile, health endpoint; abstract CF-only globals (`caches`, reliance on `CF-Connecting-IP` in proxy-auth → generalize to `X-Forwarded-For`/trusted-proxy config). — _origin: internal_
+- [ ] `P2·L` **Ingestion transport abstraction + Sweego adapter** — generalize `/api/inbound` to provider-agnostic: pluggable payload parser (Sweego JSON → `ProcessEmailInput`, mirroring `parseForwardEmailPayload`) + pluggable webhook auth (HMAC signature / shared secret / IP allowlist). Document that `message.forward()` fallback is CF-Email-Worker-only; on webhook transports, unmatched-mail handling is the provider's concern (Sweego catch-all is isolated to the inbound domain, so the fallback hack isn't needed). — _origin: internal_
+- [ ] `P2·M` **Scheduler adapter** — make `feed-cleanup` runnable via a Node scheduler or an authenticated `/internal/cron` endpoint for external triggers. — _origin: internal_
+- [ ] `P2·M` **CI matrix + docs** — build/test both targets; INSTALL.md Clever+Sweego profile; deployment guide. — _origin: internal_
+
+**Open questions (resolve before the Sweego adapter sub-task).**
+
+- Sweego inbound: webhook auth mechanism (HMAC? signed header? IP list?), JSON payload schema, and attachment delivery (inline base64 vs URLs vs multipart) — drives the parser + how attachments stream into the blob store.
+- Clever KV backend choice: Materia KV (Redis, no `RENAME`) vs Postgres add-on — decide from the key-op audit in the KV-store sub-task.
+
+**Out of scope.**
+
+- Running KTN's own SMTP/MTA server (inbound stays delegated: CF Email Routing, Sweego, or ForwardEmail). No port-25 listener.
+- Multi-tenant / multi-domain admin.
+
+**Acceptance criteria.**
+
+- One codebase deploys to both profiles via config only.
+- Full vitest suite green on both runtimes.
+- Documented end-to-end Clever+Sweego deploy: a newsletter to `noun.noun.NN@<inbound-domain>` lands in a feed; attachments served from Cellar; cleanup cron runs.
+- No regression on the CF-native profile.
