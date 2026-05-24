@@ -62,7 +62,7 @@ Gaps found by reading every open/closed issue + PR on [kill-the-newsletter](http
 
 - [ ] `P2·S` **Detect a newsletter's native Atom/RSS feed** — _top item on upstream's own [TODO](https://github.com/leafac/kill-the-newsletter/blob/main/TODO.md), not yet built there_. When an incoming email's HTML contains `<link rel="alternate" type="application/atom+xml">` (or `application/rss+xml`), surface it: "this newsletter already publishes a feed — subscribe to it directly instead." We already parse HTML with linkedom in `src/infrastructure/html-processor.ts`, so detection is cheap; store the discovered URL on the feed and show it in the admin UI / a feed entry. A genuine differentiator — we'd ship it before upstream.
 
-- [ ] `P1·S` **`X-Robots-Tag: none` on feed + entry routes** ([#33](https://github.com/leafac/kill-the-newsletter/issues/33)). Private feeds/emails should never be search-indexed. Upstream sets `X-Robots-Tag: none` on its responses; we set a CSP on `/entries` but **no** robots header anywhere. Add `X-Robots-Tag: noindex` to `rss.ts`, `atom.ts`, `entries.ts`, `files.ts` (and optionally a `/robots.txt`). Low effort, real privacy gap.
+- [x] `P1·S` **`X-Robots-Tag: none` on feed + entry routes** ([#33](https://github.com/leafac/kill-the-newsletter/issues/33)). Private feeds/emails should never be search-indexed. Upstream sets `X-Robots-Tag: none` on its responses; we set a CSP on `/entries` but **no** robots header anywhere. Add `X-Robots-Tag: noindex` to `rss.ts`, `atom.ts`, `entries.ts`, `files.ts` (and optionally a `/robots.txt`). Low effort, real privacy gap.
 
 ## From similar projects & RSS readers (2026-05-24 review)
 
@@ -152,15 +152,15 @@ Two final angles: (1) less-common RSS/Atom namespaces that visibly improve feeds
 
 ### Reader-rendering correctness (turn these into hardening tasks)
 
-- [ ] `P1·S` **Rewrite relative URLs in content to absolute** **[correctness]** — most readers ignore `xml:base`; relative `src`/`href` in `content:encoded` break in Miniflux/NetNewsWire. Absolutize every link/image before emitting (`src/infrastructure/html-processor.ts`). — _origin: [W3C ContainsRelRef](https://validator.w3.org/feed/docs/warning/ContainsRelRef.html)_
+- [x] `P1·S` **Rewrite relative URLs in content to absolute** **[correctness]** — most readers ignore `xml:base`; relative `src`/`href` in `content:encoded` break in Miniflux/NetNewsWire. Absolutize every link/image before emitting (`src/infrastructure/html-processor.ts`). — _origin: [W3C ContainsRelRef](https://validator.w3.org/feed/docs/warning/ContainsRelRef.html)_
 
-- [ ] `P1·S` **Promote lazy-loaded images (`data-src` → `src`, strip `loading="lazy"`)** **[correctness]** — newsletters with lazy images render blank in readers. — _origin: [Hugo RSS & lazy images](https://brainbaking.com/post/2021/01/hugo-rss-feeds-and-lazy-image-loading/)_
+- [x] `P1·S` **Promote lazy-loaded images (`data-src` → `src`, strip `loading="lazy"`)** **[correctness]** — newsletters with lazy images render blank in readers. — _origin: [Hugo RSS & lazy images](https://brainbaking.com/post/2021/01/hugo-rss-feeds-and-lazy-image-loading/)_
 
-- [ ] `P1·S` **Strip XML-illegal control chars + guarantee valid UTF-8** **[correctness]** — a single bad codepoint fails the _whole_ feed parse in strict readers (newsboat). Sanitize before serialization. — _origin: [newsboat #2328](https://github.com/newsboat/newsboat/issues/2328), [W3C SAXError](https://validator.w3.org/feed/docs/error/SAXError.html); upstream hit this too ([ktn#1](https://github.com/leafac/kill-the-newsletter/issues/1) cyrillic, [ktn#9](https://github.com/leafac/kill-the-newsletter/issues/9) invalid XML char)_
+- [x] `P1·S` **Strip XML-illegal control chars + guarantee valid UTF-8** **[correctness]** — a single bad codepoint fails the _whole_ feed parse in strict readers (newsboat). Sanitize before serialization. — _origin: [newsboat #2328](https://github.com/newsboat/newsboat/issues/2328), [W3C SAXError](https://validator.w3.org/feed/docs/error/SAXError.html); upstream hit this too ([ktn#1](https://github.com/leafac/kill-the-newsletter/issues/1) cyrillic, [ktn#9](https://github.com/leafac/kill-the-newsletter/issues/9) invalid XML char)_
 
 - [ ] `P2·S` **Real `enclosure` byte length + correct type (never `length="0"`)** **[correctness]** — zero/missing length makes podcast clients reject the enclosure; use the actual R2 object size. — _origin: [AzuraCast #7809](https://github.com/AzuraCast/AzuraCast/issues/7809)_
 
-- [ ] `P1·S` **Plain-text `<title>` (strip HTML, decode entities)** **[correctness]** — raw tags in titles show literally in readers; keep markup only in `content`. — _origin: [RSS.app feed output guide](https://help.rss.app/en/articles/10769849-guide-to-feed-output); upstream [ktn#11](https://github.com/leafac/kill-the-newsletter/issues/11) (subject placed as link)_
+- [x] `P1·S` **Plain-text `<title>` (strip HTML, decode entities)** **[correctness]** — raw tags in titles show literally in readers; keep markup only in `content`. — _origin: [RSS.app feed output guide](https://help.rss.app/en/articles/10769849-guide-to-feed-output); upstream [ktn#11](https://github.com/leafac/kill-the-newsletter/issues/11) (subject placed as link)_
 
 ## Per-feed favicon — design notes
 

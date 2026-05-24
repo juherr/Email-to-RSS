@@ -54,3 +54,17 @@ describe("CORS middleware", () => {
     expect(res.headers.get("Access-Control-Allow-Origin")).toBe("*");
   });
 });
+
+describe("GET /robots.txt", () => {
+  it("returns 200 and disallows the private feed/entry paths", async () => {
+    const res = await worker.fetch(req("/robots.txt"), env as unknown as Env);
+    expect(res.status).toBe(200);
+    const body = await res.text();
+    expect(body).toContain("User-agent: *");
+    expect(body).toContain("Disallow: /rss/");
+    expect(body).toContain("Disallow: /atom/");
+    expect(body).toContain("Disallow: /entries/");
+    expect(body).toContain("Disallow: /files/");
+    expect(body).toContain("Disallow: /admin/");
+  });
+});

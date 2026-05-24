@@ -184,6 +184,14 @@ app.get("/health", (c) => c.json({ status: "ok", timestamp: Date.now() }));
 // Public status page (counters + link to admin)
 app.get("/", handleHome);
 
+// Keep private feeds/emails out of search engines (defense in depth alongside
+// the X-Robots-Tag headers on the feed/entry/file responses).
+app.get("/robots.txt", (c) =>
+  c.text(
+    "User-agent: *\nDisallow: /rss/\nDisallow: /atom/\nDisallow: /entries/\nDisallow: /files/\nDisallow: /admin/\n",
+  ),
+);
+
 // Catch-all for 404s
 app.all("*", (c) => c.text("Not Found", 404));
 

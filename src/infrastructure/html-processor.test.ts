@@ -1,5 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { processEmailContent, extractInlineCids } from "./html-processor";
+import {
+  processEmailContent,
+  extractInlineCids,
+  htmlToText,
+} from "./html-processor";
 import type { AttachmentData } from "../types";
 
 describe("processEmailContent — body extraction", () => {
@@ -194,6 +198,105 @@ describe("processEmailContent — inline cid: rewriting", () => {
     const html = '<body><img src="https://example.com/a.png"/></body>';
     const result = processEmailContent(html, [attachment()]);
     expect(result).toContain('src="https://example.com/a.png"');
+  });
+});
+
+describe("processEmailContent — lazy image promotion", () => {
+  it("promotes data-src to src when src is missing", () => {
+    const html = '<body><img data-src="https://x.com/a.png"/></body>';
+    const result = processEmailContent(html);
+    expect(result).toContain('src="https://x.com/a.png"');
+  });
+
+  it("promotes data-src over a data: placeholder src", () => {
+    const html =
+      '<body><img src="data:image/gif;base64,AAAA" data-src="https://x.com/a.png"/></body>';
+    const result = processEmailContent(html);
+    expect(result).toContain('src="https://x.com/a.png"');
+    expect(result).not.toContain("data:image/gif");
+  });
+
+  it("does not clobber a real src with data-src", () => {
+    const html =
+      '<body><img src="https://real.com/a.png" data-src="https://lazy.com/b.png"/></body>';
+    const result = processEmailContent(html);
+    expect(result).toContain('src="https://real.com/a.png"');
+  });
+
+  it("promotes data-srcset when srcset is absent", () => {
+    const html = '<body><img data-srcset="https://x.com/a.png 2x"/></body>';
+    const result = processEmailContent(html);
+    expect(result).toContain('srcset="https://x.com/a.png 2x"');
+  });
+
+  it("strips loading=lazy", () => {
+    const html = '<body><img src="https://x.com/a.png" loading="lazy"/></body>';
+    const result = processEmailContent(html);
+    expect(result).not.toContain("loading");
+  });
+});
+
+describe("processEmailContent — relative URL absolutization", () => {
+  const base = "https://news.example.com/";
+
+  it("absolutizes a root-relative href against the sender base", () => {
+    const html = '<body><a href="/path">link</a></body>';
+    const result = processEmailContent(html, undefined, "", base);
+    expect(result).toContain('href="https://news.example.com/path"');
+  });
+
+  it("absolutizes a relative img src against the sender base", () => {
+    const html = '<body><img src="img/a.png"/></body>';
+    const result = processEmailContent(html, undefined, "", base);
+    expect(result).toContain('src="https://news.example.com/img/a.png"');
+  });
+
+  it("resolves protocol-relative URLs using https", () => {
+    const html = '<body><img src="//cdn.example.com/a.png"/></body>';
+    const result = processEmailContent(html, undefined, "", base);
+    expect(result).toContain('src="https://cdn.example.com/a.png"');
+  });
+
+  it("leaves absolute URLs unchanged", () => {
+    const html = '<body><a href="https://other.com/x">l</a></body>';
+    const result = processEmailContent(html, undefined, "", base);
+    expect(result).toContain('href="https://other.com/x"');
+  });
+
+  it("does not touch relative URLs when no sender base is given", () => {
+    const html = '<body><a href="/path">link</a></body>';
+    const result = processEmailContent(html);
+    expect(result).toContain('href="/path"');
+  });
+
+  it("does not absolutize mailto: or anchors", () => {
+    const html =
+      '<body><a href="mailto:x@y.com">m</a><a href="#top">t</a></body>';
+    const result = processEmailContent(html, undefined, "", base);
+    expect(result).toContain('href="mailto:x@y.com"');
+    expect(result).toContain('href="#top"');
+  });
+});
+
+describe("htmlToText", () => {
+  it("strips HTML tags", () => {
+    expect(htmlToText("<b>Bold</b> text")).toBe("Bold text");
+  });
+
+  it("decodes HTML entities", () => {
+    expect(htmlToText("Tom &amp; Jerry &lt;3")).toBe("Tom & Jerry <3");
+  });
+
+  it("collapses whitespace and trims", () => {
+    expect(htmlToText("  a\n\n  b  ")).toBe("a b");
+  });
+
+  it("returns empty string for empty input", () => {
+    expect(htmlToText("")).toBe("");
+  });
+
+  it("leaves plain text untouched", () => {
+    expect(htmlToText("Just a subject")).toBe("Just a subject");
   });
 });
 

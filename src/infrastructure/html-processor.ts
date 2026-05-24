@@ -2,6 +2,8 @@ import { parseHTML } from "linkedom";
 import escapeHtml from "escape-html";
 import type { AttachmentData } from "../types";
 
+type ParsedDocument = ReturnType<typeof parseHTML>["document"];
+
 // Strip surrounding angle brackets and whitespace from a Content-ID so that a
 // stored value like "<ii_mpi85rqy0>" matches an HTML reference "cid:ii_mpi85rqy0".
 export function normalizeCid(
@@ -26,6 +28,66 @@ export function extractInlineCids(content: string): Set<string> {
     if (cid) cids.add(cid);
   });
   return cids;
+}
+
+// Render an HTML fragment (or already-plain string) down to plain text: strips
+// tags and decodes entities. Used for feed <title>s, which must be plain text —
+// raw markup/entities show literally in readers.
+export function htmlToText(value: string): string {
+  if (!value) return "";
+  const { document } = parseHTML(`<body>${value}</body>`);
+  return (document.documentElement?.textContent ?? "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+// Newsletters frequently defer images via data-src/loading="lazy"; readers don't
+// run the lazy-loader, so the image renders blank. Promote the real source.
+function promoteLazyImages(document: ParsedDocument): void {
+  document.querySelectorAll("img").forEach((img: Element) => {
+    const lazySrc =
+      img.getAttribute("data-src") ||
+      img.getAttribute("data-original") ||
+      img.getAttribute("data-lazy-src");
+    if (lazySrc) {
+      const current = (img.getAttribute("src") ?? "").trim();
+      if (!current || /^data:/i.test(current)) {
+        img.setAttribute("src", lazySrc);
+      }
+    }
+    const lazySrcset = img.getAttribute("data-srcset");
+    if (lazySrcset && !img.getAttribute("srcset")) {
+      img.setAttribute("srcset", lazySrcset);
+    }
+    img.removeAttribute("loading");
+  });
+}
+
+// Resolve a single URL against the sender base. Returns null for values that are
+// already absolute or should never be rewritten (mailto:, data:, cid:, anchors).
+function toAbsolute(value: string, base: string): string | null {
+  const v = value.trim();
+  if (!v || /^(https?:|mailto:|tel:|data:|cid:|#)/i.test(v)) return null;
+  try {
+    return new URL(v, base).href;
+  } catch {
+    return null;
+  }
+}
+
+// Most readers ignore xml:base, so relative href/src in content break. Absolutize
+// them against the sender's site (best-effort, derived from its email domain).
+// Protocol-relative //host/x are resolved too (they pick up the base's https:).
+function absolutizeUrls(document: ParsedDocument, base: string): void {
+  if (!base) return;
+  document.querySelectorAll("a[href], area[href]").forEach((el: Element) => {
+    const abs = toAbsolute(el.getAttribute("href") ?? "", base);
+    if (abs) el.setAttribute("href", abs);
+  });
+  document.querySelectorAll("img[src]").forEach((el: Element) => {
+    const abs = toAbsolute(el.getAttribute("src") ?? "", base);
+    if (abs) el.setAttribute("src", abs);
+  });
 }
 
 function cleanMsoStyles(style: string): string {
@@ -98,11 +160,15 @@ function sanitizeElement(el: Element): void {
  * - Rewrites inline cid: image refs to the stored attachment URL. baseUrl=""
  *   yields relative URLs (entry page, same origin); a baseUrl yields absolute
  *   URLs (feeds, for external RSS readers).
+ * - Promotes lazy-loaded images (data-src → src, strips loading="lazy").
+ * - Absolutizes relative href/src against senderBaseUrl (the sender's site,
+ *   best-effort) so links/images don't break in readers that ignore xml:base.
  */
 export function processEmailContent(
   content: string,
   attachments?: AttachmentData[],
   baseUrl = "",
+  senderBaseUrl = "",
 ): string {
   if (!content) return "";
 
@@ -123,6 +189,11 @@ export function processEmailContent(
     .forEach((el: Element) => el.remove());
 
   document.querySelectorAll("*").forEach((el: Element) => sanitizeElement(el));
+
+  promoteLazyImages(document);
+  // Absolutize first: cid: refs are skipped here (not http(s)), then rewritten
+  // below to our /files/ URL — which must NOT be absolutized to the sender.
+  absolutizeUrls(document, senderBaseUrl);
 
   if (cidMap.size > 0) {
     document

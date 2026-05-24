@@ -24,4 +24,10 @@ describe("EmailAddress", () => {
     expect(EmailAddress.parse("not an email")).toBeNull();
     expect(EmailAddress.parse("")).toBeNull();
   });
+
+  it("derives the sender site base URL from the domain", () => {
+    expect(EmailAddress.parse("News <a@Example.com>")?.siteBaseUrl()).toBe(
+      "https://example.com/",
+    );
+  });
 });

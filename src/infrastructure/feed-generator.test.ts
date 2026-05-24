@@ -313,6 +313,66 @@ describe("generateAtomFeed", () => {
     expect(result).toContain("Bob");
   });
 
+  it("renders the subject as plain text in <title> (strips tags, decodes entities)", () => {
+    const emailWithHtmlSubject: EmailData = {
+      ...mockEmails[0],
+      subject: "<b>Sale</b> Tom &amp; Jerry",
+    };
+    const result = generateAtomFeed(
+      mockFeedConfig,
+      [emailWithHtmlSubject],
+      BASE_URL,
+      FEED_ID,
+    );
+    // Tags are stripped and entities decoded; markup must not survive.
+    expect(result).toContain("Sale Tom & Jerry");
+    expect(result).not.toContain("<b>Sale</b>");
+  });
+
+  it("strips XML-illegal control characters from the output", () => {
+    const emailWithControlChar: EmailData = {
+      ...mockEmails[0],
+      subject: "Bad\x00\x1Fchar",
+      content: "<p>body\x0Bhere</p>",
+    };
+    const result = generateAtomFeed(
+      mockFeedConfig,
+      [emailWithControlChar],
+      BASE_URL,
+      FEED_ID,
+    );
+    expect(result).not.toMatch(/[\x00\x0B\x1F]/);
+  });
+
+  it("preserves emoji (surrogate pairs) in the output", () => {
+    const emailWithEmoji: EmailData = {
+      ...mockEmails[0],
+      subject: "Launch 🚀 today",
+    };
+    const result = generateAtomFeed(
+      mockFeedConfig,
+      [emailWithEmoji],
+      BASE_URL,
+      FEED_ID,
+    );
+    expect(result).toContain("🚀");
+  });
+
+  it("absolutizes relative content URLs against the sender domain", () => {
+    const emailWithRelative: EmailData = {
+      ...mockEmails[0],
+      from: "News <news@acme.com>",
+      content: '<body><a href="/article">read</a></body>',
+    };
+    const result = generateAtomFeed(
+      mockFeedConfig,
+      [emailWithRelative],
+      BASE_URL,
+      FEED_ID,
+    );
+    expect(result).toContain("https://acme.com/article");
+  });
+
   it("includes enclosure link for email with attachment in Atom feed", () => {
     const result = generateAtomFeed(
       mockFeedConfig,

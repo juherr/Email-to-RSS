@@ -72,6 +72,16 @@ describe("GET /files/:attachmentId/:filename", () => {
     );
   });
 
+  it("sets X-Robots-Tag: noindex", async () => {
+    const content = new TextEncoder().encode("data").buffer as ArrayBuffer;
+    await mockR2.put("robots-uuid", content, {
+      httpMetadata: { contentType: "application/pdf" },
+    });
+
+    const res = await request(envWithR2, "/files/robots-uuid/doc.pdf");
+    expect(res.headers.get("X-Robots-Tag")).toBe("noindex");
+  });
+
   it("sets Content-Disposition from httpMetadata when present", async () => {
     const content = new TextEncoder().encode("data").buffer as ArrayBuffer;
     await mockR2.put("disp-uuid", content, {

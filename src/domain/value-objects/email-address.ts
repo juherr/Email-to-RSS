@@ -20,6 +20,15 @@ export class EmailAddress {
     return new EmailAddress(`${local}@${domain.value}`, domain);
   }
 
+  /**
+   * Best-effort website origin implied by the sender's domain
+   * (e.g. `https://example.com/`). Used to absolutize relative links in the
+   * email body — the sender's site is the only base we can infer.
+   */
+  siteBaseUrl(): string {
+    return `https://${this.domain.value}/`;
+  }
+
   toString(): string {
     return this.normalized;
   }

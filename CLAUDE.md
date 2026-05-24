@@ -26,6 +26,14 @@ npx vitest run src/routes/admin.test.ts
 
 kill-the-news is a Cloudflare Worker that ingests email newsletters and exposes them as private RSS/Atom feeds. Self-hosted, free-tier-friendly (Cloudflare + ForwardEmail).
 
+## Development approach
+
+Work **test-first (TDD)** and **domain-driven (DDD)** in this repo — both are first-class, not optional.
+
+**TDD.** Write or extend a test before/with the change, then make it pass. Mirror the existing test layout (`*.test.ts` next to the source, `createMockEnv()` from `src/test/setup.ts`, MSW for outbound HTTP). End every change green: `npx tsc --noEmit`, `npm test`, and `npm run build` (dry-run deploy) must all pass before declaring done.
+
+**DDD.** Before adding logic, check whether the domain already models the concept — reach for the value objects in `src/domain/value-objects/` (`EmailAddress`, `Domain`, `FeedId`, `Lifetime`, `SenderPolicy`) and the `Feed` aggregate rather than re-deriving things ad hoc. New behavior belongs on the type that owns the data (e.g. "sender site URL" lives on `EmailAddress`, not in a helper). Respect the layering and aggregate rules below — imports point inward (routes → application → domain; infrastructure implements ports), and never reach across a layer for convenience (e.g. importing a favicon/infra helper just to parse a domain). When the same derivation appears twice, that's the signal to push it onto a domain type.
+
 ## Architecture
 
 Single Cloudflare Worker built with Hono. Routes:
@@ -185,9 +193,13 @@ MSW (`msw/node`) handles external HTTP mocks. Tests that hit validation paths in
 
 ## When changing behavior
 
-Update together:
+**Always document evolutions** — treat docs as part of the change, not a follow-up. When you add or change a feature, update the relevant docs in the same change:
 
 - `README.md`
 - `INSTALL.md` (setup, deployment, and configuration guide)
 - `setup.sh` (if setup/deploy assumptions changed)
 - Tests under `src/routes/*.test.ts` and `src/test/setup.ts`
+
+Keep it proportionate: user-facing or config changes warrant doc updates; purely internal refactors usually don't.
+
+**Marketing landing page (`docs/index.html`).** This is the public GH Pages site (served at the `CNAME` domain), not the in-app status page (`src/routes/home.tsx`). When a feature is also a selling point — something a prospective self-hoster would care about (privacy guarantees, full-body capture, burnable aliases, reader compatibility, automation/API, AI features…) — surface it there too (hero copy or a feature card), matching the existing section/card style. Internal correctness fixes don't belong on the landing page; differentiators do.

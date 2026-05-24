@@ -1,8 +1,17 @@
 import { Feed } from "feed";
 import { FeedConfig, EmailData } from "../types";
-import { processEmailContent } from "./html-processor";
+import { processEmailContent, htmlToText } from "./html-processor";
+import { EmailAddress } from "../domain/value-objects/email-address";
 
 export { processEmailContent as extractBodyContent };
+
+// XML 1.0 valid chars: #x9 #xA #xD #x20-#xD7FF #xE000-#xFFFD #x10000-#x10FFFF.
+// A single illegal codepoint fails the whole feed parse in strict readers, so
+// strip the complement before returning. The `u` flag iterates by code point, so
+// valid surrogate pairs (emoji, …) survive while lone surrogates are removed.
+function stripInvalidXmlChars(xml: string): string {
+  return xml.replace(/[^\x09\x0A\x0D\x20-퟿-�\u{10000}-\u{10FFFF}]/gu, "");
+}
 
 function parseFromAddress(from: string): { name: string; email?: string } {
   const match = from.match(/^(.*?)\s*<([^>]+)>\s*$/);
@@ -60,9 +69,10 @@ function buildFeed(
       email.content,
       email.attachments,
       baseUrl,
+      EmailAddress.parse(email.from)?.siteBaseUrl() ?? "",
     );
     feed.addItem({
-      title: email.subject,
+      title: htmlToText(email.subject),
       id: entryUrl,
       link: entryUrl,
       description: bodyContent,
@@ -89,13 +99,15 @@ export function generateRssFeed(
   feedId: string,
   selfUrl?: string,
 ): string {
-  return buildFeed(
-    feedConfig,
-    emails,
-    baseUrl,
-    feedId,
-    selfUrl ? { rss: selfUrl } : undefined,
-  ).rss2();
+  return stripInvalidXmlChars(
+    buildFeed(
+      feedConfig,
+      emails,
+      baseUrl,
+      feedId,
+      selfUrl ? { rss: selfUrl } : undefined,
+    ).rss2(),
+  );
 }
 
 export function generateAtomFeed(
@@ -105,11 +117,13 @@ export function generateAtomFeed(
   feedId: string,
   selfUrl?: string,
 ): string {
-  return buildFeed(
-    feedConfig,
-    emails,
-    baseUrl,
-    feedId,
-    selfUrl ? { atom: selfUrl } : undefined,
-  ).atom1();
+  return stripInvalidXmlChars(
+    buildFeed(
+      feedConfig,
+      emails,
+      baseUrl,
+      feedId,
+      selfUrl ? { atom: selfUrl } : undefined,
+    ).atom1(),
+  );
 }

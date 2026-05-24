@@ -25,6 +25,7 @@ export async function handle(c: Context<{ Bindings: Env }>): Promise<Response> {
   object.writeHttpMetadata(headers);
   headers.set("etag", object.httpEtag);
   headers.set("Cache-Control", "public, max-age=31536000, immutable");
+  headers.set("X-Robots-Tag", "noindex");
 
   if (!headers.get("Content-Disposition")) {
     headers.set(

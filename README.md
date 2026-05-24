@@ -22,6 +22,7 @@ kill-the-news keeps the same workflow while avoiding shared domains and shared d
 - Optional per-feed sender allowlist (`email@domain.com` or `domain.com`)
 - RSS generation on demand (`/rss/:feedId`)
 - Atom feed at `/atom/:feedId`
+- Reader-friendly output: relative links/images absolutized to the sender's site, lazy-loaded images promoted (`data-src` → `src`), plain-text feed titles, and XML-illegal control characters stripped so feeds parse in strict readers
 - Per-feed favicon derived from the last sender's domain (`/favicon/:feedId`), cached and shown in feeds + admin
 - Automatic RFC 8058 one-click unsubscribe when a feed is deleted — stops newsletters from mailing the now-dead address
 - Email attachments stored in Cloudflare R2 and exposed as RSS enclosures (optional)
@@ -131,6 +132,7 @@ Then enable email ingestion (Cloudflare Email Workers or ForwardEmail) and open 
 - When using Option B (ForwardEmail), inbound webhook access is IP-restricted to ForwardEmail MX sources.
 - Admin auth uses a signed, `HttpOnly`, `Secure`, `SameSite=Strict` cookie.
 - Admin responses are `no-store` to avoid cache leakage.
+- Feed, entry, and attachment responses send `X-Robots-Tag: noindex`, and `/robots.txt` disallows `/rss`, `/atom`, `/entries`, `/files`, and `/admin`, so private feeds and emails are kept out of search engines.
 - For high-value feeds, set `Allowed senders` so only known sender addresses/domains are accepted.
 - You should use a strong admin password and rotate periodically.
 - All secret comparisons (admin password, proxy secret) use constant-time comparison to prevent timing attacks.

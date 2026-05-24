@@ -47,6 +47,11 @@ describe("Atom Feed Route", () => {
       const res = await testApp.request("/empty-feed", {}, mockEnv);
       expect(res.headers.get("Cache-Control")).toBe("max-age=1800");
     });
+
+    it("sets X-Robots-Tag: noindex", async () => {
+      const res = await testApp.request("/empty-feed", {}, mockEnv);
+      expect(res.headers.get("X-Robots-Tag")).toBe("noindex");
+    });
   });
 
   describe("valid feed with emails", () => {

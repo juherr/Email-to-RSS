@@ -40,6 +40,7 @@ export async function handle(c: Context<{ Bindings: Env }>): Promise<Response> {
       headers: {
         "Content-Type": "application/rss+xml",
         "Cache-Control": "max-age=1800",
+        "X-Robots-Tag": "noindex",
         Link: linkHeader,
       },
     });

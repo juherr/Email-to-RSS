@@ -2,6 +2,7 @@ import { Context } from "hono";
 import { html, raw } from "hono/html";
 import { Env } from "../types";
 import { processEmailContent } from "../infrastructure/html-processor";
+import { EmailAddress } from "../domain/value-objects/email-address";
 import { formatBytes } from "../domain/format";
 import { FeedRepository } from "../infrastructure/feed-repository";
 import { FeedId } from "../domain/value-objects/feed-id";
@@ -45,6 +46,14 @@ export async function handle(c: Context<{ Bindings: Env }>): Promise<Response> {
   c.header(
     "Content-Security-Policy",
     "default-src 'none'; style-src 'unsafe-inline'; img-src *; frame-src 'none'",
+  );
+  c.header("X-Robots-Tag", "noindex");
+
+  const bodyContent = processEmailContent(
+    emailData.content,
+    emailData.attachments,
+    "",
+    EmailAddress.parse(emailData.from)?.siteBaseUrl() ?? "",
   );
 
   // Inline images render in place (cid: refs are rewritten by processEmailContent);
@@ -92,11 +101,7 @@ export async function handle(c: Context<{ Bindings: Env }>): Promise<Response> {
             <dt>Date:</dt>
             <dd>${new Date(emailData.receivedAt).toUTCString()}</dd>
           </dl>
-          <div class="content">
-            ${raw(
-              processEmailContent(emailData.content, emailData.attachments),
-            )}
-          </div>
+          <div class="content">${raw(bodyContent)}</div>
           ${attachmentsSection}
         </body>
       </html>`,

@@ -170,4 +170,11 @@ describe("GET /entries/:feedId/:entryId", () => {
       "default-src 'none'",
     );
   });
+
+  it("sets X-Robots-Tag: noindex", async () => {
+    await seedFeed(env);
+    const app = makeApp();
+    const res = await app.request(`/${FEED_ID}/${RECEIVED_AT}`, {}, env as any);
+    expect(res.headers.get("X-Robots-Tag")).toBe("noindex");
+  });
 });
