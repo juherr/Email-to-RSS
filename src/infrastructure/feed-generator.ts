@@ -2,6 +2,7 @@ import { Feed } from "feed";
 import { FeedConfig, EmailData } from "../types";
 import { processEmailContent, htmlToText } from "./html-processor";
 import { EmailAddress } from "../domain/value-objects/email-address";
+import { entryPath } from "./urls";
 
 export { processEmailContent as extractBodyContent };
 
@@ -64,7 +65,7 @@ function buildFeed(
   });
 
   for (const email of emails) {
-    const entryUrl = `${baseUrl}/entries/${feedId}/${email.receivedAt}`;
+    const entryUrl = `${baseUrl}${entryPath(feedId, email.receivedAt)}`;
     // Inline images are rendered in the body, not surfaced as an enclosure.
     const firstAttachment = email.attachments?.find((a) => !a.inline);
     const bodyContent = processEmailContent(

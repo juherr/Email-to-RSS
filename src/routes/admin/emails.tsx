@@ -13,6 +13,7 @@ import {
   feedAtomUrl,
   feedEmailAddress,
   baseUrl,
+  entryPath,
 } from "../../infrastructure/urls";
 import { processEmailContent } from "../../infrastructure/html-processor";
 import { formatBytes } from "../../domain/format";
@@ -604,6 +605,14 @@ emailsRouter.get("/emails/:emailKey", async (c) => {
             <button id="raw-button" class="toggle-button" onclick="showRaw()">
               Raw HTML
             </button>
+            <a
+              class="toggle-view-link"
+              href={entryPath(feedId, emailData.receivedAt)}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Public page ↗
+            </a>
           </div>
 
           <div class="email-content">

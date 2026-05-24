@@ -890,6 +890,39 @@ describe("Admin Routes", () => {
         expect(body).not.toContain("Attachments");
       });
 
+      it("links to the public entry page using the feed id and receivedAt", async () => {
+        const authCookie = await loginAndGetCookie();
+        const feedId = "detail-feed";
+        await mockEnv.EMAIL_STORAGE.put(
+          `feed:${feedId}:config`,
+          JSON.stringify({
+            title: "Detail Feed",
+            mailbox_id: "detail.feed.10",
+            language: "en",
+            created_at: 1,
+          }),
+        );
+        const emailKey = `feed:${feedId}:2`;
+        await mockEnv.EMAIL_STORAGE.put(
+          emailKey,
+          JSON.stringify({
+            subject: "Linkable",
+            from: "sender@example.com",
+            content: "<p>hello</p>",
+            receivedAt: 2,
+            headers: {},
+          }),
+        );
+
+        const res = await request(`/admin/emails/${emailKey}`, {
+          headers: { Cookie: authCookie },
+        });
+        expect(res.status).toBe(200);
+        const body = await res.text();
+
+        expect(body).toContain(`href="/entries/${feedId}/2"`);
+      });
+
       it("form-based bulk-delete also removes R2 attachments", async () => {
         const r2Env = createMockEnv({ withR2: true }) as unknown as Env;
         const bucket = r2Env.ATTACHMENT_BUCKET as unknown as {

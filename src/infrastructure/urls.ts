@@ -17,6 +17,12 @@ export function feedJsonUrl(feedId: string, env: Env): string {
   return `${baseUrl(env)}/json/${feedId}`;
 }
 
+/** Path of an email's public HTML view. The single source of truth for the
+ * `/entries/:feedId/:entryId` route shape (entryId = the email's receivedAt). */
+export function entryPath(feedId: string, receivedAt: number): string {
+  return `/entries/${feedId}/${receivedAt}`;
+}
+
 export function feedUrl(
   format: "rss" | "atom",
   feedId: string,

@@ -554,6 +554,20 @@ textarea:focus {
   border-color: transparent;
 }
 
+.toggle-view-link {
+  margin-left: auto;
+  align-self: center;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  text-decoration: none;
+  transition: color var(--transition-fast);
+}
+
+.toggle-view-link:hover {
+  color: var(--color-primary);
+}
+
 /* Email content container */
 .email-content {
   margin-top: var(--spacing-md);
