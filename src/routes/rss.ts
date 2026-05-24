@@ -13,7 +13,7 @@ export async function handle(c: Context<{ Bindings: Env }>): Promise<Response> {
       return new Response("Feed ID is required", { status: 400 });
     }
 
-    const feedData = await fetchFeedData(FeedId.fromTrusted(feedId), c.env);
+    const feedData = await fetchFeedData(FeedId.unchecked(feedId), c.env);
     if (!feedData) {
       return new Response("Feed not found", { status: 404 });
     }

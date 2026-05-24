@@ -13,7 +13,7 @@ import { FeedId } from "../domain/value-objects/feed-id";
 import type { Env, WebSubSubscription } from "../types";
 
 const mockEnv = () => createMockEnv() as unknown as Env;
-const fid = (value: string) => FeedId.fromTrusted(value);
+const fid = (value: string) => FeedId.unchecked(value);
 
 describe("buildHmacSignature", () => {
   it("returns sha256= prefixed hex", async () => {

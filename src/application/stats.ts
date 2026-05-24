@@ -110,7 +110,7 @@ export async function scanKvUsage(kv: KVNamespace): Promise<{ bytes: number }> {
     const repo = new FeedRepository(kv);
     const feeds = await repo.listFeeds();
     for (const feed of feeds) {
-      const metadata = await repo.getMetadata(FeedId.fromTrusted(feed.id));
+      const metadata = await repo.getMetadata(FeedId.unchecked(feed.id));
       if (!metadata) continue;
       for (const email of metadata.emails) {
         bytes += email.size ?? 0;

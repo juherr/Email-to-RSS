@@ -10,6 +10,7 @@ import { FEEDS_LIST_KEY } from "../config/constants";
 import { feedKeys } from "../domain/feed-keys";
 import { Feed } from "../domain/feed.aggregate";
 import { FeedId } from "../domain/value-objects/feed-id";
+import { fromConfigDTO, toConfigDTO, toListItemDTO } from "./feed-mapper";
 import { logger } from "./logger";
 
 /**
@@ -69,19 +70,23 @@ export class FeedRepository {
       this.getMetadata(feedId),
     ]);
     if (!config) return null;
-    return Feed.reconstitute(feedId, config, metadata ?? { emails: [] });
+    return Feed.reconstitute(
+      feedId,
+      fromConfigDTO(config),
+      metadata ?? { emails: [] },
+    );
   }
 
   /**
    * Persist both keys the aggregate owns (config + metadata) and keep the global
-   * `feeds:list` entry in sync. The registry projection is derived from
-   * `feed.summary()` here, so no caller has to remember to mirror it.
+   * `feeds:list` entry in sync. Config/list DTOs are derived from the aggregate's
+   * domain `state()` via `feed-mapper`, so no caller has to mirror snake_case.
    */
   async save(feed: Feed): Promise<void> {
     await Promise.all([
-      this.putConfig(feed.id, feed.toConfigSnapshot()),
+      this.putConfig(feed.id, toConfigDTO(feed.state())),
       this.putMetadata(feed.id, feed.toMetadataSnapshot()),
-      this.upsertListEntry(feed.summary()),
+      this.upsertListEntry(toListItemDTO(feed.id, feed.state())),
     ]);
   }
 
@@ -101,8 +106,8 @@ export class FeedRepository {
    */
   async saveConfig(feed: Feed): Promise<void> {
     await Promise.all([
-      this.putConfig(feed.id, feed.toConfigSnapshot()),
-      this.upsertListEntry(feed.summary()),
+      this.putConfig(feed.id, toConfigDTO(feed.state())),
+      this.upsertListEntry(toListItemDTO(feed.id, feed.state())),
     ]);
   }
 

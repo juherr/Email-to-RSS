@@ -72,7 +72,7 @@ hubRouter.post("/", async (c) => {
     );
   }
   const format = match[1] as "rss" | "atom";
-  const feedId = FeedId.fromTrusted(match[2]);
+  const feedId = FeedId.unchecked(match[2]);
 
   // Verify the feed exists before accepting any subscription
   const feedConfig = await FeedRepository.from(env).getConfig(feedId);

@@ -45,7 +45,7 @@ export async function handleFeedFavicon(
   if (!feedId) return projectFavicon();
 
   const metadata = await FeedRepository.from(env).getMetadata(
-    FeedId.fromTrusted(feedId),
+    FeedId.unchecked(feedId),
   );
   const domain = metadata?.iconDomain;
   if (!domain) return projectFavicon();

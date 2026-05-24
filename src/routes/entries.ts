@@ -16,7 +16,7 @@ export async function handle(c: Context<{ Bindings: Env }>): Promise<Response> {
   }
 
   const repo = FeedRepository.from(c.env);
-  const id = FeedId.fromTrusted(feedId);
+  const id = FeedId.unchecked(feedId);
 
   const [feedMetadata, feedConfig] = await Promise.all([
     repo.getMetadata(id),

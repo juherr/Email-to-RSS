@@ -17,11 +17,13 @@ export class FeedId {
   }
 
   /**
-   * Wrap an id we already trust — a value we minted ourselves and round-tripped
-   * through our own links or KV keys (route params, the feed list, email keys).
-   * No validation: a wrong id simply misses in KV and 404s, exactly as before.
+   * Wrap a string as a FeedId WITHOUT revalidating it. The caller asserts the id
+   * originated from our own minting — a route param echoing a stored id, a
+   * `feeds:list` entry, or an email/KV key. The name is deliberately blunt: a
+   * wrong id is not rejected here, it simply misses in KV and 404s downstream.
+   * Untrusted external input (an inbound address) must go through `parse` instead.
    */
-  static fromTrusted(value: string): FeedId {
+  static unchecked(value: string): FeedId {
     return new FeedId(value);
   }
 

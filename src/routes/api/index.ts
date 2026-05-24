@@ -176,7 +176,7 @@ apiApp.openapi(
     const env = c.env;
     const { feedId } = c.req.valid("param");
     const repo = FeedRepository.from(env);
-    const id = FeedId.fromTrusted(feedId);
+    const id = FeedId.unchecked(feedId);
     const config = await repo.getConfig(id);
     if (!config) return c.json({ error: "Feed not found" }, 404);
     const metadata = await repo.getMetadata(id);
@@ -209,7 +209,7 @@ apiApp.openapi(
   async (c) => {
     const env = c.env;
     const { feedId } = c.req.valid("param");
-    const id = FeedId.fromTrusted(feedId);
+    const id = FeedId.unchecked(feedId);
     const body = c.req.valid("json");
     const result = await editFeed(env, id, {
       title: body.title,
@@ -248,10 +248,8 @@ apiApp.openapi(
   async (c) => {
     const env = c.env;
     const { feedId } = c.req.valid("param");
-    const removed = await deleteFeedRecord(
-      env,
-      FeedId.fromTrusted(feedId),
-      (p) => waitUntilSafe(c, p),
+    const removed = await deleteFeedRecord(env, FeedId.unchecked(feedId), (p) =>
+      waitUntilSafe(c, p),
     );
     if (!removed) return c.json({ error: "Feed not found" }, 404);
     return c.json({ ok: true }, 200);
@@ -278,7 +276,7 @@ apiApp.openapi(
     const env = c.env;
     const { feedId } = c.req.valid("param");
     const metadata = await FeedRepository.from(env).getMetadata(
-      FeedId.fromTrusted(feedId),
+      FeedId.unchecked(feedId),
     );
     if (!metadata) return c.json({ error: "Feed not found" }, 404);
     return c.json(
@@ -315,7 +313,7 @@ apiApp.openapi(
     const { feedId, entryId } = c.req.valid("param");
     const receivedAt = parseInt(entryId, 10);
     const repo = FeedRepository.from(env);
-    const metadata = await repo.getMetadata(FeedId.fromTrusted(feedId));
+    const metadata = await repo.getMetadata(FeedId.unchecked(feedId));
     const metaEntry = metadata?.emails.find((e) => e.receivedAt === receivedAt);
     if (!metaEntry) return c.json({ error: "Email not found" }, 404);
     const data = await repo.getEmail(metaEntry.key);
@@ -359,7 +357,7 @@ apiApp.openapi(
     const repo = FeedRepository.from(env);
     const { feedId, entryId } = c.req.valid("param");
     const receivedAt = parseInt(entryId, 10);
-    const feed = await repo.load(FeedId.fromTrusted(feedId));
+    const feed = await repo.load(FeedId.unchecked(feedId));
     const metaEntry = feed?.emails.find((e) => e.receivedAt === receivedAt);
     if (!feed || !metaEntry) return c.json({ error: "Email not found" }, 404);
 

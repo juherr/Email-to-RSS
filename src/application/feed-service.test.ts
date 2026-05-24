@@ -60,7 +60,7 @@ describe("editFeed — TTL policy", () => {
     const { feedId } = await createFeedRecord(env, { ...baseInput });
 
     const before = Date.now();
-    const result = await editFeed(env, FeedId.fromTrusted(feedId), {
+    const result = await editFeed(env, FeedId.unchecked(feedId), {
       title: "renamed",
     });
 
@@ -78,7 +78,7 @@ describe("editFeed — TTL policy", () => {
       lifetimeHours: 5,
     });
 
-    const result = await editFeed(env, FeedId.fromTrusted(feedId), {
+    const result = await editFeed(env, FeedId.unchecked(feedId), {
       title: "x",
     });
 

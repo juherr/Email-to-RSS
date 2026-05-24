@@ -1,7 +1,7 @@
 import { EmailParser } from "../domain/email-parser";
 import { AttachmentData, EmailMetadata, Env } from "../types";
 import { bumpCounters } from "../application/stats";
-import { applyFeedEvents } from "../application/feed-events";
+import { dispatchFeedEvents } from "../application/feed-events";
 import { extractEmailDomain } from "../infrastructure/favicon-fetcher";
 import { parseOneClickUnsubscribe } from "../infrastructure/unsubscribe";
 import { getAttachmentBucket } from "../infrastructure/attachments";
@@ -188,7 +188,7 @@ async function storeEmail(
   const schedule: BackgroundScheduler = ctx
     ? (p) => ctx.waitUntil(p)
     : () => {};
-  await applyFeedEvents(feed.id, feed.pullEvents(), env, schedule);
+  await dispatchFeedEvents(feed, env, schedule);
 }
 
 export async function processEmail(

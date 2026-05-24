@@ -5,7 +5,7 @@ import { FeedId } from "../domain/value-objects/feed-id";
 import type { Env, WebSubSubscription } from "../types";
 
 const mockEnv = () => createMockEnv() as unknown as Env;
-const fid = FeedId.fromTrusted("a.b.42");
+const fid = FeedId.unchecked("a.b.42");
 
 describe("WebSubSubscriptionRepository", () => {
   it("round-trips subscriptions and counts feeds with subscribers", async () => {

@@ -57,14 +57,15 @@ src/
   config/constants.ts       # Shared constants (TTLs, limits)
   types/index.ts            # Env, FeedConfig, EmailData, WebSubSubscription, etc.
   domain/                   # Framework-agnostic core (no Hono/infra imports leak out)
-    feed.aggregate.ts       # Feed aggregate: consistency boundary; exposes intention-revealing reads + snapshots, never raw config/metadata
+    feed.aggregate.ts       # Feed aggregate: consistency boundary; holds domain FeedState (camelCase), exposes intention-revealing reads, never raw state/metadata
+    feed-state.ts           # FeedState: the aggregate's config in domain (camelCase) vocabulary — NOT the snake_case persistence DTO
     feed.ts                 # The expiry predicate (`isExpired`) — the one invariant shared with the read-model routes
     feed-keys.ts            # The KV key schema (pure string builders), shared by every repository
     clock.ts                # Clock port (systemClock) — injected into the aggregate; no ambient Date.now()
-    events.ts               # FeedEvent union (FeedCreated, EmailIngested) recorded by the aggregate
+    events.ts               # FeedEvent union (FeedCreated, EmailIngested) — each carries its feedId
     email-parser.ts         # Email parsing (addresses, headers, encoded words)
     format.ts               # Pure formatting helpers (formatBytes)
-    value-objects/          # FeedId, EmailAddress, Domain, SenderPolicy (immutable, self-validating)
+    value-objects/          # FeedId, EmailAddress, Domain, SenderPolicy, Lifetime (immutable, self-validating)
   application/              # Use-cases / orchestration (wires domain + infrastructure)
     feed-service.ts         # createFeedRecord / editFeedDetails / editFeed / deleteFeedRecord (admin UI + REST API)
     feed-cleanup.ts         # Feed/email storage cleanup: purgeFeedKeysStep, collectUnsubscribeUrls, attachment+key deletion
@@ -75,6 +76,7 @@ src/
   infrastructure/          # Adapters: KV/R2, outbound HTTP, logging, framework glue
     logger.ts               # JSON structured logger
     feed-repository.ts      # KV adapter for the Feed aggregate + global feed list + email bodies (load/save)
+    feed-mapper.ts          # Translation seam: domain FeedState ↔ persistence DTOs (FeedConfig/FeedListItem); sole owner of snake_case outside the edge
     icon-repository.ts      # KV adapter for cached favicons (icon:*)
     websub-subscription-repository.ts # KV adapter for WebSub subscriber lists (websub:subs:*)
     counters-repository.ts  # KV adapter for the monitoring counters singleton (stats:counters)
@@ -140,13 +142,14 @@ The KV key schema lives in `src/domain/feed-keys.ts` (pure, framework-agnostic) 
 
 - **Layers**: `domain/` is framework-agnostic (no Hono). `application/` orchestrates use-cases. `infrastructure/` holds adapters (KV/R2, HTTP, logging). `routes/` is the HTTP edge. Imports point inward: routes → application → domain; infrastructure implements ports the inner layers call.
 - **The `Feed` aggregate is the only writer of feed config + the email index.** Load it with `FeedRepository.load(feedId)`, mutate via its methods (`ingest`, `removeEmails`, `edit`), then persist with `save`/`saveMetadata`/`saveConfig`. No route or service mutates `metadata.emails` directly. Email **bodies** are large blobs outside the aggregate — flush them (`putEmail`/`deleteEmail`) alongside the metadata save.
-  - **The aggregate never exposes its raw state.** It has no `config`/`metadata` getters (a shallow `Readonly<…>` would still leak mutable arrays). Read named accessors (`title`, `expiresAt`, `emails`, `allowedSenders()`, …) which return copies; the repository serialises via `toConfigSnapshot()`/`toMetadataSnapshot()`; the `feeds:list` registry is derived from `summary()`.
-  - **One edit path.** `edit(patch, deps)` is the single mutation for config — the dashboard's title/description quick-edit calls it with `recomputeExpiry: false`. It rejects an already-expired feed, so a quick-edit can no more touch an expired feed than a full edit can.
-  - **`feeds:list` stays in sync automatically.** `FeedRepository.save`/`saveConfig` upsert the registry entry from `feed.summary()` — services never mirror title/description/expiry into the list by hand.
+  - **The domain never speaks the storage dialect.** The aggregate holds its config as domain `FeedState` (camelCase), never the snake_case `FeedConfig` DTO. The translation `FeedState ↔ FeedConfig/FeedListItem` lives in `infrastructure/feed-mapper.ts` — the only place outside the HTTP edge that knows the persisted field names. `FeedRepository.load` maps DTO→state on the way in; `save`/`saveConfig` map state→DTO on the way out.
+  - **The aggregate never exposes its raw state.** It has no `state`/`metadata` getters (a shallow `Readonly<…>` would still leak mutable arrays). Read named accessors (`title`, `expiresAt`, `emails`, `allowedSenders()`, …) which return copies; the repository reads `state()`/`toMetadataSnapshot()` (copies) and runs them through the mapper.
+  - **One edit path.** `edit(patch, { lifetime? })` is the single mutation for config. A `Lifetime` VO is resolved by the application (env `FEED_TTL_HOURS` override + client request); its **presence recomputes expiry, its absence preserves it** — which is exactly the dashboard's title/description quick-edit (no lifetime passed). It rejects an already-expired feed, so a quick-edit can no more touch an expired feed than a full edit can.
+  - **`feeds:list` stays in sync automatically.** `FeedRepository.save`/`saveConfig` upsert the registry entry via `toListItemDTO(feed.id, feed.state())` — services never mirror title/description/expiry into the list by hand.
   - Read-only RSS/Atom rendering uses the `feed-fetcher` read model, not the aggregate (no invariant to enforce on the hot path).
   - KV has no multi-key transaction; the aggregate is the seam a future Durable Object would wrap to serialise concurrent ingests (see `email-processor.ts`).
-  - **Side effects via domain events.** Mutations with consequences record a `FeedEvent` (`FeedCreated`, `EmailIngested`). After persisting, the caller `pullEvents()` and passes them to `application/feed-events.applyFeedEvents`, which runs the counters/WebSub/favicon. Don't inline those side effects at call sites. Side effects with no aggregate mutation (a rejected email, feed deletion that bypasses the aggregate, bulk admin ops, the cron) stay imperative — they have no event to ride on.
-- **`FeedId` flows through the layers.** It is the identity type taken by the domain (`Feed.id`), the application use-cases (`editFeed`, `editFeedDetails`, `deleteFeedRecord`, `fetchFeedData`, the cleanup steps) and the infrastructure repositories/services (`FeedRepository`, `WebSubSubscriptionRepository`, `notifySubscribers`, …). Mint it **once** at the edge — `FeedId.parse(address)` for inbound email, `FeedId.fromTrusted(param)` at the HTTP edge, `FeedId.generate()` for a new feed — then pass the VO inward. Unwrap to `.value` (string) only at the true serialisation edges: URL builders (`urls.ts`), XML generation (`feed-generator.ts`), the KV key schema (`feed-keys.ts`), logs and JSON responses.
+  - **Side effects via domain events.** Mutations with consequences record a `FeedEvent` (`FeedCreated`, `EmailIngested`), each carrying its own `feedId`. After persisting, the caller hands the aggregate to `application/feed-events.dispatchFeedEvents(feed, env, schedule)` — the single dispatch entry point that drains `pullEvents()` and runs the counters/WebSub/favicon. Don't pull events or thread the feed id by hand at call sites. Side effects with no aggregate mutation (a rejected email, feed deletion that bypasses the aggregate, bulk admin ops, the cron) stay imperative — they have no event to ride on.
+- **`FeedId` flows through the layers.** It is the identity type taken by the domain (`Feed.id`), the application use-cases (`editFeed`, `editFeedDetails`, `deleteFeedRecord`, `fetchFeedData`, the cleanup steps) and the infrastructure repositories/services (`FeedRepository`, `WebSubSubscriptionRepository`, `notifySubscribers`, …). Mint it **once** at the edge — `FeedId.parse(address)` for inbound email (validates), `FeedId.unchecked(param)` at the HTTP edge (no revalidation: a bad id just misses in KV and 404s), `FeedId.generate()` for a new feed — then pass the VO inward. Unwrap to `.value` (string) only at the true serialisation edges: URL builders (`urls.ts`), XML generation (`feed-generator.ts`), the KV key schema (`feed-keys.ts`), logs and JSON responses.
 
 ### Worker bindings (`Env`)
 

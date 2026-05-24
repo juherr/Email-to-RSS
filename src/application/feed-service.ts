@@ -1,11 +1,13 @@
 import { Env, FeedConfig } from "../types";
 import { bumpCounters } from "../application/stats";
-import { applyFeedEvents } from "./feed-events";
+import { dispatchFeedEvents } from "./feed-events";
 import { sendUnsubscribes } from "../infrastructure/unsubscribe";
 import { getAttachmentBucket } from "../infrastructure/attachments";
 import { FeedRepository } from "../infrastructure/feed-repository";
+import { toConfigDTO } from "../infrastructure/feed-mapper";
 import { BackgroundScheduler } from "../infrastructure/worker";
 import { FeedId } from "../domain/value-objects/feed-id";
+import { Lifetime } from "../domain/value-objects/lifetime";
 import {
   Feed,
   CreateFeedInput,
@@ -16,19 +18,18 @@ import { purgeFeedKeysStep, collectUnsubscribeUrls } from "./feed-cleanup";
 export type { CreateFeedInput, UpdateFeedInput };
 
 /**
- * Resolve the effective feed lifetime (hours) from a client request and the
+ * Resolve the effective feed `Lifetime` from a client request and the
  * server-side `FEED_TTL_HOURS` override. Parsing the env string and applying the
  * override is application/config policy — the domain only receives the resolved
- * number. Returns undefined when the feed should never expire.
+ * VO. Returns `Lifetime.never` when the feed should never expire.
  */
-function resolveTtlHours(
-  env: Env,
-  requestedHours?: number,
-): number | undefined {
+function resolveLifetime(env: Env, requestedHours?: number): Lifetime {
   const hours = env.FEED_TTL_HOURS
     ? parseInt(env.FEED_TTL_HOURS, 10)
     : (requestedHours ?? NaN);
-  return Number.isFinite(hours) && hours > 0 ? hours : undefined;
+  return Number.isFinite(hours) && hours > 0
+    ? Lifetime.ofHours(hours)
+    : Lifetime.never;
 }
 
 /**
@@ -41,15 +42,15 @@ export async function createFeedRecord(
 ): Promise<{ feedId: string; config: FeedConfig }> {
   const repo = FeedRepository.from(env);
   const feed = Feed.create(FeedId.generate(), input, {
-    ttlHours: resolveTtlHours(env, input.lifetimeHours),
+    lifetime: resolveLifetime(env, input.lifetimeHours),
   });
 
   await repo.save(feed);
 
   // FeedCreated → bumps the feeds_created counter (no background work to schedule).
-  await applyFeedEvents(feed.id, feed.pullEvents(), env, () => {});
+  await dispatchFeedEvents(feed, env, () => {});
 
-  return { feedId: feed.id.value, config: feed.toConfigSnapshot() };
+  return { feedId: feed.id.value, config: toConfigDTO(feed.state()) };
 }
 
 export type UpdateFeedResult =
@@ -72,12 +73,13 @@ export async function editFeedDetails(
   const feed = await repo.load(feedId);
   if (!feed) return { status: "not_found" };
 
-  if (feed.edit(patch, { recomputeExpiry: false }).status === "expired") {
+  // No lifetime passed ⇒ expiry preserved (quick-edit never recomputes it).
+  if (feed.edit(patch).status === "expired") {
     return { status: "expired" };
   }
   await repo.saveConfig(feed);
 
-  return { status: "ok", config: feed.toConfigSnapshot() };
+  return { status: "ok", config: toConfigDTO(feed.state()) };
 }
 
 /**
@@ -93,20 +95,19 @@ export async function editFeed(
   const feed = await repo.load(feedId);
   if (!feed) return { status: "not_found" };
 
-  const recomputeExpiry =
-    Boolean(env.FEED_TTL_HOURS) || input.lifetimeHours !== undefined;
-  if (
-    feed.edit(input, {
-      recomputeExpiry,
-      ttlHours: resolveTtlHours(env, input.lifetimeHours),
-    }).status === "expired"
-  ) {
+  // Recompute expiry only when a server TTL or a client lifetime applies;
+  // otherwise pass no lifetime so the aggregate preserves the current expiry.
+  const lifetime =
+    Boolean(env.FEED_TTL_HOURS) || input.lifetimeHours !== undefined
+      ? resolveLifetime(env, input.lifetimeHours)
+      : undefined;
+  if (feed.edit(input, { lifetime }).status === "expired") {
     return { status: "expired" };
   }
 
   await repo.saveConfig(feed);
 
-  return { status: "ok", config: feed.toConfigSnapshot() };
+  return { status: "ok", config: toConfigDTO(feed.state()) };
 }
 
 type DeleteFeedFastResult = {

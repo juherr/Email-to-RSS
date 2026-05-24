@@ -6,7 +6,7 @@ import { FeedId } from "../domain/value-objects/feed-id";
 import type { Env, FeedConfig, FeedMetadata, EmailData } from "../types";
 
 const mockEnv = () => createMockEnv() as unknown as Env;
-const fid = (value: string) => FeedId.fromTrusted(value);
+const fid = (value: string) => FeedId.unchecked(value);
 
 const sampleConfig = (overrides: Partial<FeedConfig> = {}): FeedConfig => ({
   title: "Test Feed",
@@ -106,9 +106,11 @@ describe("FeedRepository feed list", () => {
       {
         title,
         language: "en",
-        created_at: 1000,
+        allowedSenders: [],
+        blockedSenders: [],
+        createdAt: 1000,
         description: opts.description,
-        expires_at: opts.expires_at,
+        expiresAt: opts.expires_at,
       },
       { emails: [] },
     );

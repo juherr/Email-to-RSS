@@ -209,7 +209,7 @@ export default {
     for (const feedId of expiredIds) {
       await purgeExpiredFeeds(
         env.EMAIL_STORAGE,
-        FeedId.fromTrusted(feedId),
+        FeedId.unchecked(feedId),
         attachmentBucket,
       );
     }

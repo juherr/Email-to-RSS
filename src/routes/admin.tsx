@@ -998,7 +998,7 @@ app.post(
       const { title, description } = c.req.valid("json");
 
       // Quick-edit: only title/description, expiry untouched.
-      const result = await editFeedDetails(env, FeedId.fromTrusted(feedId), {
+      const result = await editFeedDetails(env, FeedId.unchecked(feedId), {
         title,
         description,
       });

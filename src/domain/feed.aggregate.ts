@@ -1,32 +1,10 @@
-import {
-  FeedConfig,
-  FeedMetadata,
-  EmailMetadata,
-  FeedListItem,
-} from "../types";
+import { FeedMetadata, EmailMetadata } from "../types";
+import { FeedState } from "./feed-state";
 import { FeedId } from "./value-objects/feed-id";
+import { Lifetime } from "./value-objects/lifetime";
 import { SenderPolicy, SenderDecision } from "./value-objects/sender-policy";
 import { Clock, systemClock } from "./clock";
 import { FeedEvent } from "./events";
-import { isExpired } from "./feed";
-
-const HOUR_MS = 3_600_000;
-
-/**
- * Resolve a feed's `expires_at` from an already-resolved lifetime (hours) and a
- * current instant. Returns undefined when no positive lifetime applies (the feed
- * never expires). Which lifetime applies (client request vs. server-side
- * override, env parsing) is the application layer's call — the aggregate only
- * receives the resolved number. File-private: the aggregate is its sole user.
- */
-function resolveExpiresAt(
-  ttlHours: number | undefined,
-  now: number,
-): number | undefined {
-  return ttlHours !== undefined && Number.isFinite(ttlHours) && ttlHours > 0
-    ? now + ttlHours * HOUR_MS
-    : undefined;
-}
 
 export interface CreateFeedInput {
   title: string;
@@ -34,6 +12,7 @@ export interface CreateFeedInput {
   language: string;
   allowedSenders: string[];
   blockedSenders: string[];
+  /** Raw client-requested lifetime; the application resolves it into a `Lifetime`. */
   lifetimeHours?: number;
 }
 
@@ -48,24 +27,23 @@ export interface UpdateFeedInput {
 
 /**
  * Dependencies the aggregate needs from the outside but must not reach for
- * itself: a clock (never ambient `Date.now()`) and an already-resolved feed
- * lifetime. The application layer decides the lifetime — parsing env config and
- * applying any server-side `FEED_TTL_HOURS` override — and hands the result in.
+ * itself: a clock (never ambient `Date.now()`) and an already-resolved
+ * `Lifetime`. The application layer decides the lifetime — parsing env config and
+ * applying any server-side `FEED_TTL_HOURS` override — and hands the VO in.
  */
 export interface CreateFeedDeps {
   clock?: Clock;
-  /** Effective lifetime in hours, already resolved by the application. */
-  ttlHours?: number;
+  /** Effective lifetime, already resolved by the application. */
+  lifetime?: Lifetime;
 }
 
 export interface EditFeedDeps {
-  /** Effective lifetime in hours, already resolved by the application. */
-  ttlHours?: number;
   /**
-   * Whether to recompute expiry at all. False preserves the current expiry
-   * (mirrors the old "no server TTL and no client lifetime ⇒ leave as-is").
+   * Effective lifetime, already resolved by the application. Its *presence* means
+   * "recompute expiry"; its absence preserves the current expiry — which covers
+   * the dashboard's title/description quick-edit.
    */
-  recomputeExpiry?: boolean;
+  lifetime?: Lifetime;
 }
 
 export interface IngestOptions {
@@ -83,17 +61,19 @@ export interface IngestOptions {
  * deliberately sit *outside* the aggregate — the caller flushes them alongside
  * `FeedRepository.save`/`saveMetadata`.
  *
- * I/O-free and time-free: load and persist state through `FeedRepository`; time
- * comes from an injected `Clock`. KV has no multi-key transaction, so a future
- * Durable Object keyed by feed id would wrap load→mutate→save to serialise
- * concurrent writers (see email-processor.ts).
+ * Its config is held as domain `FeedState` (camelCase), never the snake_case
+ * persistence DTO — `FeedRepository` translates via `feed-mapper.ts`. I/O-free
+ * and time-free: load and persist through the repository; time comes from an
+ * injected `Clock`. KV has no multi-key transaction, so a future Durable Object
+ * keyed by feed id would wrap load→mutate→save to serialise concurrent writers
+ * (see email-processor.ts).
  */
 export class Feed {
   private readonly _events: FeedEvent[] = [];
 
   private constructor(
     readonly id: FeedId,
-    private _config: FeedConfig,
+    private _state: FeedState,
     private _metadata: FeedMetadata,
     private readonly clock: Clock,
   ) {}
@@ -106,60 +86,60 @@ export class Feed {
   ): Feed {
     const clock = deps.clock ?? systemClock;
     const now = clock.now();
-    const expiresAt = resolveExpiresAt(deps.ttlHours, now);
-    const config: FeedConfig = {
+    const expiresAt = (deps.lifetime ?? Lifetime.never).resolveExpiry(now);
+    const state: FeedState = {
       title: input.title,
       description: input.description,
       language: input.language,
-      allowed_senders: input.allowedSenders,
-      blocked_senders: input.blockedSenders,
-      created_at: now,
-      updated_at: now,
-      ...(expiresAt !== undefined ? { expires_at: expiresAt } : {}),
+      allowedSenders: input.allowedSenders,
+      blockedSenders: input.blockedSenders,
+      createdAt: now,
+      updatedAt: now,
+      expiresAt,
     };
-    const feed = new Feed(id, config, { emails: [] }, clock);
-    feed._events.push({ type: "FeedCreated" });
+    const feed = new Feed(id, state, { emails: [] }, clock);
+    feed._events.push({ type: "FeedCreated", feedId: id });
     return feed;
   }
 
-  /** Rebuild an aggregate from persisted state. */
+  /** Rebuild an aggregate from persisted (already-mapped) domain state. */
   static reconstitute(
     id: FeedId,
-    config: FeedConfig,
+    state: FeedState,
     metadata: FeedMetadata,
     clock: Clock = systemClock,
   ): Feed {
-    return new Feed(id, config, metadata, clock);
+    return new Feed(id, state, metadata, clock);
   }
 
   // ── Intention-revealing reads ─────────────────────────────────────────────
   // The aggregate exposes named fields and copies of its collections, never the
-  // raw `config`/`metadata` objects — a shallow `Readonly<…>` would still let a
-  // caller mutate the arrays inside. Persistence reads `toConfigSnapshot()` /
-  // `toMetadataSnapshot()`; the registry reads `summary()`.
+  // raw `state`/`metadata` objects — a shallow `Readonly<…>` would still let a
+  // caller mutate the arrays inside. Persistence reads `state()` /
+  // `toMetadataSnapshot()`; the mapper derives the DTOs.
 
   get title(): string {
-    return this._config.title;
+    return this._state.title;
   }
 
   get description(): string | undefined {
-    return this._config.description;
+    return this._state.description;
   }
 
   get language(): string {
-    return this._config.language;
+    return this._state.language;
   }
 
   get createdAt(): number {
-    return this._config.created_at;
+    return this._state.createdAt;
   }
 
   get updatedAt(): number | undefined {
-    return this._config.updated_at;
+    return this._state.updatedAt;
   }
 
   get expiresAt(): number | undefined {
-    return this._config.expires_at;
+    return this._state.expiresAt;
   }
 
   get iconDomain(): string | undefined {
@@ -167,11 +147,11 @@ export class Feed {
   }
 
   allowedSenders(): string[] {
-    return [...(this._config.allowed_senders ?? [])];
+    return [...this._state.allowedSenders];
   }
 
   blockedSenders(): string[] {
-    return [...(this._config.blocked_senders ?? [])];
+    return [...this._state.blockedSenders];
   }
 
   /** A copy of the email index — mutating it never touches aggregate state. */
@@ -184,21 +164,15 @@ export class Feed {
     return { ...(this._metadata.unsubscribe ?? {}) };
   }
 
-  /** The projection stored in the global `feeds:list` registry. */
-  summary(): FeedListItem {
-    return {
-      id: this.id.value,
-      title: this._config.title,
-      description: this._config.description,
-      expires_at: this._config.expires_at,
-    };
-  }
-
   // ── Persistence snapshots (repository-only) ───────────────────────────────
 
-  /** A serialisable copy of the config for the repository to persist. */
-  toConfigSnapshot(): FeedConfig {
-    return { ...this._config };
+  /** A copy of the domain config state for the repository to map + persist. */
+  state(): FeedState {
+    return {
+      ...this._state,
+      allowedSenders: [...this._state.allowedSenders],
+      blockedSenders: [...this._state.blockedSenders],
+    };
   }
 
   /** A serialisable copy of the email index for the repository to persist. */
@@ -217,13 +191,15 @@ export class Feed {
   }
 
   isExpired(now: number = this.clock.now()): boolean {
-    return isExpired(this._config, now);
+    // The shared `isExpired` predicate (domain/feed.ts) lives on the read path
+    // and speaks the persistence DTO; the aggregate checks its own domain state.
+    return this._state.expiresAt !== undefined && this._state.expiresAt <= now;
   }
 
   accepts(senders: string[]): SenderDecision {
     return SenderPolicy.fromLists(
-      this._config.allowed_senders,
-      this._config.blocked_senders,
+      this._state.allowedSenders,
+      this._state.blockedSenders,
     ).decide(senders);
   }
 
@@ -249,7 +225,11 @@ export class Feed {
       };
     }
 
-    this._events.push({ type: "EmailIngested", iconDomain: opts.iconDomain });
+    this._events.push({
+      type: "EmailIngested",
+      feedId: this.id,
+      iconDomain: opts.iconDomain,
+    });
     return this.trimToByteBudget(opts.maxBytes);
   }
 
@@ -287,11 +267,11 @@ export class Feed {
 
   /**
    * The single edit path. Apply the patch (only the fields it carries) and
-   * recompute expiry from the application-supplied lifetime when asked — an
-   * absent recompute preserves the current expiry, which covers the dashboard's
-   * title/description quick-edit (`recomputeExpiry: false`). Rejects an
-   * already-expired feed without mutating it, so a quick-edit can no more touch
-   * an expired feed than a full edit can.
+   * recompute expiry when the application supplies a `Lifetime` — an absent
+   * lifetime preserves the current expiry, which covers the dashboard's
+   * title/description quick-edit. Rejects an already-expired feed without
+   * mutating it, so a quick-edit can no more touch an expired feed than a full
+   * edit can.
    */
   edit(
     patch: UpdateFeedInput,
@@ -300,23 +280,23 @@ export class Feed {
     if (this.isExpired()) return { status: "expired" };
 
     const now = this.clock.now();
-    const expiresAt = deps.recomputeExpiry
-      ? resolveExpiresAt(deps.ttlHours, now)
-      : this._config.expires_at;
+    const expiresAt = deps.lifetime
+      ? deps.lifetime.resolveExpiry(now)
+      : this._state.expiresAt;
 
-    if (patch.title !== undefined) this._config.title = patch.title;
+    if (patch.title !== undefined) this._state.title = patch.title;
     if (patch.description !== undefined) {
-      this._config.description = patch.description;
+      this._state.description = patch.description;
     }
-    if (patch.language !== undefined) this._config.language = patch.language;
+    if (patch.language !== undefined) this._state.language = patch.language;
     if (patch.allowedSenders !== undefined) {
-      this._config.allowed_senders = patch.allowedSenders;
+      this._state.allowedSenders = patch.allowedSenders;
     }
     if (patch.blockedSenders !== undefined) {
-      this._config.blocked_senders = patch.blockedSenders;
+      this._state.blockedSenders = patch.blockedSenders;
     }
-    this._config.updated_at = now;
-    this._config.expires_at = expiresAt;
+    this._state.updatedAt = now;
+    this._state.expiresAt = expiresAt;
 
     return { status: "ok" };
   }

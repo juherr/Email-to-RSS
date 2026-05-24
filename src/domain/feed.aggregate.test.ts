@@ -3,10 +3,12 @@ import { createMockEnv } from "../test/setup";
 import { Feed, CreateFeedInput } from "./feed.aggregate";
 import { FeedRepository } from "../infrastructure/feed-repository";
 import { FeedId } from "./value-objects/feed-id";
+import { Lifetime } from "./value-objects/lifetime";
+import { FeedState } from "./feed-state";
 import { Clock } from "./clock";
 import type { Env, EmailMetadata } from "../types";
 
-const FID = FeedId.fromTrusted("a.b.42");
+const FID = FeedId.unchecked("a.b.42");
 
 const mockEnv = () => createMockEnv() as unknown as Env;
 
@@ -19,6 +21,15 @@ const createInput = (
   language: "en",
   allowedSenders: [],
   blockedSenders: [],
+  ...overrides,
+});
+
+const state = (overrides: Partial<FeedState> = {}): FeedState => ({
+  title: "T",
+  language: "en",
+  allowedSenders: [],
+  blockedSenders: [],
+  createdAt: 0,
   ...overrides,
 });
 
@@ -39,43 +50,41 @@ describe("Feed.create", () => {
     expect(feed.emails).toEqual([]);
   });
 
-  it("resolves expiry from the supplied ttlHours using the injected clock", () => {
+  it("resolves expiry from the supplied lifetime using the injected clock", () => {
     const NOW = 1_000_000;
     const feed = Feed.create(FID, createInput(), {
       clock: fixedClock(NOW),
-      ttlHours: 2,
+      lifetime: Lifetime.ofHours(2),
     });
     expect(feed.createdAt).toBe(NOW);
     expect(feed.updatedAt).toBe(NOW);
     expect(feed.expiresAt).toBe(NOW + 2 * 3_600_000);
   });
 
-  it("trusts only deps.ttlHours, not the client lifetimeHours field", () => {
+  it("trusts only deps.lifetime, not the client lifetimeHours field", () => {
     // The aggregate no longer parses lifetime policy: the application resolves
-    // the effective ttlHours (env override etc.) and hands it in.
-    const feed = Feed.create(FID, createInput({ lifetimeHours: 9999 }), {
-      ttlHours: undefined,
-    });
+    // the effective Lifetime (env override etc.) and hands it in.
+    const feed = Feed.create(FID, createInput({ lifetimeHours: 9999 }));
     expect(feed.expiresAt).toBeUndefined();
   });
 
-  it("treats a non-positive ttlHours as no expiry", () => {
+  it("treats a non-positive lifetime as no expiry", () => {
     expect(
-      Feed.create(FID, createInput(), { ttlHours: 0 }).expiresAt,
+      Feed.create(FID, createInput(), { lifetime: Lifetime.ofHours(0) })
+        .expiresAt,
     ).toBeUndefined();
     expect(
-      Feed.create(FID, createInput(), { ttlHours: -5 }).expiresAt,
+      Feed.create(FID, createInput(), { lifetime: Lifetime.ofHours(-5) })
+        .expiresAt,
     ).toBeUndefined();
   });
 });
 
 describe("Feed.isExpired / accepts", () => {
   it("reports expiry against the configured instant", () => {
-    const feed = Feed.reconstitute(
-      FID,
-      { title: "T", language: "en", created_at: 0, expires_at: 100 },
-      { emails: [] },
-    );
+    const feed = Feed.reconstitute(FID, state({ expiresAt: 100 }), {
+      emails: [],
+    });
     expect(feed.isExpired(50)).toBe(false);
     expect(feed.isExpired(150)).toBe(true);
   });
@@ -83,7 +92,7 @@ describe("Feed.isExpired / accepts", () => {
   it("uses the injected clock when no instant is supplied", () => {
     const feed = Feed.reconstitute(
       FID,
-      { title: "T", language: "en", created_at: 0, expires_at: 100 },
+      state({ expiresAt: 100 }),
       { emails: [] },
       fixedClock(150),
     );
@@ -93,12 +102,7 @@ describe("Feed.isExpired / accepts", () => {
   it("applies the sender policy", () => {
     const feed = Feed.reconstitute(
       FID,
-      {
-        title: "T",
-        language: "en",
-        created_at: 0,
-        allowed_senders: ["good@example.com"],
-      },
+      state({ allowedSenders: ["good@example.com"] }),
       { emails: [] },
     );
     expect(feed.accepts(["good@example.com"])).toBe("accepted");
@@ -107,28 +111,28 @@ describe("Feed.isExpired / accepts", () => {
 });
 
 describe("Feed.edit", () => {
-  it("recomputes expiry only when asked", () => {
+  it("recomputes expiry only when a lifetime is supplied", () => {
     const NOW = 5_000_000;
     const FUTURE = NOW + 10 * 3_600_000;
     const feed = Feed.reconstitute(
       FID,
-      { title: "T", language: "en", created_at: 0, expires_at: FUTURE },
+      state({ expiresAt: FUTURE }),
       { emails: [] },
       fixedClock(NOW),
     );
 
-    feed.edit({ title: "T2" }, { recomputeExpiry: false });
-    expect(feed.expiresAt).toBe(FUTURE); // preserved
+    feed.edit({ title: "T2" }); // no lifetime ⇒ expiry preserved
+    expect(feed.expiresAt).toBe(FUTURE);
     expect(feed.updatedAt).toBe(NOW);
 
-    feed.edit({ title: "T3" }, { recomputeExpiry: true, ttlHours: 1 });
+    feed.edit({ title: "T3" }, { lifetime: Lifetime.ofHours(1) });
     expect(feed.expiresAt).toBe(NOW + 3_600_000);
   });
 
   it("refuses to edit an already-expired feed", () => {
     const feed = Feed.reconstitute(
       FID,
-      { title: "T", language: "en", created_at: 0, expires_at: 100 },
+      state({ expiresAt: 100 }),
       { emails: [] },
       fixedClock(200),
     );
@@ -138,13 +142,9 @@ describe("Feed.edit", () => {
 
 describe("Feed.ingest", () => {
   it("prepends the entry, tracks icon/unsub and trims to the byte budget", () => {
-    const feed = Feed.reconstitute(
-      FID,
-      { title: "T", language: "en", created_at: 0 },
-      {
-        emails: [entry({ key: "old", size: 400 })],
-      },
-    );
+    const feed = Feed.reconstitute(FID, state(), {
+      emails: [entry({ key: "old", size: 400 })],
+    });
 
     const { dropped } = feed.ingest(entry({ key: "new", size: 400 }), {
       maxBytes: 500,
@@ -162,11 +162,7 @@ describe("Feed.ingest", () => {
   });
 
   it("always keeps the just-ingested entry, even when it alone is oversized", () => {
-    const feed = Feed.reconstitute(
-      FID,
-      { title: "T", language: "en", created_at: 0 },
-      { emails: [] },
-    );
+    const feed = Feed.reconstitute(FID, state(), { emails: [] });
 
     const { dropped } = feed.ingest(entry({ key: "huge", size: 999 }), {
       maxBytes: 1,
@@ -179,17 +175,13 @@ describe("Feed.ingest", () => {
 
 describe("Feed.removeEmails", () => {
   it("drops matching keys and returns the removed entries", () => {
-    const feed = Feed.reconstitute(
-      FID,
-      { title: "T", language: "en", created_at: 0 },
-      {
-        emails: [
-          entry({ key: "k1" }),
-          entry({ key: "k2" }),
-          entry({ key: "k3" }),
-        ],
-      },
-    );
+    const feed = Feed.reconstitute(FID, state(), {
+      emails: [
+        entry({ key: "k1" }),
+        entry({ key: "k2" }),
+        entry({ key: "k3" }),
+      ],
+    });
 
     const { removed } = feed.removeEmails(["k1", "k3", "missing"]);
     expect(removed.map((e) => e.key).sort()).toEqual(["k1", "k3"]);
@@ -200,35 +192,31 @@ describe("Feed.removeEmails", () => {
 describe("Feed events", () => {
   it("records FeedCreated on create and drains it once", () => {
     const feed = Feed.create(FID, createInput());
-    expect(feed.pullEvents()).toEqual([{ type: "FeedCreated" }]);
+    expect(feed.pullEvents()).toEqual([{ type: "FeedCreated", feedId: FID }]);
     // Draining clears: a second pull is empty.
     expect(feed.pullEvents()).toEqual([]);
   });
 
   it("records EmailIngested (with icon domain) on ingest", () => {
-    const feed = Feed.reconstitute(
-      FID,
-      { title: "T", language: "en", created_at: 0 },
-      { emails: [] },
-    );
+    const feed = Feed.reconstitute(FID, state(), { emails: [] });
     feed.ingest(entry({ key: "k" }), {
       maxBytes: 1_000_000,
       iconDomain: "example.com",
     });
     expect(feed.pullEvents()).toEqual([
-      { type: "EmailIngested", iconDomain: "example.com" },
+      { type: "EmailIngested", feedId: FID, iconDomain: "example.com" },
     ]);
   });
 
   it("emits no events for edit / removeEmails", () => {
     const feed = Feed.reconstitute(
       FID,
-      { title: "T", language: "en", created_at: 0, expires_at: 9_999_999_999 },
+      state({ expiresAt: 9_999_999_999 }),
       { emails: [entry({ key: "k1" })] },
       fixedClock(1000),
     );
-    feed.edit({ title: "X" }, { recomputeExpiry: false });
-    feed.edit({ description: "Y" }, { recomputeExpiry: false });
+    feed.edit({ title: "X" });
+    feed.edit({ description: "Y" });
     feed.removeEmails(["k1"]);
     expect(feed.pullEvents()).toEqual([]);
   });
@@ -253,6 +241,6 @@ describe("FeedRepository.load / save round-trip", () => {
 
   it("returns null when the feed has no config", async () => {
     const repo = new FeedRepository(mockEnv().EMAIL_STORAGE);
-    expect(await repo.load(FeedId.fromTrusted("missing"))).toBeNull();
+    expect(await repo.load(FeedId.unchecked("missing"))).toBeNull();
   });
 });

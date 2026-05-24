@@ -158,7 +158,7 @@ emailsRouter.get("/feeds/:feedId/emails", async (c) => {
   const message = c.req.query("message");
   const count = Number(c.req.query("count") || "0");
 
-  const id = FeedId.fromTrusted(feedId);
+  const id = FeedId.unchecked(feedId);
   const feedConfig = await repo.getConfig(id);
   const feedMetadata = await repo.getMetadata(id);
 
@@ -656,7 +656,7 @@ emailsRouter.post("/emails/:emailKey/delete", async (c) => {
       return c.text("Feed ID is required", 400);
     }
 
-    const feed = await repo.load(FeedId.fromTrusted(feedId));
+    const feed = await repo.load(FeedId.unchecked(feedId));
 
     await repo.deleteEmail(emailKey);
     if (feed) {
@@ -691,7 +691,7 @@ emailsRouter.post("/feeds/:feedId/emails/bulk-delete", async (c) => {
     (c.req.header("Accept") || "").includes("application/json");
 
   try {
-    const feed = await repo.load(FeedId.fromTrusted(feedId));
+    const feed = await repo.load(FeedId.unchecked(feedId));
 
     if (!feed) {
       return wantsJson
