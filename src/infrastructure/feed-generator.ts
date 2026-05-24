@@ -30,7 +30,7 @@ function buildFeed(
   emails: EmailData[],
   baseUrl: string,
   feedId: string,
-  selfUrl?: { rss?: string; atom?: string },
+  selfUrl?: { rss?: string; atom?: string; json?: string },
 ): Feed {
   const iconUrl = `${baseUrl}/favicon/${feedId}`;
   const feed = new Feed({
@@ -52,6 +52,7 @@ function buildFeed(
     feedLinks: {
       rss: selfUrl?.rss ?? `${baseUrl}/rss/${feedId}`,
       atom: selfUrl?.atom ?? `${baseUrl}/atom/${feedId}`,
+      json: selfUrl?.json ?? `${baseUrl}/json/${feedId}`,
     },
     author: feedConfig.author
       ? {
@@ -126,4 +127,20 @@ export function generateAtomFeed(
       selfUrl ? { atom: selfUrl } : undefined,
     ).atom1(),
   );
+}
+
+export function generateJsonFeed(
+  feedConfig: FeedConfig,
+  emails: EmailData[],
+  baseUrl: string,
+  feedId: string,
+  selfUrl?: string,
+): string {
+  return buildFeed(
+    feedConfig,
+    emails,
+    baseUrl,
+    feedId,
+    selfUrl ? { json: selfUrl } : undefined,
+  ).json1();
 }

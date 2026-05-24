@@ -204,6 +204,30 @@ export class Feed {
   }
 
   /**
+   * Check whether the email index already contains a duplicate of the incoming
+   * email. Dedup uses `messageId` as the primary key (when both sides have one)
+   * and falls back to `dedupHash` (SHA-256 of normalised subject+content).
+   * Old entries that predate the feature and carry neither field are never
+   * matched — they cannot cause false positives.
+   */
+  hasDuplicate(messageId?: string, dedupHash?: string): boolean {
+    for (const entry of this._metadata.emails) {
+      if (messageId && entry.messageId && entry.messageId === messageId) {
+        return true;
+      }
+      if (
+        !messageId &&
+        dedupHash &&
+        entry.dedupHash &&
+        entry.dedupHash === dedupHash
+      ) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /**
    * Add an email to the front of the index, refresh the icon domain and the
    * per-sender unsubscribe link, then trim the oldest entries back under the
    * byte budget. Returns the dropped entries so the caller can purge their

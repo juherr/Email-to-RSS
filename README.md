@@ -22,6 +22,10 @@ kill-the-news keeps the same workflow while avoiding shared domains and shared d
 - Optional per-feed sender allowlist (`email@domain.com` or `domain.com`)
 - RSS generation on demand (`/rss/:feedId`)
 - Atom feed at `/atom/:feedId`
+- JSON Feed at `/json/:feedId` (natively consumed by NetNewsWire, Reeder, NewsBlur, Feedly)
+- Bandwidth-friendly polling: RSS/Atom send a strong `ETag` + `Last-Modified` and answer `304 Not Modified` on conditional requests
+- Duplicate-send dedup: a newsletter delivered twice (matched by `Message-ID`, then by a content hash) is stored once
+- OPML export of all feeds at `/admin/opml` (admin-protected) for one-click bulk import into any reader
 - Reader-friendly output: relative links/images absolutized to the sender's site, lazy-loaded images promoted (`data-src` → `src`), plain-text feed titles, and XML-illegal control characters stripped so feeds parse in strict readers
 - Per-feed favicon derived from the last sender's domain (`/favicon/:feedId`), cached and shown in feeds + admin
 - Automatic RFC 8058 one-click unsubscribe when a feed is deleted — stops newsletters from mailing the now-dead address
@@ -51,8 +55,10 @@ Main routes:
 
 - `src/lib/cloudflare-email.ts`: Cloudflare Email Workers ingestion
 - `src/routes/inbound.ts`: ForwardEmail webhook ingestion
-- `src/routes/rss.ts`: RSS rendering
-- `src/routes/atom.ts`: Atom feed rendering
+- `src/routes/rss.ts`: RSS rendering (with conditional-GET / ETag support)
+- `src/routes/atom.ts`: Atom feed rendering (with conditional-GET / ETag support)
+- `src/routes/json.ts`: JSON Feed rendering
+- `src/routes/opml.ts`: OPML export of all feeds (admin-protected, mounted at `/admin/opml`)
 - `src/routes/files.ts`: attachment file serving from R2
 - `src/routes/admin.tsx`: admin UI + feed CRUD
 - `src/routes/api/`: versioned REST API + OpenAPI spec/docs (`/api/v1/*`, `/api/openapi.json`, `/api/docs`)

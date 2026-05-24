@@ -109,12 +109,62 @@ async function loadAcceptingFeed(
   return { ok: true, feed };
 }
 
+/**
+ * Compute a SHA-256 hex digest of a normalised string combining subject and
+ * content. Used as a dedup fallback when no Message-ID header is present.
+ * "Normalised" means lower-cased and all whitespace runs collapsed to a single
+ * space — so minor whitespace differences in re-sent mails still match.
+ */
+async function computeDedupHash(
+  subject: string,
+  content: string,
+): Promise<string> {
+  const normalize = (s: string) => s.toLowerCase().replace(/\s+/g, " ").trim();
+  const raw = `${normalize(subject)}\n${normalize(content)}`;
+  const buf = await crypto.subtle.digest(
+    "SHA-256",
+    new TextEncoder().encode(raw),
+  );
+  return Array.from(new Uint8Array(buf))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+/**
+ * Extract the Message-ID from request headers (case-insensitive key lookup).
+ * Returns undefined when absent or empty.
+ */
+function extractMessageId(
+  headers: Record<string, string> | undefined,
+): string | undefined {
+  if (!headers) return undefined;
+  const value = Object.entries(headers).find(
+    ([k]) => k.toLowerCase() === "message-id",
+  )?.[1];
+  const trimmed = value?.trim();
+  return trimmed || undefined;
+}
+
 async function storeEmail(
   feed: Feed,
   input: ProcessEmailInput,
   env: Env,
   ctx?: ExecutionContext,
-): Promise<void> {
+): Promise<boolean> {
+  // ── Dedup check ──────────────────────────────────────────────────────────
+  // Compute both dedup signals up-front (hash is async) so we only do it once.
+  const messageId = extractMessageId(input.headers);
+  const dedupHash = await computeDedupHash(input.subject, input.content);
+
+  if (feed.hasDuplicate(messageId, dedupHash)) {
+    logger.info("Duplicate email skipped", {
+      feedId: feed.id.value,
+      ...(messageId ? { messageId } : { dedupHash }),
+    });
+    await bumpCounters(env.EMAIL_STORAGE, { emails_deduplicated: 1 });
+    return false; // signal: skipped (not stored)
+  }
+
   const attachmentBucket = getAttachmentBucket(env);
   const inlineCids = extractInlineCids(input.content);
   const storedAttachments: AttachmentData[] =
@@ -149,6 +199,8 @@ async function storeEmail(
     size: serialisedSize,
     ...(downloadableIds.length > 0 ? { attachmentIds: downloadableIds } : {}),
     ...(inlineIds.length > 0 ? { inlineAttachmentIds: inlineIds } : {}),
+    ...(messageId ? { messageId } : {}),
+    dedupHash,
   };
 
   // Track the latest sender's domain (feed icon) and capture the RFC 8058
@@ -198,6 +250,7 @@ async function storeEmail(
     ? (p) => ctx.waitUntil(p)
     : () => {};
   await dispatchFeedEvents(feed, env, schedule);
+  return true; // signal: stored
 }
 
 export async function processEmail(

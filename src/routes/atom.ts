@@ -5,6 +5,11 @@ import { fetchFeedData } from "../application/feed-fetcher";
 import { baseUrl, feedAtomUrl } from "../infrastructure/urls";
 import { isExpired } from "../domain/feed";
 import { FeedId } from "../domain/value-objects/feed-id";
+import {
+  computeFeedValidators,
+  isNotModified,
+  notModifiedResponse,
+} from "../infrastructure/http-cache";
 
 export async function handle(c: Context<{ Bindings: Env }>): Promise<Response> {
   try {
@@ -19,6 +24,17 @@ export async function handle(c: Context<{ Bindings: Env }>): Promise<Response> {
     }
     if (isExpired(feedData.feedConfig)) {
       return new Response("Feed has expired", { status: 410 });
+    }
+
+    const validators = computeFeedValidators(
+      "atom",
+      feedId,
+      feedData.feedConfig,
+      feedData.emails,
+    );
+
+    if (isNotModified(c.req.raw, validators)) {
+      return notModifiedResponse(validators);
     }
 
     const base = baseUrl(c.env);
@@ -42,6 +58,8 @@ export async function handle(c: Context<{ Bindings: Env }>): Promise<Response> {
         "Cache-Control": "max-age=1800",
         "X-Robots-Tag": "noindex",
         Link: linkHeader,
+        ETag: validators.etag,
+        "Last-Modified": validators.lastModified,
       },
     });
   } catch (error) {

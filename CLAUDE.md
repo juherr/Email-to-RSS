@@ -46,11 +46,13 @@ Single Cloudflare Worker built with Hono. Routes:
 | `GET /api/v1/stats`                  | Public monitoring counters (JSON, CORS); canonical stats endpoint      |
 | `GET /api/openapi.json`              | OpenAPI 3.1 spec (public)                                              |
 | `GET /api/docs`                      | Rendered API reference (Scalar, public)                                |
-| `GET /rss/:feedId`                   | Public RSS 2.0 feed                                                    |
-| `GET /atom/:feedId`                  | Public Atom feed (with WebSub hub header)                              |
+| `GET /rss/:feedId`                   | Public RSS 2.0 feed (conditional GET: ETag/Last-Modified/304)          |
+| `GET /atom/:feedId`                  | Public Atom feed (WebSub hub header; conditional GET ETag/304)         |
+| `GET /json/:feedId`                  | Public JSON Feed                                                       |
 | `GET /entries/:feedId/:entryId`      | Individual email HTML view                                             |
 | `GET /files/:attachmentId/:filename` | R2 attachment serving                                                  |
 | `GET /admin`                         | Password-protected admin UI                                            |
+| `GET /admin/opml`                    | OPML export of all feeds (admin-protected)                             |
 | `/hub`                               | WebSub hub (subscribe/publish)                                         |
 | `GET /favicon.svg`, `/favicon.ico`   | Project favicon (envelope logo); fallback for per-feed favicons        |
 | `GET /favicon/:feedId`               | Per-feed favicon from the last sender's domain (falls back to project) |
@@ -94,7 +96,8 @@ src/
     worker.ts               # Typed worker / waitUntil helper
     attachments.ts          # R2 bucket accessor
     favicon-fetcher.ts      # Outbound favicon fetch + cache (uses IconRepository)
-    feed-generator.ts       # RSS/Atom XML generation
+    feed-generator.ts       # RSS/Atom/JSON Feed XML+JSON generation
+    http-cache.ts           # Conditional-GET validators (ETag/Last-Modified) for feed routes
     html-processor.ts       # Email HTML sanitization / inline cid: rewriting
     websub.ts               # WebSub subscription management + delivery
     unsubscribe.ts          # RFC 8058 one-click unsubscribe dispatch
@@ -103,6 +106,8 @@ src/
     inbound.ts              # ForwardEmail webhook handler
     rss.ts                  # RSS feed renderer
     atom.ts                 # Atom feed renderer
+    json.ts                 # JSON Feed renderer
+    opml.ts                 # OPML export of all feeds (admin-protected handler)
     entries.ts              # Single email HTML view
     files.ts                # R2 attachment serving
     hub.ts                  # WebSub hub

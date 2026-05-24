@@ -70,7 +70,7 @@ Ideas from competitors (Feedbin, Readwise Reader, Inoreader, Omnivore, LetterFee
 
 ### Feed-output enrichments (small XML wins — we use the `feed` lib, which already emits `content:encoded`, `atom:link rel="self"`, stable `<guid>`)
 
-- [ ] `P2·S` **JSON Feed 1.1 endpoint** `GET /json/:feedId` **[differentiating, cheap]** — the `feed` lib already supports `.json1()`; we only expose `.rss2()`/`.atom1()` (`src/infrastructure/feed-generator.ts`). Natively consumed by NetNewsWire, Reeder, NewsBlur, Feedly. ~1 route + 1 generator fn. — _origin: [JSON Feed 1.1 spec](https://www.jsonfeed.org/version/1.1/) (reader ecosystem)_
+- [x] `P2·S` **JSON Feed endpoint** `GET /json/:feedId` **[differentiating, cheap]** — the `feed` lib's `.json1()` (emits JSON Feed v1) wired via `generateJsonFeed` in `src/infrastructure/feed-generator.ts`, served at `/json/:feedId` (`src/routes/json.ts`) with `Content-Type: application/feed+json` + WebSub hub `Link`. All three formats cross-link via `feedLinks`. Natively consumed by NetNewsWire, Reeder, NewsBlur, Feedly. — _origin: [JSON Feed 1.1 spec](https://www.jsonfeed.org/version/1.1/) (reader ecosystem)_
 
 - [ ] `P2·M` **Per-item `<category>` + per-feed tags/categories** **[differentiating]** — we set no categories today. Tag entries by sender (or a user-set feed category) so readers (Inoreader, Feedly, NewsBlur) can filter/mute subsets. Pairs with the filtering item below; touches `FeedState`, `feed-generator.ts`. — _origin: [RSS best practices (kevincox)](https://kevincox.ca/2022/05/06/rss-feed-best-practices/); Inoreader/Feedly filtering_
 
@@ -88,7 +88,7 @@ Ideas from competitors (Feedbin, Readwise Reader, Inoreader, Omnivore, LetterFee
 
 ### Reading experience
 
-- [ ] `P2·S` **OPML export** `GET /opml` **[table-stakes, easy]** — export all feeds as an OPML outline so users can bulk-import every feed into their reader in one shot. Every reader imports OPML; strong onboarding/migration win. Pure read over the feed registry. — _origin: reader ecosystem ([NetNewsWire](https://github.com/Ranchero-Software/NetNewsWire/)); Feedbin OPML export_
+- [x] `P2·S` **OPML export** `GET /admin/opml` **[table-stakes, easy]** — export all feeds as an OPML 2.0 outline (`<outline type="rss" xmlUrl=…>` per feed, XML-attr-escaped) so users can bulk-import every feed into their reader in one shot. Mounted on the admin Hono app (inherits the admin auth middleware) rather than public, because the registry lists every feed's RSS URL — a public endpoint would leak them all. Returns `Content-Disposition: attachment; filename="feeds.opml"`. Implemented in `src/routes/opml.ts` over `FeedRepository.listFeeds()`. — _origin: reader ecosystem ([NetNewsWire](https://github.com/Ranchero-Software/NetNewsWire/)); Feedbin OPML export_
 
 - [ ] `P2·L` **Full-text search across received emails** **[differentiating]** — admin-side search over subjects + bodies (Omnivore/Feedbin have this). On KV this means an index or scan; consider scope (subject-only first) before building. — _origin: [Omnivore](https://www.timeatlas.com/omnivore-newsletters/); Feedbin search_
 
@@ -106,13 +106,13 @@ Verified-missing in our code, deduplicated against the sections above. From a co
 
 ### Delivery / bandwidth
 
-- [ ] `P2·S` **Conditional GET on feeds (ETag + Last-Modified + 304)** **[table-stakes, easy]** — `rss.ts`/`atom.ts` only send `Cache-Control: max-age=1800`; no validators. Emit a strong `ETag` (hash of the latest entry id + count) and `Last-Modified` (newest `receivedAt`), and return `304 Not Modified` on `If-None-Match`/`If-Modified-Since`. Cuts bandwidth for every polling reader. Generate the ETag _before_ compression. — _origin: internal code audit ([RFC 9110 conditional requests](https://www.rfc-editor.org/rfc/rfc9110#name-conditional-requests))_
+- [x] `P2·S` **Conditional GET on feeds (ETag + Last-Modified + 304)** **[table-stakes, easy]** — `rss.ts`/`atom.ts` now emit a strong `ETag` (`"<format>-<feedId>-<count>-<maxReceivedAt>"`) and `Last-Modified` (newest `receivedAt`), and return `304 Not Modified` on matching `If-None-Match`/`If-Modified-Since` before generating any XML. Validators are computed from the loaded `FeedData` (not the rendered bytes) in `src/infrastructure/http-cache.ts` (`computeFeedValidators`/`isNotModified`/`notModifiedResponse`), shared by both routes; rss vs atom get distinct ETags via the format prefix. Cuts bandwidth for every polling reader. — _origin: internal code audit ([RFC 9110 conditional requests](https://www.rfc-editor.org/rfc/rfc9110#name-conditional-requests))_
 
 - [ ] `P3·L` **RFC 5005 paged / archived feeds** **[differentiating, niche]** — readers only ever see the capped current window; older entries vanish. Mark the subscription document `fh:complete` and expose `prev-archive` pages so readers can backfill history. Pairs naturally with our expiring-feed model (an expired feed = a sealed archive). ([RFC 5005](https://www.rfc-editor.org/rfc/rfc5005.html))
 
 ### Ingestion robustness
 
-- [ ] `P1·M` **Duplicate-send dedup** **[differentiating]** — the same newsletter resent (or delivered twice) creates two entries today (key = `receivedAt`). Dedup by `Message-ID` first, then a SHA-256 of normalized subject+body within a short window, in `src/application/email-processor.ts`. Fixes the upstream "duplicate posts" complaint ([#31](https://github.com/leafac/kill-the-newsletter/issues/31), [#6](https://github.com/leafac/kill-the-newsletter/issues/6)).
+- [x] `P1·M` **Duplicate-send dedup** **[differentiating]** — a newsletter resent (or delivered twice) is now stored once. `storeEmail` (`src/application/email-processor.ts`) computes the `Message-ID` (case-insensitive header lookup) and a SHA-256 of normalized `subject+content`, then asks the aggregate `feed.hasDuplicate(messageId, dedupHash)` (`src/domain/feed.aggregate.ts`): primary match on `Message-ID`, fallback to the content hash when neither side has a Message-ID. A duplicate is a successful no-op (`{ ok: true }`, nothing stored/dispatched) and bumps a new `emails_deduplicated` counter (status page + `/api/v1/stats`). `EmailMetadata` gained additive `messageId?`/`dedupHash?` fields, so pre-feature entries never false-match. Fixes the upstream "duplicate posts" complaint ([#31](https://github.com/leafac/kill-the-newsletter/issues/31), [#6](https://github.com/leafac/kill-the-newsletter/issues/6)).
 
 - [ ] `P3·M` **Calendar (.ics) invite extraction** **[differentiating, novel]** — no email→feed tool does this. Detect `text/calendar` parts, parse the event, and surface it in the entry (summary + an `.ics` enclosure / add-to-calendar link). Useful for event/booking newsletters. — _origin: internal (novel; no external requester)_
 

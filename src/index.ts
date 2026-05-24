@@ -3,6 +3,7 @@ import { cors } from "hono/cors";
 import { handle as handleInbound } from "./routes/inbound";
 import { handle as handleRSS } from "./routes/rss";
 import { handle as handleAtom } from "./routes/atom";
+import { handle as handleJSON } from "./routes/json";
 import { handle as handleAdmin } from "./routes/admin";
 import { handle as handleEntry } from "./routes/entries";
 import { handle as handleFiles } from "./routes/files";
@@ -116,6 +117,7 @@ app.use(
 const api = new Hono<AppEnv>();
 const rss = new Hono<AppEnv>();
 const atom = new Hono<AppEnv>();
+const json = new Hono<AppEnv>();
 const entries = new Hono<AppEnv>();
 const files = new Hono<AppEnv>();
 const admin = new Hono<AppEnv>();
@@ -151,6 +153,9 @@ rss.get("/:feedId", handleRSS);
 // Atom feed routes (public)
 atom.get("/:feedId", handleAtom);
 
+// JSON Feed routes (public)
+json.get("/:feedId", handleJSON);
+
 // Email entry HTML view (public)
 entries.get("/:feedId/:entryId", handleEntry);
 
@@ -166,6 +171,7 @@ app.route("/api", api);
 app.route("/api", apiApp);
 app.route("/rss", rss);
 app.route("/atom", atom);
+app.route("/json", json);
 app.route("/entries", entries);
 app.route("/files", files);
 app.route("/admin", admin);

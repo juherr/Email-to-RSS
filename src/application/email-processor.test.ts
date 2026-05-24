@@ -595,6 +595,134 @@ describe("processEmail — attachments", () => {
   });
 });
 
+describe("processEmail — deduplication", () => {
+  let env: ReturnType<typeof createMockEnv>;
+
+  beforeEach(async () => {
+    env = createMockEnv();
+    await env.EMAIL_STORAGE.put(
+      `feed:${VALID_FEED_ID}:config`,
+      JSON.stringify({}),
+    );
+  });
+
+  it("stores only one email when the same Message-ID is delivered twice", async () => {
+    const headers = { "Message-ID": "<abc123@example.com>" };
+    await processEmail(makeInput({ headers }), env as any);
+    await processEmail(makeInput({ headers }), env as any);
+
+    const metadata = await env.EMAIL_STORAGE.get(
+      `feed:${VALID_FEED_ID}:metadata`,
+      "json",
+    );
+    expect(metadata.emails).toHaveLength(1);
+  });
+
+  it("increments emails_deduplicated counter on the second delivery", async () => {
+    const headers = { "Message-ID": "<dup42@example.com>" };
+    await processEmail(makeInput({ headers }), env as any);
+    await processEmail(makeInput({ headers }), env as any);
+
+    const counters = await getCounters(env.EMAIL_STORAGE as any);
+    expect(counters.emails_deduplicated).toBe(1);
+  });
+
+  it("deduplicates by hash when no Message-ID header is present", async () => {
+    const input = makeInput({
+      subject: "Weekly Digest",
+      content: "<p>Same content</p>",
+    });
+    await processEmail(input, env as any);
+    await processEmail(input, env as any);
+
+    const metadata = await env.EMAIL_STORAGE.get(
+      `feed:${VALID_FEED_ID}:metadata`,
+      "json",
+    );
+    expect(metadata.emails).toHaveLength(1);
+
+    const counters = await getCounters(env.EMAIL_STORAGE as any);
+    expect(counters.emails_deduplicated).toBe(1);
+  });
+
+  it("does not deduplicate emails with different subjects (no Message-ID)", async () => {
+    await processEmail(
+      makeInput({ subject: "First", content: "<p>body</p>" }),
+      env as any,
+    );
+    await processEmail(
+      makeInput({ subject: "Second", content: "<p>body</p>" }),
+      env as any,
+    );
+
+    const metadata = await env.EMAIL_STORAGE.get(
+      `feed:${VALID_FEED_ID}:metadata`,
+      "json",
+    );
+    expect(metadata.emails).toHaveLength(2);
+
+    const counters = await getCounters(env.EMAIL_STORAGE as any);
+    expect(counters.emails_deduplicated).toBe(0);
+  });
+
+  it("does not false-positive against pre-feature entries lacking messageId/dedupHash", async () => {
+    // Seed a legacy metadata entry with no messageId or dedupHash
+    await env.EMAIL_STORAGE.put(
+      `feed:${VALID_FEED_ID}:metadata`,
+      JSON.stringify({
+        emails: [
+          {
+            key: `feed:${VALID_FEED_ID}:999`,
+            subject: "Old Subject",
+            receivedAt: 999,
+            size: 50,
+            // intentionally no messageId, no dedupHash
+          },
+        ],
+      }),
+    );
+
+    // A new, distinct email should be stored without triggering false dedup
+    const res = await processEmail(
+      makeInput({ subject: "New Distinct Email", content: "<p>fresh</p>" }),
+      env as any,
+    );
+    expect(res.ok).toBe(true);
+
+    const metadata = await env.EMAIL_STORAGE.get(
+      `feed:${VALID_FEED_ID}:metadata`,
+      "json",
+    );
+    expect(metadata.emails).toHaveLength(2);
+
+    const counters = await getCounters(env.EMAIL_STORAGE as any);
+    expect(counters.emails_deduplicated).toBe(0);
+  });
+
+  it("returns { ok: true } for a genuine duplicate (not a rejection)", async () => {
+    const headers = { "Message-ID": "<nodrop@example.com>" };
+    await processEmail(makeInput({ headers }), env as any);
+    const res = await processEmail(makeInput({ headers }), env as any);
+    expect(res).toMatchObject({ ok: true });
+  });
+
+  it("stores messageId and dedupHash in the email metadata entry", async () => {
+    const headers = { "Message-ID": "<stored@example.com>" };
+    await processEmail(
+      makeInput({ subject: "Sub", content: "<p>c</p>", headers }),
+      env as any,
+    );
+
+    const metadata = await env.EMAIL_STORAGE.get(
+      `feed:${VALID_FEED_ID}:metadata`,
+      "json",
+    );
+    expect(metadata.emails[0].messageId).toBe("<stored@example.com>");
+    expect(typeof metadata.emails[0].dedupHash).toBe("string");
+    expect(metadata.emails[0].dedupHash).toHaveLength(64); // SHA-256 hex
+  });
+});
+
 describe("processEmail — monitoring counters", () => {
   it("increments emails_received and sets last_email_at on success", async () => {
     const env = createMockEnv();
@@ -709,6 +837,7 @@ describe("processEmail — unsubscribe capture", () => {
   it("keeps one entry per sender and overwrites with the latest URL", async () => {
     await processEmail(
       makeInput({
+        subject: "Issue 1 from A",
         senders: ["a@one.com"],
         headers: {
           "list-unsubscribe": "<https://one.com/u/1>",
@@ -719,6 +848,7 @@ describe("processEmail — unsubscribe capture", () => {
     );
     await processEmail(
       makeInput({
+        subject: "Issue 1 from B",
         senders: ["b@two.com"],
         headers: {
           "list-unsubscribe": "<https://two.com/u/1>",
@@ -729,6 +859,7 @@ describe("processEmail — unsubscribe capture", () => {
     );
     await processEmail(
       makeInput({
+        subject: "Issue 2 from A",
         senders: ["a@one.com"],
         headers: {
           "list-unsubscribe": "<https://one.com/u/2>",

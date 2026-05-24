@@ -18,6 +18,7 @@ import {
 } from "../infrastructure/urls";
 import { feedsRouter } from "./admin/feeds";
 import { emailsRouter } from "./admin/emails";
+import { handleOpml } from "./opml";
 import { dashboardScript } from "../scripts/generated/dashboard";
 
 type AppEnv = { Bindings: Env };
@@ -974,6 +975,9 @@ app.get("/", async (c) => {
     </Layout>,
   );
 });
+
+// OPML export (admin-protected)
+app.get("/opml", handleOpml);
 
 // Mount sub-routers
 app.route("/feeds", feedsRouter);

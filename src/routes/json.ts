@@ -1,15 +1,10 @@
 import { Context } from "hono";
 import { Env } from "../types";
-import { generateRssFeed } from "../infrastructure/feed-generator";
+import { generateJsonFeed } from "../infrastructure/feed-generator";
 import { fetchFeedData } from "../application/feed-fetcher";
-import { baseUrl, feedRssUrl } from "../infrastructure/urls";
+import { baseUrl } from "../infrastructure/urls";
 import { isExpired } from "../domain/feed";
 import { FeedId } from "../domain/value-objects/feed-id";
-import {
-  computeFeedValidators,
-  isNotModified,
-  notModifiedResponse,
-} from "../infrastructure/http-cache";
 
 export async function handle(c: Context<{ Bindings: Env }>): Promise<Response> {
   try {
@@ -26,20 +21,9 @@ export async function handle(c: Context<{ Bindings: Env }>): Promise<Response> {
       return new Response("Feed has expired", { status: 410 });
     }
 
-    const validators = computeFeedValidators(
-      "rss",
-      feedId,
-      feedData.feedConfig,
-      feedData.emails,
-    );
-
-    if (isNotModified(c.req.raw, validators)) {
-      return notModifiedResponse(validators);
-    }
-
     const base = baseUrl(c.env);
-    const selfUrl = new URL(c.req.url).origin + `/rss/${feedId}`;
-    const rssXml = generateRssFeed(
+    const selfUrl = new URL(c.req.url).origin + `/json/${feedId}`;
+    const jsonFeed = generateJsonFeed(
       feedData.feedConfig,
       feedData.emails,
       base,
@@ -48,22 +32,20 @@ export async function handle(c: Context<{ Bindings: Env }>): Promise<Response> {
     );
     const linkHeader = [
       `<${base}/hub>; rel="hub"`,
-      `<${feedRssUrl(feedId, c.env)}>; rel="self"`,
+      `<${selfUrl}>; rel="self"`,
     ].join(", ");
 
-    return new Response(rssXml, {
+    return new Response(jsonFeed, {
       status: 200,
       headers: {
-        "Content-Type": "application/rss+xml",
+        "Content-Type": "application/feed+json",
         "Cache-Control": "max-age=1800",
         "X-Robots-Tag": "noindex",
         Link: linkHeader,
-        ETag: validators.etag,
-        "Last-Modified": validators.lastModified,
       },
     });
   } catch (error) {
-    console.error("Error generating RSS feed:", error);
+    console.error("Error generating JSON feed:", error);
     return new Response("Internal Server Error", { status: 500 });
   }
 }

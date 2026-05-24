@@ -68,6 +68,8 @@ export interface EmailMetadata {
   size?: number;
   attachmentIds?: string[]; // Downloadable attachments (shown to the user)
   inlineAttachmentIds?: string[]; // Inline images: hidden from lists, still cleaned up
+  messageId?: string; // RFC 2822 Message-ID header (dedup primary key)
+  dedupHash?: string; // SHA-256 hex of normalized subject+content (dedup fallback)
 }
 
 // Feed list interface
@@ -92,6 +94,7 @@ export interface Counters {
   // Subset of emails_rejected: non-feed mail forwarded to FALLBACK_FORWARD_ADDRESS
   // instead of dropped. Dropped count = emails_rejected − emails_forwarded.
   emails_forwarded: number;
+  emails_deduplicated: number; // Duplicate deliveries silently skipped (not stored)
   unsubscribes_sent: number;
   last_email_at?: string; // ISO 8601
   last_feed_created_at?: string; // ISO 8601

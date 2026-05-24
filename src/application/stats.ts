@@ -12,6 +12,7 @@ const EMPTY_COUNTERS: Counters = {
   emails_received: 0,
   emails_rejected: 0,
   emails_forwarded: 0,
+  emails_deduplicated: 0,
   unsubscribes_sent: 0,
 };
 
@@ -43,6 +44,7 @@ export async function bumpCounters(
     current.emails_received += changes.emails_received ?? 0;
     current.emails_rejected += changes.emails_rejected ?? 0;
     current.emails_forwarded += changes.emails_forwarded ?? 0;
+    current.emails_deduplicated += changes.emails_deduplicated ?? 0;
     current.unsubscribes_sent += changes.unsubscribes_sent ?? 0;
     if (changes.last_email_at) current.last_email_at = changes.last_email_at;
     if (changes.last_feed_created_at)

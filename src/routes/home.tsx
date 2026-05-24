@@ -166,6 +166,7 @@ export async function handle(c: Context<{ Bindings: Env }>): Promise<Response> {
               label="Forwarded (catch-all)"
               value={stats.emails_forwarded}
             />
+            <Stat label="Deduplicated" value={stats.emails_deduplicated} />
             <Stat
               label="Acceptance rate"
               value={acceptanceRate}
