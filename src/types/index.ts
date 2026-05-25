@@ -69,6 +69,13 @@ export interface FeedMetadata {
   pendingConfirmation?: boolean;
 }
 
+// A syndication feed a newsletter advertises about itself (via
+// <link rel="alternate">), as opposed to the KTN-generated feed.
+export interface NativeFeed {
+  url: string;
+  type: "rss" | "atom" | "json";
+}
+
 // Email metadata interface (summary info for listing)
 export interface EmailMetadata {
   key: string;
