@@ -1538,6 +1538,38 @@ describe("Admin Routes", () => {
       expect(await editPage.text()).toContain("checked");
     });
 
+    it("dashboard shows pill-native for feeds with hasNativeFeed", async () => {
+      const authCookie = await loginAndGetCookie();
+      const repo = FeedRepository.from(mockEnv as unknown as Env);
+      const feedId = FeedId.generate();
+      const mailboxId = MailboxId.unchecked("native.pill.08");
+      const feed = Feed.create(
+        feedId,
+        {
+          title: "N",
+          language: "en",
+          allowedSenders: [],
+          blockedSenders: [],
+        },
+        { mailboxId },
+      );
+      feed.ingest(
+        { key: "k1", subject: "s", receivedAt: 1, size: 10 },
+        {
+          maxBytes: 1e9,
+          nativeFeeds: {
+            senderKey: "a@x.com",
+            feeds: [{ url: "https://x.com/rss", type: "rss" }],
+          },
+        },
+      );
+      await repo.save(feed);
+
+      const res = await request("/admin", { headers: { Cookie: authCookie } });
+      const body = await res.text();
+      expect(body).toContain("pill-native");
+    });
+
     it("clears the toggle when the checkbox is omitted (unchecked)", async () => {
       const authCookie = await loginAndGetCookie();
       const repo = FeedRepository.from(mockEnv as unknown as Env);

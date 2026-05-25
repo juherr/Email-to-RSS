@@ -6,6 +6,7 @@ import { interactiveScripts } from "../../scripts/index";
 import { APP_VERSION } from "../../config/version";
 import { FAVICON_PATH } from "../favicon";
 import { Env } from "../../types";
+import type { NativeFeed } from "../../types";
 import {
   feedFormatUrl,
   feedValidatorUrl,
@@ -253,6 +254,62 @@ export const FeedFormats = ({
     </div>
   </div>
 );
+
+// ── Native feed chips ─────────────────────────────────────────────────────────
+
+const NATIVE_LABELS: Record<NativeFeed["type"], string> = {
+  rss: "RSS",
+  atom: "Atom",
+  json: "JSON",
+};
+
+const NativeFeedChip = ({ feed }: { feed: NativeFeed }) => {
+  const label = NATIVE_LABELS[feed.type];
+  return (
+    <div class="format-chip" data-format={feed.type}>
+      <span class="format-chip-label">{label}</span>
+      <span class="format-chip-actions">
+        <span class="copyable copyable-chip">
+          <span
+            class="copyable-content"
+            title={`Copy native ${label} feed URL`}
+            aria-label={`Copy native ${label} feed URL`}
+          >
+            <span class="copyable-value" data-copy={feed.url} hidden></span>
+            <span class="copy-icon-container">
+              <CopyIcon />
+              <CheckIcon />
+            </span>
+          </span>
+        </span>
+        <a
+          class="chip-action"
+          href={feed.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          title={`Open native ${label} feed in a new tab`}
+          aria-label={`Open native ${label} feed in a new tab`}
+        >
+          <OpenIcon />
+        </a>
+      </span>
+    </div>
+  );
+};
+
+export const NativeFeeds = ({ feeds }: { feeds: NativeFeed[] }) => {
+  if (feeds.length === 0) return null;
+  return (
+    <div class="feed-formats native-feeds">
+      <span class="feed-formats-label">Native feeds</span>
+      <div class="feed-formats-chips">
+        {feeds.map((feed) => (
+          <NativeFeedChip feed={feed} />
+        ))}
+      </div>
+    </div>
+  );
+};
 
 // ── Expiry pill ───────────────────────────────────────────────────────────────
 

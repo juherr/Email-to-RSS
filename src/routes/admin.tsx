@@ -229,6 +229,12 @@ const ConfirmationPill = ({ feedId }: { feedId: string }) => (
   </a>
 );
 
+const NativeFeedPill = ({ feedId }: { feedId: string }) => (
+  <a class="pill pill-native" href={`/admin/feeds/${feedId}/emails`}>
+    Native feed available
+  </a>
+);
+
 // Admin dashboard route
 app.get("/", async (c) => {
   // Type assertion for environment variables
@@ -639,6 +645,9 @@ app.get("/", async (c) => {
                               {feed.pendingConfirmation && (
                                 <ConfirmationPill feedId={feed.id} />
                               )}
+                              {feed.hasNativeFeed && (
+                                <NativeFeedPill feedId={feed.id} />
+                              )}
                             </div>
                           </td>
                           <td>
@@ -762,6 +771,9 @@ app.get("/", async (c) => {
                       )}
                       {feed.pendingConfirmation && (
                         <ConfirmationPill feedId={feed.id} />
+                      )}
+                      {feed.hasNativeFeed && (
+                        <NativeFeedPill feedId={feed.id} />
                       )}
                       {feed.description && (
                         <p class="feed-description">
