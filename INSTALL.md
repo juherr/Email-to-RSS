@@ -114,6 +114,17 @@ Scope the token to the relevant **account** and, for custom domains, the relevan
 - Keep `compatibility_date` fresh when doing runtime upgrades.
 - `ADMIN_PASSWORD` is a Cloudflare Worker secret, not a plain env var in config.
 
+### Subscription confirmation
+
+When a newsletter sends a "confirm your email" message, the worker detects it at ingestion using multilingual keyword matching and link scoring. Detected emails are automatically flagged and surfaced throughout the admin UI:
+
+- **Email detail page** — a dedicated "Confirm your subscription" section appears at the top with a primary button linking directly to the confirmation URL.
+- **Email list** — a "Confirmation" badge appears next to the subject so pending confirmations stand out at a glance.
+- **Feed dashboard** — a "Confirmation pending" pill on the feed card signals that action is needed.
+- **Emails page banner** — a dismissible banner with a "Mark as confirmed" button lets you clear the flag once you've clicked the link.
+
+**v1 performs no outbound request.** The admin clicks the confirmation link themselves in their browser; the worker only detects and surfaces it. Server-side on-detect actions (auto-click from the worker, or forwarding the original email to a fallback address) are planned for a future version.
+
 ### Catch-all fallback forwarding
 
 By default, inbound mail that doesn't match a feed is dropped (logged, then discarded). If you want to point a domain's **catch-all** at this worker without losing your personal mail, set an optional fallback address — non-feed mail is forwarded there instead of dropped:
