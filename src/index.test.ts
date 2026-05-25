@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import worker from "./index";
+import { APP_VERSION } from "./config/version";
 import { createMockEnv } from "./test/setup";
 import { createFeedRecord } from "./application/feed-service";
 import { FeedRepository } from "./infrastructure/feed-repository";
@@ -94,6 +95,17 @@ describe("scheduled (cron) TTL cleanup", () => {
     expect(
       await repo.resolveInbound(MailboxId.unchecked(mailboxId)),
     ).toBeNull();
+  });
+});
+
+describe("GET /health", () => {
+  it("reports status ok and the bundled app version", async () => {
+    const res = await worker.fetch(req("/health"), env as unknown as Env);
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { status: string; version: string };
+    expect(body.status).toBe("ok");
+    expect(body.version).toBe(APP_VERSION);
+    expect(body.version).toMatch(/^\d+\.\d+\.\d+/);
   });
 });
 

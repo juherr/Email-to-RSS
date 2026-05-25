@@ -4,6 +4,7 @@
     "module": "ESNext",
     "moduleResolution": "bundler",
     "esModuleInterop": true,
+    "resolveJsonModule": true,
     "strict": true,
     "lib": ["ES2021"],
     "types": ["@cloudflare/workers-types"],

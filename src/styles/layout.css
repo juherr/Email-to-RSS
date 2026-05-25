@@ -247,3 +247,8 @@
 .site-footer-sponsor:hover {
   color: #db61a2 !important;
 }
+
+.site-footer-version {
+  font-variant-numeric: tabular-nums;
+  opacity: 0.7;
+}

@@ -13,6 +13,7 @@ import { hubRouter } from "./routes/hub";
 import { apiApp } from "./routes/api";
 import { handleCloudflareEmail } from "./infrastructure/cloudflare-email";
 import { Env } from "./types";
+import { APP_VERSION } from "./config/version";
 import { logger } from "./infrastructure/logger";
 import { FeedRepository } from "./infrastructure/feed-repository";
 import { purgeExpiredFeeds } from "./application/feed-cleanup";
@@ -185,7 +186,9 @@ app.get("/favicon.ico", handleFavicon); // readers/browsers that hardcode .ico
 app.get("/favicon/:feedId", handleFeedFavicon);
 
 // Health check endpoint for monitoring
-app.get("/health", (c) => c.json({ status: "ok", timestamp: Date.now() }));
+app.get("/health", (c) =>
+  c.json({ status: "ok", version: APP_VERSION, timestamp: Date.now() }),
+);
 
 // Public status page (counters + link to admin)
 app.get("/", handleHome);

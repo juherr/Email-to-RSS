@@ -3,6 +3,7 @@ import layoutCss from "../../styles/layout.css";
 import componentsCss from "../../styles/components.css";
 import utilitiesCss from "../../styles/utilities.css";
 import { interactiveScripts } from "../../scripts/index";
+import { APP_VERSION } from "../../config/version";
 import { FAVICON_PATH } from "../favicon";
 import { Env } from "../../types";
 import {
@@ -77,6 +78,10 @@ export const Layout = ({ title, label = "admin", children }: LayoutProps) => {
           >
             ♥ Sponsor
           </a>
+          <span class="site-footer-sep" aria-hidden="true">
+            ·
+          </span>
+          <span class="site-footer-version">v{APP_VERSION}</span>
         </footer>
       </body>
     </html>
