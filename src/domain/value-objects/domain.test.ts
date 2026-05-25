@@ -22,4 +22,43 @@ describe("Domain", () => {
     ).toBe(true);
     expect(Domain.parse("a.com")!.matches(Domain.parse("b.com")!)).toBe(false);
   });
+
+  describe("parents", () => {
+    it("yields the domain itself and each parent, most-specific first", () => {
+      expect(
+        Domain.parse("mail.example.com")!
+          .parents()
+          .map((d) => d.value),
+      ).toEqual(["mail.example.com", "example.com"]);
+    });
+
+    it("stops at the two-label registrable domain", () => {
+      expect(
+        Domain.parse("a.b.c.example.com")!
+          .parents()
+          .map((d) => d.value),
+      ).toEqual([
+        "a.b.c.example.com",
+        "b.c.example.com",
+        "c.example.com",
+        "example.com",
+      ]);
+    });
+
+    it("returns just the domain when it is already two labels", () => {
+      expect(
+        Domain.parse("example.com")!
+          .parents()
+          .map((d) => d.value),
+      ).toEqual(["example.com"]);
+    });
+
+    it("returns the single label as-is", () => {
+      expect(
+        Domain.parse("localhost")!
+          .parents()
+          .map((d) => d.value),
+      ).toEqual(["localhost"]);
+    });
+  });
 });

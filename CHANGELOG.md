@@ -21,6 +21,11 @@ verbatim as the GitHub Release notes — so what you write here is what ships.
 
 ### Fixed
 
+- Per-feed favicons now resolve for senders on a subdomain that hosts no icon of
+  its own (e.g. `mail.example.com`): the lookup walks up to the apex domain
+  (`example.com`) and uses its favicon, caching it under the original sender
+  domain. Previously both the direct `/favicon.ico` and the DuckDuckGo lookup
+  were tried only against the full subdomain, leaving such feeds blank.
 - Subscription-confirmation detection now flags code-based signup verifications
   (OTP) that have no link to click — e.g. "Your verification code is 371404",
   whose only link is a `mailto:` support address. These cleared the keyword

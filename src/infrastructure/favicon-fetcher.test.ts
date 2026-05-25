@@ -76,6 +76,28 @@ describe("cacheFaviconForDomain", () => {
     expect(icon?.contentType).toBe("image/x-icon");
   });
 
+  it("falls back to the apex domain when the subdomain has no icon", async () => {
+    const env = createMockEnv() as unknown as Env;
+    server.use(
+      http.get("https://mail.acme.test/favicon.ico", () =>
+        HttpResponse.error(),
+      ),
+      http.get("https://icons.duckduckgo.com/ip3/mail.acme.test.ico", () =>
+        HttpResponse.text("", { status: 404 }),
+      ),
+      http.get("https://acme.test/favicon.ico", () =>
+        imageResponse(PNG, "image/vnd.microsoft.icon"),
+      ),
+    );
+
+    await cacheFaviconForDomain("mail.acme.test", env);
+
+    // Cached under the original sender domain, so reads still hit.
+    const icon = await getCachedIcon("mail.acme.test", env);
+    expect(icon?.contentType).toBe("image/vnd.microsoft.icon");
+    expect(new Uint8Array(icon!.bytes)).toEqual(PNG);
+  });
+
   it("writes a negative entry when no icon is found", async () => {
     const env = createMockEnv() as unknown as Env;
     server.use(

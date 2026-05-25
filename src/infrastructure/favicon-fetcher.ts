@@ -6,6 +6,7 @@ import {
   MAX_ICON_BYTES,
 } from "../config/constants";
 import { IconRepository } from "./icon-repository";
+import { Domain } from "../domain/value-objects/domain";
 import { EmailAddress } from "../domain/value-objects/email-address";
 import { logger } from "./logger";
 
@@ -65,16 +66,23 @@ async function fetchIconFrom(
 async function resolveIcon(
   domain: string,
 ): Promise<{ buffer: ArrayBuffer; contentType: string } | null> {
-  const candidates = [
-    `https://${domain}/favicon.ico`,
-    `https://icons.duckduckgo.com/ip3/${domain}.ico`,
-  ];
-  for (const url of candidates) {
-    try {
-      const icon = await fetchIconFrom(url);
-      if (icon) return icon;
-    } catch {
-      // Try the next candidate; network/timeout errors must never propagate.
+  // Walk the sending subdomain up to its apex so a sender like
+  // `mail.example.com` falls back to `example.com`'s favicon.
+  const hosts = Domain.parse(domain)
+    ?.parents()
+    .map((d) => d.value) ?? [domain];
+  for (const host of hosts) {
+    const candidates = [
+      `https://${host}/favicon.ico`,
+      `https://icons.duckduckgo.com/ip3/${host}.ico`,
+    ];
+    for (const url of candidates) {
+      try {
+        const icon = await fetchIconFrom(url);
+        if (icon) return icon;
+      } catch {
+        // Try the next candidate; network/timeout errors must never propagate.
+      }
     }
   }
   return null;
