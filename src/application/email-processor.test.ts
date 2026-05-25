@@ -994,3 +994,57 @@ describe("processEmail — unsubscribe capture", () => {
     expect(metadata.unsubscribe).toBeUndefined();
   });
 });
+
+describe("native feed detection on ingest", () => {
+  let env: ReturnType<typeof createMockEnv>;
+
+  beforeEach(async () => {
+    env = createMockEnv();
+    await env.EMAIL_STORAGE.put(
+      `feed:${VALID_FEED_ID}:config`,
+      JSON.stringify({}),
+    );
+    await seedInboundIndex(env, VALID_FEED_ID);
+  });
+
+  it("stores detected native feeds on the feed metadata (TEST A)", async () => {
+    const result = await processEmail(
+      makeInput({
+        from: "news@blog.example.com",
+        senders: ["news@blog.example.com"],
+        content:
+          '<html><head><link rel="alternate" type="application/rss+xml" href="https://blog.example.com/feed.xml"></head><body>hello</body></html>',
+      }),
+      env as any,
+    );
+
+    expect(result.ok).toBe(true);
+
+    const metadata = (await env.EMAIL_STORAGE.get(
+      `feed:${VALID_FEED_ID}:metadata`,
+      "json",
+    )) as {
+      nativeFeeds?: Record<string, Array<{ url: string; type: string }>>;
+    };
+    expect(Object.values(metadata.nativeFeeds!).flat()).toEqual([
+      { url: "https://blog.example.com/feed.xml", type: "rss" },
+    ]);
+  });
+
+  it("does not store nativeFeeds when no feed links are found (TEST B)", async () => {
+    const result = await processEmail(
+      makeInput({
+        content: "<p>no feed here</p>",
+      }),
+      env as any,
+    );
+
+    expect(result.ok).toBe(true);
+
+    const metadata = (await env.EMAIL_STORAGE.get(
+      `feed:${VALID_FEED_ID}:metadata`,
+      "json",
+    )) as { nativeFeeds?: Record<string, unknown> };
+    expect(metadata.nativeFeeds).toBeUndefined();
+  });
+});

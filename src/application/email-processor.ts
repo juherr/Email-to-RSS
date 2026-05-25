@@ -6,17 +6,26 @@ import { extractEmailDomain } from "../infrastructure/favicon-fetcher";
 import { parseOneClickUnsubscribe } from "../infrastructure/unsubscribe";
 import { getAttachmentBucket } from "../infrastructure/attachments";
 import {
+  extractFeedLinks,
   extractInlineCids,
   extractLinks,
   htmlToText,
 } from "../infrastructure/html-processor";
 import { detectConfirmation } from "../domain/confirmation";
+import { detectNativeFeeds } from "../domain/native-feed";
 import { attachmentIdsForCleanup } from "./feed-cleanup";
 import { FeedRepository } from "../infrastructure/feed-repository";
 import { BackgroundScheduler } from "../infrastructure/worker";
 import { Feed } from "../domain/feed.aggregate";
 import { logger } from "../infrastructure/logger";
 import { FEED_MAX_BYTES } from "../config/constants";
+
+// Best-effort site base for absolutizing a sender's relative feed link.
+function iconBase(from: string): string {
+  const at = from.lastIndexOf("@");
+  const domain = at >= 0 ? from.slice(at + 1).trim() : "";
+  return domain ? `https://${domain}` : "";
+}
 
 export interface RawAttachment {
   filename: string;
@@ -193,6 +202,10 @@ async function storeEmail(
     links: extractLinks(input.content),
   });
 
+  const nativeFeedList = detectNativeFeeds(
+    extractFeedLinks(input.content, iconBase(input.from)),
+  );
+
   const attachmentBucket = getAttachmentBucket(env);
   const inlineCids = extractInlineCids(input.content);
   const storedAttachments: AttachmentData[] =
@@ -238,13 +251,9 @@ async function storeEmail(
   // one-click unsubscribe link, keyed by sender so each newsletter keeps its
   // own latest URL (fired when the feed is deleted).
   const iconDomain = extractEmailDomain(input.from);
+  const senderKey = input.senders[0] || iconDomain || input.from;
   const unsubUrl = parseOneClickUnsubscribe(input.headers ?? {});
-  const unsub = unsubUrl
-    ? {
-        senderKey: input.senders[0] || iconDomain || input.from,
-        url: unsubUrl,
-      }
-    : undefined;
+  const unsub = unsubUrl ? { senderKey, url: unsubUrl } : undefined;
 
   const maxBytes =
     parseInt(env.FEED_MAX_SIZE_BYTES ?? "", 10) || FEED_MAX_BYTES;
@@ -253,6 +262,9 @@ async function storeEmail(
     maxBytes,
     iconDomain: iconDomain ?? undefined,
     unsub,
+    ...(nativeFeedList.length > 0
+      ? { nativeFeeds: { senderKey, feeds: nativeFeedList } }
+      : {}),
   });
 
   const r2Deletions =
