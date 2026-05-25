@@ -1,4 +1,5 @@
 import { Counters, Env, StatsResponse } from "../types";
+import { APP_VERSION } from "../config/version";
 import { logger } from "../infrastructure/logger";
 import { FeedRepository } from "../infrastructure/feed-repository";
 import { CountersRepository } from "../infrastructure/counters-repository";
@@ -77,6 +78,7 @@ export async function getStats(env: Env): Promise<StatsResponse> {
     active_feeds: feeds.length,
     websub_subscriptions_active: websubCount,
     attachments_enabled: !!getAttachmentBucket(env),
+    version: APP_VERSION,
   };
 }
 

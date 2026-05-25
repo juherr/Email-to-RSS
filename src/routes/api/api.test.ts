@@ -295,10 +295,12 @@ describe("REST API (/api/v1)", () => {
         feeds_created: number;
         active_feeds: number;
         attachments_enabled: boolean;
+        version: string;
       };
       expect(stats.feeds_created).toBeGreaterThanOrEqual(1);
       expect(stats.active_feeds).toBeGreaterThanOrEqual(1);
       expect(typeof stats.attachments_enabled).toBe("boolean");
+      expect(stats.version).toMatch(/^\d+\.\d+\.\d+/);
     });
   });
 

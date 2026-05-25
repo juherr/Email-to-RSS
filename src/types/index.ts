@@ -125,6 +125,7 @@ export interface StatsResponse extends Counters {
   active_feeds: number;
   websub_subscriptions_active: number;
   attachments_enabled: boolean;
+  version: string; // Running app version (package.json), inlined at build time
 }
 
 // WebSub (PubSubHubbub) subscription configuration

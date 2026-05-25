@@ -154,6 +154,9 @@ export const StatsSchema = z
     active_feeds: z.number(),
     websub_subscriptions_active: z.number(),
     attachments_enabled: z.boolean(),
+    version: z.string().openapi({
+      description: "Running app version (package.json), inlined at build time.",
+    }),
     last_email_at: z.string().optional(),
     last_feed_created_at: z.string().optional(),
     first_seen: z.string().optional(),
