@@ -14,18 +14,6 @@ function stripInvalidXmlChars(xml: string): string {
   return xml.replace(/[^\x09\x0A\x0D\x20-퟿-�\u{10000}-\u{10FFFF}]/gu, "");
 }
 
-function parseFromAddress(from: string): { name: string; email?: string } {
-  const match = from.match(/^(.*?)\s*<([^>]+)>\s*$/);
-  if (match) {
-    return { name: match[1].trim() || match[2], email: match[2].trim() };
-  }
-  const emailOnly = from.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/);
-  if (emailOnly) {
-    return { email: from.trim(), name: from.trim() };
-  }
-  return { name: from.trim() };
-}
-
 function buildFeed(
   feedConfig: FeedConfig,
   emails: EmailData[],
@@ -68,23 +56,28 @@ function buildFeed(
     const entryUrl = `${baseUrl}${entryPath(feedId, email.receivedAt)}`;
     // Inline images are rendered in the body, not surfaced as an enclosure.
     const firstAttachment = email.attachments?.find((a) => !a.inline);
+    const sender = EmailAddress.parse(email.from);
+    const senderLabel = sender?.label() ?? email.from.trim();
     const bodyContent = processEmailContent(
       email.content,
       email.attachments,
       baseUrl,
-      EmailAddress.parse(email.from)?.siteBaseUrl() ?? "",
+      sender?.siteBaseUrl() ?? "",
     );
-    const sender = parseFromAddress(email.from);
     const subject = htmlToText(email.subject);
     feed.addItem({
       title: feedConfig.sender_in_title
-        ? `[${sender.name}] ${subject}`
+        ? `[${senderLabel}] ${subject}`
         : subject,
       id: entryUrl,
       link: entryUrl,
       description: bodyContent,
       content: bodyContent,
-      author: [sender],
+      author: [
+        sender
+          ? { name: senderLabel, email: sender.normalized }
+          : { name: senderLabel },
+      ],
       date: new Date(email.receivedAt),
       enclosure: firstAttachment
         ? {

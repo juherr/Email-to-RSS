@@ -30,4 +30,20 @@ describe("EmailAddress", () => {
       "https://example.com/",
     );
   });
+
+  it("captures the display name verbatim from a display form", () => {
+    const email = EmailAddress.parse("Alice B <Alice@Example.com>")!;
+    expect(email.displayName).toBe("Alice B");
+    expect(email.label()).toBe("Alice B");
+  });
+
+  it("has no display name for a bare address and labels by the address", () => {
+    const email = EmailAddress.parse("Bob@Example.com")!;
+    expect(email.displayName).toBeUndefined();
+    expect(email.label()).toBe("bob@example.com");
+  });
+
+  it("falls back to the address as the label when the display name is empty", () => {
+    expect(EmailAddress.parse("<a@b.com>")?.label()).toBe("a@b.com");
+  });
 });
