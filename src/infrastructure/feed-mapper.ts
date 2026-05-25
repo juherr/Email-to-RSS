@@ -54,6 +54,6 @@ export function toListItemDTO(
     description: state.description,
     mailbox_id: state.mailboxId,
     expires_at: state.expiresAt,
-    ...(pendingConfirmation !== undefined ? { pendingConfirmation } : {}),
+    pendingConfirmation,
   };
 }
