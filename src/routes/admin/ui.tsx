@@ -257,14 +257,8 @@ export const FeedFormats = ({
 
 // ── Native feed chips ─────────────────────────────────────────────────────────
 
-const NATIVE_LABELS: Record<NativeFeed["type"], string> = {
-  rss: "RSS",
-  atom: "Atom",
-  json: "JSON",
-};
-
 const NativeFeedChip = ({ feed }: { feed: NativeFeed }) => {
-  const label = NATIVE_LABELS[feed.type];
+  const label = FORMAT_LABELS[feed.type];
   return (
     <div class="format-chip" data-format={feed.type}>
       <span class="format-chip-label">{label}</span>
@@ -304,7 +298,7 @@ export const NativeFeeds = ({ feeds }: { feeds: NativeFeed[] }) => {
       <span class="feed-formats-label">Native feeds</span>
       <div class="feed-formats-chips">
         {feeds.map((feed) => (
-          <NativeFeedChip feed={feed} />
+          <NativeFeedChip key={feed.url} feed={feed} />
         ))}
       </div>
     </div>
