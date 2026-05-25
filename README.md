@@ -33,6 +33,7 @@ kill-the-news keeps the same workflow while avoiding shared domains and shared d
 - Per-feed favicon derived from the last sender's domain (`/favicon/:feedId`), cached and shown in feeds + admin
 - Automatic RFC 8058 one-click unsubscribe when a feed is deleted — stops newsletters from mailing the now-dead address
 - **Subscription confirmation surfacing** — at ingestion the worker detects "confirm your subscription" emails (multilingual keyword + link scoring) and surfaces them in the admin: a dedicated section with a primary "Confirm subscription" button on the email detail page, a "Confirmation" badge in the email list, a "Confirmation pending" pill on the dashboard, and a banner on the feed's emails page with a "Mark as confirmed" dismiss button; v1 surfaces the link only — no outbound request is made
+- **Native feed detection** — when a newsletter advertises its own RSS/Atom/JSON feed via `<link rel="alternate">` in the email HTML, KTN surfaces it in the admin (a "Native feeds" chip group on the email detail page, a dashboard pill, and a dismissable banner) and on the REST API (`nativeFeeds` field), so you can subscribe to the source directly
 - Email attachments stored in Cloudflare R2 and exposed as RSS enclosures (optional)
 - Cloudflare KV storage for feed config + email metadata/content
 - Password-protected admin UI

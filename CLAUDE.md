@@ -75,6 +75,7 @@ src/
     events.ts               # FeedEvent union (FeedCreated, EmailIngested) — each carries its feedId
     email-parser.ts         # Email parsing (addresses, headers, encoded words)
     format.ts               # Pure formatting helpers (formatBytes)
+    native-feed.ts          # Detect a newsletter's self-advertised Atom/RSS/JSON feed (pure)
     value-objects/          # FeedId (opaque read id), MailboxId (inbound noun.noun.NN), EmailAddress, Domain, SenderPolicy, Lifetime (immutable, self-validating)
   application/              # Use-cases / orchestration (wires domain + infrastructure)
     feed-service.ts         # createFeedRecord / editFeedDetails / editFeed / deleteFeedRecord (admin UI + REST API)
@@ -139,16 +140,16 @@ src/
 
 All data lives in the `EMAIL_STORAGE` KV namespace:
 
-| Key                         | Value                                                                                          |
-| --------------------------- | ---------------------------------------------------------------------------------------------- |
-| `feeds:list`                | `{ feeds: Array<{ id, title, description?, mailbox_id?, expires_at? }> }`                      |
-| `feed:<feedId>:config`      | `FeedConfig`                                                                                   |
-| `feed:<feedId>:metadata`    | `{ emails: Array<{ key, subject, receivedAt, size?, attachmentIds?, inlineAttachmentIds? }> }` |
-| `feed:<feedId>:<timestamp>` | Full `EmailData`                                                                               |
-| `inbound:<mailboxId>`       | The feed id this inbound address (`noun.noun.NN`) routes to (resolved only at reception)       |
-| `websub:subs:<feedId>`      | `WebSubSubscription[]` (per-feed subscriber list)                                              |
-| `icon:<domain>`             | Cached favicon record (base64 + content type; negative entries allowed)                        |
-| `stats:counters`            | `Counters` (cumulative monitoring counters singleton)                                          |
+| Key                         | Value                                                                                                                                                                     |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `feeds:list`                | `{ feeds: Array<{ id, title, description?, mailbox_id?, expires_at? }> }`                                                                                                 |
+| `feed:<feedId>:config`      | `FeedConfig`                                                                                                                                                              |
+| `feed:<feedId>:metadata`    | `{ emails: Array<{ key, subject, receivedAt, size?, attachmentIds?, inlineAttachmentIds? }>, nativeFeeds?: Record<string, NativeFeed[]>, nativeFeedDismissed?: boolean }` |
+| `feed:<feedId>:<timestamp>` | Full `EmailData`                                                                                                                                                          |
+| `inbound:<mailboxId>`       | The feed id this inbound address (`noun.noun.NN`) routes to (resolved only at reception)                                                                                  |
+| `websub:subs:<feedId>`      | `WebSubSubscription[]` (per-feed subscriber list)                                                                                                                         |
+| `icon:<domain>`             | Cached favicon record (base64 + content type; negative entries allowed)                                                                                                   |
+| `stats:counters`            | `Counters` (cumulative monitoring counters singleton)                                                                                                                     |
 
 `feedId` is an **opaque random token** — the feed's identity, its KV storage key, and the public read id (`/rss/:feedId`). It is **decoupled** from the inbound email address: each feed also has a friendly `MailboxId` (`noun.noun.NN`) whose only mapping to the feed is the `inbound:<mailboxId>` secondary index, read **only** at email reception. So the feed's read URL never reveals its inbound address and vice-versa; reading `/rss/<noun.noun.NN>` 404s.
 

@@ -114,6 +114,15 @@ Scope the token to the relevant **account** and, for custom domains, the relevan
 - Keep `compatibility_date` fresh when doing runtime upgrades.
 - `ADMIN_PASSWORD` is a Cloudflare Worker secret, not a plain env var in config.
 
+### Native feed detection
+
+When an incoming email's HTML advertises the newsletter's own syndication feed via `<link rel="alternate" type="application/atom+xml|rss+xml|feed+json">`, the worker captures those URLs at ingestion and shows them per feed — no configuration required:
+
+- **Email detail page** — a "Native feeds" chip group lists each discovered feed URL with a copy button.
+- **Feed dashboard** — a "Native feed available" pill signals that the source publishes its own feed.
+- **Emails page banner** — a dismissable banner prompts you to subscribe to the source directly; once dismissed it stays hidden.
+- **REST API** — the read-only `nativeFeeds` array on `GET/POST/PATCH /api/v1/feeds` exposes the same data for automation.
+
 ### Subscription confirmation
 
 When a newsletter sends a "confirm your email" message, the worker detects it at ingestion using multilingual keyword matching and link scoring. Detected emails are automatically flagged and surfaced throughout the admin UI:
