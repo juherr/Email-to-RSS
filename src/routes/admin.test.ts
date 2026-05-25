@@ -1436,5 +1436,40 @@ describe("Admin Routes", () => {
       expect(body).toContain("confirmation-banner");
       expect(body).toContain("confirmation-dismiss");
     });
+
+    it("feed emails page reuses the dashboard Subscribe chips design", async () => {
+      const authCookie = await loginAndGetCookie();
+      const repo = FeedRepository.from(mockEnv as unknown as Env);
+
+      const feedId = FeedId.generate();
+      const mailboxId = MailboxId.unchecked("subscribe.chips.07");
+      const feed = Feed.create(
+        feedId,
+        {
+          title: "Chips Detail Feed",
+          language: "en",
+          allowedSenders: [],
+          blockedSenders: [],
+        },
+        { mailboxId },
+      );
+      await repo.save(feed);
+
+      const res = await request(`/admin/feeds/${feedId.value}/emails`, {
+        headers: { Cookie: authCookie },
+      });
+      expect(res.status).toBe(200);
+      const body = await res.text();
+
+      // The Subscribe chips block surfaces all three formats with copy/open/validate.
+      expect(body).toContain("feed-formats-chips");
+      expect(body).toContain(`/rss/${feedId.value}`);
+      expect(body).toContain(`/atom/${feedId.value}`);
+      expect(body).toContain(`/json/${feedId.value}`);
+      expect(body).toContain(`${mailboxId.value}@test.getmynews.app`);
+
+      // The old W3C validator-image block is gone.
+      expect(body).not.toContain("validator.w3.org/feed/images");
+    });
   });
 });

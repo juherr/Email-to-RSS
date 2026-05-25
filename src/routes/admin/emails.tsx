@@ -1,7 +1,14 @@
 import { Hono } from "hono";
 import { Env, EmailMetadata } from "../../types";
 import { logger } from "../../infrastructure/logger";
-import { Layout, clampText } from "./ui";
+import {
+  Layout,
+  clampText,
+  CopyIcon,
+  CheckIcon,
+  FeedFormats,
+  ExpiryBadge,
+} from "./ui";
 import {
   deleteAttachmentsForEmails,
   deleteKeysWithConcurrency,
@@ -9,8 +16,6 @@ import {
 import { FeedRepository } from "../../infrastructure/feed-repository";
 import { FeedId } from "../../domain/value-objects/feed-id";
 import {
-  feedRssUrl,
-  feedAtomUrl,
   feedEmailAddress,
   baseUrl,
   entryPath,
@@ -24,41 +29,6 @@ import emailPreviewCss from "../../styles/email-preview.css";
 type AppEnv = { Bindings: Env };
 
 export const emailsRouter = new Hono<AppEnv>();
-
-// ── Shared SVG icons ──────────────────────────────────────────────────────────
-
-const CopyIcon = () => (
-  <svg
-    class="copy-icon copy-icon-original"
-    width="16"
-    height="16"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    stroke-width="2"
-    stroke-linecap="round"
-    stroke-linejoin="round"
-  >
-    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
-    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-  </svg>
-);
-
-const CheckIcon = () => (
-  <svg
-    class="copy-icon copy-icon-success"
-    width="16"
-    height="16"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    stroke-width="2"
-    stroke-linecap="round"
-    stroke-linejoin="round"
-  >
-    <path d="M20 6L9 17l-5-5"></path>
-  </svg>
-);
 
 type CopyFieldProps = {
   label: string;
@@ -171,8 +141,6 @@ emailsRouter.get("/feeds/:feedId/emails", async (c) => {
   }
 
   const emailAddress = feedEmailAddress(feedConfig.mailbox_id, env);
-  const rssUrl = feedRssUrl(feedId, env);
-  const atomUrl = feedAtomUrl(feedId, env);
 
   return c.html(
     <Layout title={`${feedConfig.title} - Emails`}>
@@ -189,36 +157,13 @@ emailsRouter.get("/feeds/:feedId/emails", async (c) => {
         </div>
 
         <div class="card">
-          <h2>Feed Details</h2>
-          <div>
-            <CopyField label="Email Address:" value={emailAddress} />
-            <CopyField label="RSS Feed:" value={rssUrl} />
-            <CopyField label="Atom Feed:" value={atomUrl} />
-          </div>
-          <div class="feed-validate">
-            <a
-              href={`https://validator.w3.org/feed/check.cgi?url=${encodeURIComponent(atomUrl)}`}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              <img
-                src="https://validator.w3.org/feed/images/valid-atom.png"
-                alt="[Valid Atom 1.0]"
-                title="Validate my Atom 1.0 feed"
-              />
-            </a>
-            <a
-              href={`https://validator.w3.org/feed/check.cgi?url=${encodeURIComponent(rssUrl)}`}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              <img
-                src="https://validator.w3.org/feed/images/valid-rss-rogers.png"
-                alt="[Valid RSS]"
-                title="Validate my RSS feed"
-              />
-            </a>
-          </div>
+          {feedConfig.expires_at && (
+            <div class="feed-header">
+              <ExpiryBadge expiresAt={feedConfig.expires_at} />
+            </div>
+          )}
+          <CopyField label="Email:" value={emailAddress} />
+          <FeedFormats feedId={feedId} env={env} />
         </div>
 
         {feedMetadata.pendingConfirmation && (

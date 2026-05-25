@@ -4,6 +4,12 @@ import componentsCss from "../../styles/components.css";
 import utilitiesCss from "../../styles/utilities.css";
 import { interactiveScripts } from "../../scripts/index";
 import { FAVICON_PATH } from "../favicon";
+import { Env } from "../../types";
+import {
+  feedFormatUrl,
+  feedValidatorUrl,
+  type FeedFormat,
+} from "../../infrastructure/urls";
 
 const designSystem = [
   variablesCss,
@@ -89,3 +95,187 @@ export function clampText(value: string, maxLen: number): string {
   }
   return `${raw.slice(0, maxLen - 3).trimEnd()}...`;
 }
+
+// ── Shared SVG icons ──────────────────────────────────────────────────────────
+
+export const CopyIcon = () => (
+  <svg
+    class="copy-icon copy-icon-original"
+    width="16"
+    height="16"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    stroke-width="2"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  >
+    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+  </svg>
+);
+
+export const CheckIcon = () => (
+  <svg
+    class="copy-icon copy-icon-success"
+    width="16"
+    height="16"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    stroke-width="2"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  >
+    <path d="M20 6L9 17l-5-5"></path>
+  </svg>
+);
+
+const OpenIcon = () => (
+  <svg
+    class="chip-icon"
+    width="14"
+    height="14"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    stroke-width="2"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+    aria-hidden="true"
+  >
+    <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+    <polyline points="15 3 21 3 21 9"></polyline>
+    <line x1="10" y1="14" x2="21" y2="3"></line>
+  </svg>
+);
+
+const ValidateIcon = () => (
+  <svg
+    class="chip-icon"
+    width="14"
+    height="14"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    stroke-width="2"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+    aria-hidden="true"
+  >
+    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+    <polyline points="22 4 12 14.01 9 11.01"></polyline>
+  </svg>
+);
+
+// ── Feed format chips ("Subscribe" block) ─────────────────────────────────────
+
+const FORMAT_LABELS: Record<FeedFormat, string> = {
+  rss: "RSS",
+  atom: "Atom",
+  json: "JSON",
+};
+
+const FormatChip = ({
+  format,
+  feedId,
+  env,
+}: {
+  format: FeedFormat;
+  feedId: string;
+  env: Env;
+}) => {
+  const url = feedFormatUrl(format, feedId, env);
+  const validateUrl = feedValidatorUrl(format, feedId, env);
+  const label = FORMAT_LABELS[format];
+  return (
+    <div class="format-chip" data-format={format}>
+      <span class="format-chip-label">{label}</span>
+      <span class="format-chip-actions">
+        <span class="copyable copyable-chip">
+          <span
+            class="copyable-content"
+            title={`Copy ${label} feed URL`}
+            aria-label={`Copy ${label} feed URL`}
+          >
+            <span class="copyable-value" data-copy={url} hidden></span>
+            <span class="copy-icon-container">
+              <CopyIcon />
+              <CheckIcon />
+            </span>
+          </span>
+        </span>
+        <a
+          class="chip-action"
+          href={url}
+          target="_blank"
+          rel="noopener noreferrer"
+          title={`Open ${label} feed in a new tab`}
+          aria-label={`Open ${label} feed in a new tab`}
+        >
+          <OpenIcon />
+        </a>
+        <a
+          class="chip-action"
+          href={validateUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          title={`Validate ${label} feed`}
+          aria-label={`Validate ${label} feed`}
+        >
+          <ValidateIcon />
+        </a>
+      </span>
+    </div>
+  );
+};
+
+export const FeedFormats = ({
+  feedId,
+  env,
+  compact,
+}: {
+  feedId: string;
+  env: Env;
+  compact?: boolean;
+}) => (
+  <div class={`feed-formats${compact ? " feed-formats-compact" : ""}`}>
+    {!compact && <span class="feed-formats-label">Subscribe</span>}
+    <div class="feed-formats-chips">
+      <FormatChip format="rss" feedId={feedId} env={env} />
+      <FormatChip format="atom" feedId={feedId} env={env} />
+      <FormatChip format="json" feedId={feedId} env={env} />
+    </div>
+  </div>
+);
+
+// ── Expiry pill ───────────────────────────────────────────────────────────────
+
+function formatExpiry(expiresAt: number): { label: string; expired: boolean } {
+  const remaining = expiresAt - Date.now();
+  if (remaining <= 0) {
+    const h = Math.floor(-remaining / 3_600_000);
+    return {
+      label: h > 0 ? `Expired ${h}h ago` : "Just expired",
+      expired: true,
+    };
+  }
+  const h = Math.floor(remaining / 3_600_000);
+  if (h >= 48) {
+    return { label: `Expires in ${Math.floor(h / 24)}d`, expired: false };
+  }
+  const m = Math.floor((remaining % 3_600_000) / 60_000);
+  return {
+    label: h > 0 ? `Expires in ${h}h ${m}m` : `Expires in ${m}m`,
+    expired: false,
+  };
+}
+
+export const ExpiryBadge = ({ expiresAt }: { expiresAt: number }) => {
+  const { label, expired } = formatExpiry(expiresAt);
+  return (
+    <span class={`pill ${expired ? "pill-expired" : "pill-expiry"}`}>
+      {label}
+    </span>
+  );
+};

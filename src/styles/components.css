@@ -1175,17 +1175,6 @@ table.table code {
   border-color: rgba(255, 69, 58, 0.35);
 }
 
-/* Validation badges */
-.feed-validate {
-  display: flex;
-  gap: 0.5rem;
-  margin-top: 1rem;
-}
-
-.feed-validate img {
-  display: block;
-}
-
 /* Feed and Email Lists */
 .feed-list,
 .email-list {
