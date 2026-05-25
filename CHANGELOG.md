@@ -22,6 +22,10 @@ verbatim as the GitHub Release notes — so what you write here is what ships.
   cached negatively for 6 hours instead of a full week, so a domain whose icon
   was momentarily unavailable (e.g. not yet indexed upstream) is retried on the
   next email instead of staying blank for days.
+- Feed entry HTML now escapes bare ampersands in attribute URLs (e.g. query
+  strings like `?a=1&b=2`), clearing the W3C feed validator's "Named entity
+  expected. Got none." warning and improving interoperability with stricter
+  feed readers.
 
 ## [0.3.1] - 2026-05-25
 

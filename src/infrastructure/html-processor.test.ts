@@ -104,6 +104,25 @@ describe("processEmailContent — attribute sanitization", () => {
     const result = processEmailContent(html);
     expect(result).toContain("https://example.com");
   });
+
+  it("escapes bare ampersands in attribute URLs (W3C feed-valid HTML)", () => {
+    const html =
+      '<body><a href="https://example.com/?a=1&b=2&utm_source=x">link</a></body>';
+    const result = processEmailContent(html);
+    expect(result).toContain(
+      "https://example.com/?a=1&amp;b=2&amp;utm_source=x",
+    );
+    expect(result).not.toMatch(/&(?!amp;)/);
+  });
+
+  it("does not double-escape existing entities", () => {
+    const html =
+      '<body><p>Tom &amp; Jerry &#39; &lt;tag&gt;</p><a href="https://x.com/?q=a&amp;b">l</a></body>';
+    const result = processEmailContent(html);
+    expect(result).toContain("Tom &amp; Jerry");
+    expect(result).not.toContain("&amp;amp;");
+    expect(result).toContain("?q=a&amp;b");
+  });
 });
 
 describe("processEmailContent — mso style cleanup", () => {

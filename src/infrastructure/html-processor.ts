@@ -159,6 +159,18 @@ function isPlainText(content: string): boolean {
   return !/<[a-z][\s\S]*>/i.test(content);
 }
 
+// linkedom escapes `&` in text nodes but not in attribute values, so a URL like
+// `?a=1&b=2` serializes with bare ampersands. That's valid XML inside the feed's
+// CDATA, but the W3C feed validator parses the embedded HTML and warns
+// ("Named entity expected. Got none."). Escape every `&` that doesn't already
+// start a valid entity (named, decimal, or hex) — leaves `&amp;`/`&#39;` intact.
+function escapeBareAmpersands(html: string): string {
+  return html.replace(
+    /&(?!(?:[a-zA-Z][a-zA-Z0-9]*|#\d+|#x[0-9a-fA-F]+);)/g,
+    "&amp;",
+  );
+}
+
 function rewriteCidSrc(
   el: Element,
   cidMap: Map<string, AttachmentData>,
@@ -261,5 +273,5 @@ export function processEmailContent(
   // Full documents expose a <body>; bodyless fragments are serialized directly
   // so that sanitization and cid rewriting still apply to their nodes.
   const body = document.querySelector("body");
-  return body ? body.innerHTML : document.toString();
+  return escapeBareAmpersands(body ? body.innerHTML : document.toString());
 }
