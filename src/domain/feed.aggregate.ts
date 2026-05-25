@@ -138,11 +138,6 @@ export class Feed {
     return this._state.language;
   }
 
-  /** Whether entry titles render as `[Sender] Subject` in the feed output. */
-  get senderInTitle(): boolean {
-    return this._state.senderInTitle ?? false;
-  }
-
   /** The inbound mailbox (`noun.noun.NN`) — the feed's email address is `mailboxId@domain`. */
   get mailboxId(): MailboxId {
     return MailboxId.unchecked(this._state.mailboxId);

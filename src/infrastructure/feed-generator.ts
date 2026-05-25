@@ -74,17 +74,17 @@ function buildFeed(
       baseUrl,
       EmailAddress.parse(email.from)?.siteBaseUrl() ?? "",
     );
+    const sender = parseFromAddress(email.from);
     const subject = htmlToText(email.subject);
-    const title = feedConfig.sender_in_title
-      ? `[${parseFromAddress(email.from).name ?? email.from}] ${subject}`
-      : subject;
     feed.addItem({
-      title,
+      title: feedConfig.sender_in_title
+        ? `[${sender.name}] ${subject}`
+        : subject,
       id: entryUrl,
       link: entryUrl,
       description: bodyContent,
       content: bodyContent,
-      author: [parseFromAddress(email.from)],
+      author: [sender],
       date: new Date(email.receivedAt),
       enclosure: firstAttachment
         ? {
