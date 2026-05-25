@@ -1,6 +1,6 @@
 {
   "name": "kill-the-news",
-  "version": "0.4.0-develop",
+  "version": "0.3.1-develop",
   "description": "Convert email newsletters into private RSS feeds using Cloudflare Workers",
   "main": "dist/worker.js",
   "scripts": {
