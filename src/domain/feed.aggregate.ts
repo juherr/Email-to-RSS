@@ -1,4 +1,4 @@
-import { FeedMetadata, EmailMetadata } from "../types";
+import { FeedMetadata, EmailMetadata, NativeFeed } from "../types";
 import { FeedState } from "./feed-state";
 import { FeedId } from "./value-objects/feed-id";
 import { MailboxId } from "./value-objects/mailbox-id";
@@ -6,6 +6,7 @@ import { Lifetime } from "./value-objects/lifetime";
 import { SenderPolicy, SenderDecision } from "./value-objects/sender-policy";
 import { Clock, systemClock } from "./clock";
 import { FeedEvent } from "./events";
+import { unionNativeFeeds } from "./native-feed";
 
 export interface CreateFeedInput {
   title: string;
@@ -57,6 +58,8 @@ export interface IngestOptions {
   iconDomain?: string;
   /** RFC 8058 one-click unsubscribe link, keyed by the sending newsletter. */
   unsub?: { senderKey: string; url: string };
+  /** Native syndication feeds the sender advertised, keyed by sender. */
+  nativeFeeds?: { senderKey: string; feeds: NativeFeed[] };
 }
 
 /**
@@ -162,6 +165,16 @@ export class Feed {
   /** True while at least one unactioned confirmation email is present. */
   get pendingConfirmation(): boolean {
     return this._metadata.pendingConfirmation ?? false;
+  }
+
+  /** Discovered native feeds (Atom/RSS/JSON), union across senders, deduped. */
+  nativeFeeds(): NativeFeed[] {
+    return unionNativeFeeds(this._metadata.nativeFeeds);
+  }
+
+  /** True when a native feed was discovered and the notice was not dismissed. */
+  hasNativeFeed(): boolean {
+    return this.nativeFeeds().length > 0 && !this._metadata.nativeFeedDismissed;
   }
 
   allowedSenders(): string[] {
@@ -271,6 +284,19 @@ export class Feed {
       this._metadata.pendingConfirmation = true;
     }
 
+    if (opts.nativeFeeds && opts.nativeFeeds.feeds.length > 0) {
+      const known = new Set(this.nativeFeeds().map((f) => f.url));
+      this._metadata.nativeFeeds = {
+        ...(this._metadata.nativeFeeds ?? {}),
+        [opts.nativeFeeds.senderKey]: opts.nativeFeeds.feeds,
+      };
+      // Re-raise the notice only when a genuinely new URL appears, so a dismiss
+      // survives the same feed being re-advertised on every subsequent email.
+      if (opts.nativeFeeds.feeds.some((f) => !known.has(f.url))) {
+        this._metadata.nativeFeedDismissed = false;
+      }
+    }
+
     this._events.push({
       type: "EmailIngested",
       feedId: this.id,
@@ -319,6 +345,11 @@ export class Feed {
   /** Mark the pending confirmation as handled — "stop reminding me". */
   dismissConfirmation(): void {
     this._metadata.pendingConfirmation = false;
+  }
+
+  /** Mark the native-feed notice as handled — "stop reminding me". */
+  dismissNativeFeed(): void {
+    this._metadata.nativeFeedDismissed = true;
   }
 
   /**

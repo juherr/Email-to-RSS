@@ -67,6 +67,12 @@ export interface FeedMetadata {
   // ingest, lowered by an admin "dismiss" or when the last confirmation email is
   // removed. Projected into feeds:list for the dashboard.
   pendingConfirmation?: boolean;
+  // Native syndication feeds (Atom/RSS/JSON) senders advertised via
+  // <link rel="alternate">, keyed by sender. Latest non-empty per sender wins.
+  nativeFeeds?: Record<string, NativeFeed[]>;
+  // True when the admin dismissed the native-feed notice; suppresses the
+  // dashboard pill while the URLs stay available in the feed detail view.
+  nativeFeedDismissed?: boolean;
 }
 
 // A syndication feed a newsletter advertises about itself (via
@@ -104,6 +110,7 @@ export interface FeedListItem {
   mailbox_id: string; // Cached inbound address local part (admin/API display)
   expires_at?: number; // Cached from FeedConfig to avoid per-feed KV reads
   pendingConfirmation?: boolean; // Projected from FeedMetadata for the dashboard
+  hasNativeFeed?: boolean; // Projected from FeedMetadata for the dashboard pill
 }
 
 // Cumulative monitoring counters (persisted as a KV singleton)

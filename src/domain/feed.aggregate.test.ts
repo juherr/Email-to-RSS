@@ -338,3 +338,76 @@ describe("FeedRepository.load / save round-trip", () => {
     expect(await repo.load(FeedId.unchecked("missing"))).toBeNull();
   });
 });
+
+describe("Feed native feeds", () => {
+  const nf = (
+    senderKey: string,
+    url: string,
+    type: "rss" | "atom" | "json",
+  ) => ({
+    maxBytes: 1_000_000_000,
+    nativeFeeds: { senderKey, feeds: [{ url, type }] },
+  });
+
+  it("stores native feeds and raises the flag on ingest", () => {
+    const feed = Feed.create(FID, createInput(), { mailboxId: MBOX });
+    feed.ingest(entry(), nf("a@x.com", "https://x.com/rss", "rss"));
+    expect(feed.nativeFeeds()).toEqual([
+      { url: "https://x.com/rss", type: "rss" },
+    ]);
+    expect(feed.hasNativeFeed()).toBe(true);
+  });
+
+  it("latest non-empty wins per sender; other senders preserved", () => {
+    const feed = Feed.create(FID, createInput(), { mailboxId: MBOX });
+    feed.ingest(
+      entry({ key: "k1" }),
+      nf("a@x.com", "https://x.com/old", "rss"),
+    );
+    feed.ingest(
+      entry({ key: "k2" }),
+      nf("b@y.com", "https://y.com/atom", "atom"),
+    );
+    feed.ingest(
+      entry({ key: "k3" }),
+      nf("a@x.com", "https://x.com/new", "rss"),
+    );
+    expect(feed.nativeFeeds()).toEqual([
+      { url: "https://x.com/new", type: "rss" },
+      { url: "https://y.com/atom", type: "atom" },
+    ]);
+  });
+
+  it("dismiss hides the notice but keeps URLs; only a new URL re-raises", () => {
+    const feed = Feed.create(FID, createInput(), { mailboxId: MBOX });
+    feed.ingest(
+      entry({ key: "k1" }),
+      nf("a@x.com", "https://x.com/rss", "rss"),
+    );
+    feed.dismissNativeFeed();
+    expect(feed.hasNativeFeed()).toBe(false);
+    expect(feed.nativeFeeds()).toHaveLength(1);
+    feed.ingest(
+      entry({ key: "k2" }),
+      nf("a@x.com", "https://x.com/rss", "rss"),
+    );
+    expect(feed.hasNativeFeed()).toBe(false); // same URL → stays dismissed
+    feed.ingest(
+      entry({ key: "k3" }),
+      nf("a@x.com", "https://x.com/rss2", "rss"),
+    );
+    expect(feed.hasNativeFeed()).toBe(true); // new URL → re-raise
+  });
+
+  it("removeEmails leaves native feeds intact", () => {
+    const feed = Feed.create(FID, createInput(), { mailboxId: MBOX });
+    feed.ingest(
+      entry({ key: "k1" }),
+      nf("a@x.com", "https://x.com/rss", "rss"),
+    );
+    feed.removeEmails(["k1"]);
+    expect(feed.nativeFeeds()).toEqual([
+      { url: "https://x.com/rss", type: "rss" },
+    ]);
+  });
+});
