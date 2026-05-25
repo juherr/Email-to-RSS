@@ -38,7 +38,7 @@ export async function handle(c: Context<{ Bindings: Env }>): Promise<Response> {
     }
 
     const base = baseUrl(c.env);
-    const selfUrl = new URL(c.req.url).origin + `/atom/${feedId}`;
+    const selfUrl = feedAtomUrl(feedId, c.env);
     const atomXml = generateAtomFeed(
       feedData.feedConfig,
       feedData.emails,

@@ -50,7 +50,9 @@ describe("RSS Feed Route", () => {
       const res = await testApp.request("/empty-feed", {}, mockEnv);
       const link = res.headers.get("Link") ?? "";
       expect(link).toContain(`rel="hub"`);
-      expect(link).toContain(`rel="self"`);
+      expect(link).toContain(
+        `<https://${mockEnv.DOMAIN}/rss/empty-feed>; rel="self"`,
+      );
     });
   });
 

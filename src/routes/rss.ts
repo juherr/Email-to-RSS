@@ -38,7 +38,7 @@ export async function handle(c: Context<{ Bindings: Env }>): Promise<Response> {
     }
 
     const base = baseUrl(c.env);
-    const selfUrl = new URL(c.req.url).origin + `/rss/${feedId}`;
+    const selfUrl = feedRssUrl(feedId, c.env);
     const rssXml = generateRssFeed(
       feedData.feedConfig,
       feedData.emails,

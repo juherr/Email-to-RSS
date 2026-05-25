@@ -2,7 +2,7 @@ import { Context } from "hono";
 import { Env } from "../types";
 import { generateJsonFeed } from "../infrastructure/feed-generator";
 import { fetchFeedData } from "../application/feed-fetcher";
-import { baseUrl } from "../infrastructure/urls";
+import { baseUrl, feedJsonUrl } from "../infrastructure/urls";
 import { isExpired } from "../domain/feed";
 import { FeedId } from "../domain/value-objects/feed-id";
 
@@ -22,7 +22,7 @@ export async function handle(c: Context<{ Bindings: Env }>): Promise<Response> {
     }
 
     const base = baseUrl(c.env);
-    const selfUrl = new URL(c.req.url).origin + `/json/${feedId}`;
+    const selfUrl = feedJsonUrl(feedId, c.env);
     const jsonFeed = generateJsonFeed(
       feedData.feedConfig,
       feedData.emails,

@@ -117,10 +117,12 @@ describe("Atom Feed Route", () => {
       expect(body).toContain("Atom Test Feed");
     });
 
-    it("self-link points to atom URL", async () => {
+    it("self-link uses the configured domain, not the request host", async () => {
       const res = await testApp.request(`/${FEED_ID}`, {}, mockEnv);
       const body = await res.text();
-      expect(body).toContain(`/atom/${FEED_ID}`);
+      expect(body).toContain(
+        `rel="self" href="https://${mockEnv.DOMAIN}/atom/${FEED_ID}"`,
+      );
     });
 
     it("Link header advertises hub and self for WebSub discovery", async () => {
