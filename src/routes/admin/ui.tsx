@@ -182,45 +182,47 @@ const FORMAT_LABELS: Record<FeedFormat, string> = {
   json: "JSON",
 };
 
-const FormatChip = ({
+// One copyable feed chip: copy + open, plus an optional validate action.
+// Shared by the KTN "Subscribe" formats and the detected native feeds, so the
+// copy-script markup (`copyable-value`/`data-copy`) stays identical in one place.
+const FeedChip = ({
+  label,
   format,
-  feedId,
-  env,
+  url,
+  validateUrl,
 }: {
+  label: string;
   format: FeedFormat;
-  feedId: string;
-  env: Env;
-}) => {
-  const url = feedFormatUrl(format, feedId, env);
-  const validateUrl = feedValidatorUrl(format, feedId, env);
-  const label = FORMAT_LABELS[format];
-  return (
-    <div class="format-chip" data-format={format}>
-      <span class="format-chip-label">{label}</span>
-      <span class="format-chip-actions">
-        <span class="copyable copyable-chip">
-          <span
-            class="copyable-content"
-            title={`Copy ${label} feed URL`}
-            aria-label={`Copy ${label} feed URL`}
-          >
-            <span class="copyable-value" data-copy={url} hidden></span>
-            <span class="copy-icon-container">
-              <CopyIcon />
-              <CheckIcon />
-            </span>
+  url: string;
+  validateUrl?: string;
+}) => (
+  <div class="format-chip" data-format={format}>
+    <span class="format-chip-label">{label}</span>
+    <span class="format-chip-actions">
+      <span class="copyable copyable-chip">
+        <span
+          class="copyable-content"
+          title={`Copy ${label} feed URL`}
+          aria-label={`Copy ${label} feed URL`}
+        >
+          <span class="copyable-value" data-copy={url} hidden></span>
+          <span class="copy-icon-container">
+            <CopyIcon />
+            <CheckIcon />
           </span>
         </span>
-        <a
-          class="chip-action"
-          href={url}
-          target="_blank"
-          rel="noopener noreferrer"
-          title={`Open ${label} feed in a new tab`}
-          aria-label={`Open ${label} feed in a new tab`}
-        >
-          <OpenIcon />
-        </a>
+      </span>
+      <a
+        class="chip-action"
+        href={url}
+        target="_blank"
+        rel="noopener noreferrer"
+        title={`Open ${label} feed in a new tab`}
+        aria-label={`Open ${label} feed in a new tab`}
+      >
+        <OpenIcon />
+      </a>
+      {validateUrl && (
         <a
           class="chip-action"
           href={validateUrl}
@@ -231,10 +233,27 @@ const FormatChip = ({
         >
           <ValidateIcon />
         </a>
-      </span>
-    </div>
-  );
-};
+      )}
+    </span>
+  </div>
+);
+
+const FormatChip = ({
+  format,
+  feedId,
+  env,
+}: {
+  format: FeedFormat;
+  feedId: string;
+  env: Env;
+}) => (
+  <FeedChip
+    label={FORMAT_LABELS[format]}
+    format={format}
+    url={feedFormatUrl(format, feedId, env)}
+    validateUrl={feedValidatorUrl(format, feedId, env)}
+  />
+);
 
 export const FeedFormats = ({
   feedId,
@@ -257,40 +276,6 @@ export const FeedFormats = ({
 
 // ── Native feed chips ─────────────────────────────────────────────────────────
 
-const NativeFeedChip = ({ feed }: { feed: NativeFeed }) => {
-  const label = FORMAT_LABELS[feed.type];
-  return (
-    <div class="format-chip" data-format={feed.type}>
-      <span class="format-chip-label">{label}</span>
-      <span class="format-chip-actions">
-        <span class="copyable copyable-chip">
-          <span
-            class="copyable-content"
-            title={`Copy native ${label} feed URL`}
-            aria-label={`Copy native ${label} feed URL`}
-          >
-            <span class="copyable-value" data-copy={feed.url} hidden></span>
-            <span class="copy-icon-container">
-              <CopyIcon />
-              <CheckIcon />
-            </span>
-          </span>
-        </span>
-        <a
-          class="chip-action"
-          href={feed.url}
-          target="_blank"
-          rel="noopener noreferrer"
-          title={`Open native ${label} feed in a new tab`}
-          aria-label={`Open native ${label} feed in a new tab`}
-        >
-          <OpenIcon />
-        </a>
-      </span>
-    </div>
-  );
-};
-
 export const NativeFeeds = ({ feeds }: { feeds: NativeFeed[] }) => {
   if (feeds.length === 0) return null;
   return (
@@ -298,7 +283,12 @@ export const NativeFeeds = ({ feeds }: { feeds: NativeFeed[] }) => {
       <span class="feed-formats-label">Native feeds</span>
       <div class="feed-formats-chips">
         {feeds.map((feed) => (
-          <NativeFeedChip key={feed.url} feed={feed} />
+          <FeedChip
+            key={feed.url}
+            label={FORMAT_LABELS[feed.type]}
+            format={feed.type}
+            url={feed.url}
+          />
         ))}
       </div>
     </div>
