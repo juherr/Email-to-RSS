@@ -61,6 +61,10 @@ export interface FeedMetadata {
   // RFC 8058 one-click unsubscribe URLs, keyed by sender so each newsletter on
   // the feed keeps its own (latest) link; fired when the feed is deleted.
   unsubscribe?: Record<string, string>;
+  // True while at least one unactioned confirmation email is present. Raised on
+  // ingest, lowered by an admin "dismiss" or when the last confirmation email is
+  // removed. Projected into feeds:list for the dashboard.
+  pendingConfirmation?: boolean;
 }
 
 // Email metadata interface (summary info for listing)
@@ -73,6 +77,9 @@ export interface EmailMetadata {
   inlineAttachmentIds?: string[]; // Inline images: hidden from lists, still cleaned up
   messageId?: string; // RFC 2822 Message-ID header (dedup primary key)
   dedupHash?: string; // SHA-256 hex of normalized subject+content (dedup fallback)
+  // Detected subscription-confirmation links (ranked top-3). Present ⇒ the email
+  // was detected as a confirmation request.
+  confirmation?: { links: string[] };
 }
 
 // Feed list interface
@@ -87,6 +94,7 @@ export interface FeedListItem {
   description?: string;
   mailbox_id: string; // Cached inbound address local part (admin/API display)
   expires_at?: number; // Cached from FeedConfig to avoid per-feed KV reads
+  pendingConfirmation?: boolean; // Projected from FeedMetadata for the dashboard
 }
 
 // Cumulative monitoring counters (persisted as a KV singleton)

@@ -155,6 +155,11 @@ export class Feed {
     return this._metadata.iconDomain;
   }
 
+  /** True while at least one unactioned confirmation email is present. */
+  get pendingConfirmation(): boolean {
+    return this._metadata.pendingConfirmation ?? false;
+  }
+
   allowedSenders(): string[] {
     return [...this._state.allowedSenders];
   }
@@ -258,6 +263,10 @@ export class Feed {
       };
     }
 
+    if (entry.confirmation) {
+      this._metadata.pendingConfirmation = true;
+    }
+
     this._events.push({
       type: "EmailIngested",
       feedId: this.id,
@@ -295,7 +304,17 @@ export class Feed {
       (target.has(entry.key) ? removed : kept).push(entry);
     }
     this._metadata.emails = kept;
+    // Lower-only: clear when no confirmation email remains. Never re-raise here,
+    // so an admin "dismiss" survives deletion of unrelated emails.
+    if (!kept.some((e) => e.confirmation)) {
+      this._metadata.pendingConfirmation = false;
+    }
     return { removed };
+  }
+
+  /** Mark the pending confirmation as handled — "stop reminding me". */
+  dismissConfirmation(): void {
+    this._metadata.pendingConfirmation = false;
   }
 
   /**

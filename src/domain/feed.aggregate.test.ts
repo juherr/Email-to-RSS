@@ -233,6 +233,82 @@ describe("Feed events", () => {
   });
 });
 
+function newFeed(): Feed {
+  return Feed.create(
+    FeedId.generate(),
+    {
+      title: "T",
+      description: "",
+      language: "en",
+      allowedSenders: [],
+      blockedSenders: [],
+    },
+    { mailboxId: MailboxId.unchecked("alpha.beta.10") },
+  );
+}
+
+function confirmationEmail(
+  key: string,
+  confirmation?: { links: string[] },
+): EmailMetadata {
+  return {
+    key,
+    subject: "s",
+    receivedAt: Date.now(),
+    size: 10,
+    ...(confirmation ? { confirmation } : {}),
+  };
+}
+
+describe("Feed pendingConfirmation", () => {
+  it("is false on a fresh feed", () => {
+    expect(newFeed().pendingConfirmation).toBe(false);
+  });
+
+  it("is raised when a confirmation email is ingested", () => {
+    const feed = newFeed();
+    feed.ingest(confirmationEmail("k1", { links: ["https://x/confirm"] }), {
+      maxBytes: 1_000_000,
+    });
+    expect(feed.pendingConfirmation).toBe(true);
+  });
+
+  it("stays false for a non-confirmation email", () => {
+    const feed = newFeed();
+    feed.ingest(confirmationEmail("k1"), { maxBytes: 1_000_000 });
+    expect(feed.pendingConfirmation).toBe(false);
+  });
+
+  it("is cleared by dismissConfirmation", () => {
+    const feed = newFeed();
+    feed.ingest(confirmationEmail("k1", { links: ["https://x/confirm"] }), {
+      maxBytes: 1_000_000,
+    });
+    feed.dismissConfirmation();
+    expect(feed.pendingConfirmation).toBe(false);
+  });
+
+  it("does not re-raise after dismiss when removing an unrelated email", () => {
+    const feed = newFeed();
+    feed.ingest(confirmationEmail("k1", { links: ["https://x/confirm"] }), {
+      maxBytes: 1_000_000,
+    });
+    feed.ingest(confirmationEmail("k2"), { maxBytes: 1_000_000 });
+    feed.dismissConfirmation();
+    feed.removeEmails(["k2"]);
+    expect(feed.pendingConfirmation).toBe(false);
+  });
+
+  it("clears when the last confirmation email is removed", () => {
+    const feed = newFeed();
+    feed.ingest(confirmationEmail("k1", { links: ["https://x/confirm"] }), {
+      maxBytes: 1_000_000,
+    });
+    feed.removeEmails(["k1"]);
+    expect(feed.pendingConfirmation).toBe(false);
+  });
+});
+
 describe("FeedRepository.load / save round-trip", () => {
   it("persists a created feed and reflects later mutations", async () => {
     const repo = new FeedRepository(mockEnv().EMAIL_STORAGE);
