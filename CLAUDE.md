@@ -200,6 +200,18 @@ MSW (`msw/node`) handles external HTTP mocks. Tests that hit validation paths in
 - `ADMIN_PASSWORD` is set via `wrangler secret put` — never in config files
 - Keep `compatibility_date` current on runtime upgrades
 
+## Releasing (read before cutting a release)
+
+`package.json` `version` is inlined at build time as `APP_VERSION` (`src/config/version.ts`) and surfaced in the admin/status footer, `/health`, and `/api/v1/stats`. **`main` always carries a `-develop` pre-release suffix** (e.g. `0.3.0-develop`) so a dev build is never mistaken for a shipped one.
+
+When asked to "release X.Y.Z", the **git tag is the source of truth** — do **not** commit a bare `X.Y.Z` to `main`:
+
+1. Confirm `main`'s `package.json` reads `X.Y.Z-develop` (its base must match the release). If you're bumping the target, that's a separate `-develop` bump.
+2. `git tag vX.Y.Z && git push origin vX.Y.Z` — the Release workflow (`.github/workflows/release.yml`) strips the `-develop` suffix in its ephemeral checkout, builds the bundle reporting the bare `X.Y.Z`, and publishes the GitHub Release. It **fails fast** if the tag base ≠ `package.json` base (wrong-commit guard).
+3. After the release, reopen the next cycle: `npm version <next>-develop --no-git-tag-version` on `main` (next minor by default, or `X.Y.Z+1-develop` for a patch line), then commit + push.
+
+Full flow lives in [CONTRIBUTING.md](CONTRIBUTING.md) under "Releasing".
+
 ## When changing behavior
 
 **Always document evolutions** — treat docs as part of the change, not a follow-up. When you add or change a feature, update the relevant docs in the same change:
