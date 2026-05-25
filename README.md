@@ -22,6 +22,7 @@ kill-the-news keeps the same workflow while avoiding shared domains and shared d
 - Cloudflare Email Workers ingestion (no third-party service)
 - ForwardEmail webhook ingestion with source-IP verification (optional alternative)
 - Optional per-feed sender allowlist (`email@domain.com` or `domain.com`)
+- Optional per-feed "sender in title" toggle — renders each entry as `[Sender] Subject` for at-a-glance scanning in your reader
 - RSS generation on demand (`/rss/:feedId`)
 - Atom feed at `/atom/:feedId`
 - JSON Feed at `/json/:feedId` (natively consumed by NetNewsWire, Reeder, NewsBlur, Feedly)

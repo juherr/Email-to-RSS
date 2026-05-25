@@ -147,6 +147,37 @@ describe("generateRssFeed", () => {
     expect(result).not.toContain("<item>");
   });
 
+  it("leaves the item title unprefixed by default", () => {
+    const result = generateRssFeed(
+      mockFeedConfig,
+      mockEmails,
+      BASE_URL,
+      FEED_ID,
+    );
+    expect(result).toContain("Hello World");
+    expect(result).not.toContain("[Alice]");
+  });
+
+  it("prefixes the item title with the sender when sender_in_title is set", () => {
+    const result = generateRssFeed(
+      { ...mockFeedConfig, sender_in_title: true },
+      mockEmails,
+      BASE_URL,
+      FEED_ID,
+    );
+    expect(result).toContain("[Alice] Hello World");
+  });
+
+  it("falls back to the email address when the sender has no display name", () => {
+    const result = generateRssFeed(
+      { ...mockFeedConfig, sender_in_title: true },
+      [{ ...mockEmails[0], from: "bob@example.com" }],
+      BASE_URL,
+      FEED_ID,
+    );
+    expect(result).toContain("[bob@example.com] Hello World");
+  });
+
   it("feed link points to the public read URL, never an admin path", () => {
     const result = generateRssFeed(
       mockFeedConfig,

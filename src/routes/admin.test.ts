@@ -1472,4 +1472,104 @@ describe("Admin Routes", () => {
       expect(body).not.toContain("validator.w3.org/feed/images");
     });
   });
+
+  describe("Sender-in-title toggle", () => {
+    it("edit form renders the checkbox, unchecked by default", async () => {
+      const authCookie = await loginAndGetCookie();
+      const repo = FeedRepository.from(mockEnv as unknown as Env);
+      const feedId = FeedId.generate();
+      const feed = Feed.create(
+        feedId,
+        {
+          title: "Title Toggle Feed",
+          language: "en",
+          allowedSenders: [],
+          blockedSenders: [],
+        },
+        { mailboxId: MailboxId.unchecked("title.toggle.01") },
+      );
+      await repo.save(feed);
+
+      const res = await request(`/admin/feeds/${feedId.value}/edit`, {
+        headers: { Cookie: authCookie },
+      });
+      expect(res.status).toBe(200);
+      const body = await res.text();
+      expect(body).toContain('name="sender_in_title"');
+      expect(body).toContain("Show sender in entry titles");
+      expect(body).not.toContain("checked");
+    });
+
+    it("persists the toggle through edit and reflects it back as checked", async () => {
+      const authCookie = await loginAndGetCookie();
+      const repo = FeedRepository.from(mockEnv as unknown as Env);
+      const feedId = FeedId.generate();
+      const feed = Feed.create(
+        feedId,
+        {
+          title: "Title Toggle Feed",
+          language: "en",
+          allowedSenders: [],
+          blockedSenders: [],
+        },
+        { mailboxId: MailboxId.unchecked("title.toggle.02") },
+      );
+      await repo.save(feed);
+
+      const form = new FormData();
+      form.append("title", "Title Toggle Feed");
+      form.append("sender_in_title", "true");
+      const post = await request(`/admin/feeds/${feedId.value}/edit`, {
+        method: "POST",
+        headers: {
+          Cookie: authCookie,
+          Origin: "https://test.getmynews.app",
+        },
+        body: form,
+      });
+      expect(post.status).toBe(302);
+
+      const cfg = await repo.getConfig(feedId);
+      expect(cfg?.sender_in_title).toBe(true);
+
+      const editPage = await request(`/admin/feeds/${feedId.value}/edit`, {
+        headers: { Cookie: authCookie },
+      });
+      expect(await editPage.text()).toContain("checked");
+    });
+
+    it("clears the toggle when the checkbox is omitted (unchecked)", async () => {
+      const authCookie = await loginAndGetCookie();
+      const repo = FeedRepository.from(mockEnv as unknown as Env);
+      const feedId = FeedId.generate();
+      const feed = Feed.create(
+        feedId,
+        {
+          title: "Title Toggle Feed",
+          language: "en",
+          senderInTitle: true,
+          allowedSenders: [],
+          blockedSenders: [],
+        },
+        { mailboxId: MailboxId.unchecked("title.toggle.03") },
+      );
+      await repo.save(feed);
+
+      const form = new FormData();
+      form.append("title", "Title Toggle Feed");
+      // No sender_in_title field ⇒ unchecked.
+      const post = await request(`/admin/feeds/${feedId.value}/edit`, {
+        method: "POST",
+        headers: {
+          Cookie: authCookie,
+          Origin: "https://test.getmynews.app",
+        },
+        body: form,
+      });
+      expect(post.status).toBe(302);
+
+      const cfg = await repo.getConfig(feedId);
+      expect(cfg?.sender_in_title).toBe(false);
+    });
+  });
 });

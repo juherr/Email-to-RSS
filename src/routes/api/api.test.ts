@@ -143,6 +143,40 @@ describe("REST API (/api/v1)", () => {
       expect(afterList.feeds.map((f) => f.id)).not.toContain(created.id);
     });
 
+    it("defaults senderInTitle to false and lets it be set on create and update", async () => {
+      const createRes = await request("/api/v1/feeds", {
+        method: "POST",
+        headers: { ...authHeaders, "Content-Type": "application/json" },
+        body: JSON.stringify({ title: "Title Feed" }),
+      });
+      const created = (await createRes.json()) as {
+        id: string;
+        senderInTitle: boolean;
+      };
+      expect(created.senderInTitle).toBe(false);
+
+      const setRes = await request("/api/v1/feeds", {
+        method: "POST",
+        headers: { ...authHeaders, "Content-Type": "application/json" },
+        body: JSON.stringify({ title: "Prefixed Feed", senderInTitle: true }),
+      });
+      const set = (await setRes.json()) as {
+        id: string;
+        senderInTitle: boolean;
+      };
+      expect(set.senderInTitle).toBe(true);
+
+      const patchRes = await request(`/api/v1/feeds/${set.id}`, {
+        method: "PATCH",
+        headers: { ...authHeaders, "Content-Type": "application/json" },
+        body: JSON.stringify({ senderInTitle: false }),
+      });
+      expect(patchRes.status).toBe(200);
+      expect(
+        (await patchRes.json()) as { senderInTitle: boolean },
+      ).toMatchObject({ senderInTitle: false });
+    });
+
     it("returns 400 for an invalid create body", async () => {
       const res = await request("/api/v1/feeds", {
         method: "POST",

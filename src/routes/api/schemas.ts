@@ -39,6 +39,10 @@ export const FeedCreateSchema = z
     language: z.string().optional().default("en"),
     allowedSenders: z.array(z.string()).optional().default([]),
     blockedSenders: z.array(z.string()).optional().default([]),
+    senderInTitle: z.boolean().optional().openapi({
+      description:
+        "Render entry titles as `[Sender] Subject` in the feed output.",
+    }),
     lifetimeHours: z.number().int().positive().optional().openapi({
       description:
         "Hours until the feed expires. Ignored when the server enforces a fixed FEED_TTL_HOURS.",
@@ -53,6 +57,10 @@ export const FeedUpdateSchema = z
     language: z.string().optional(),
     allowedSenders: z.array(z.string()).optional(),
     blockedSenders: z.array(z.string()).optional(),
+    senderInTitle: z.boolean().optional().openapi({
+      description:
+        "Render entry titles as `[Sender] Subject` in the feed output.",
+    }),
     lifetimeHours: z.number().int().positive().optional().openapi({
       description: "Reset the feed's lifetime to this many hours from now.",
     }),
@@ -83,6 +91,7 @@ export const FeedSchema = z
     language: z.string(),
     allowedSenders: z.array(z.string()),
     blockedSenders: z.array(z.string()),
+    senderInTitle: z.boolean(),
     createdAt: z.number(),
     updatedAt: z.number().optional(),
     expiresAt: z.number().optional(),

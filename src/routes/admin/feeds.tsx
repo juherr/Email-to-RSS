@@ -270,6 +270,23 @@ feedsRouter.get("/:feedId/edit", async (c) => {
             </div>
 
             <div class="form-group">
+              <label class="checkbox-label">
+                <input
+                  type="checkbox"
+                  name="sender_in_title"
+                  value="true"
+                  checked={feedConfig.sender_in_title ?? false}
+                  disabled={isExpired}
+                />
+                Show sender in entry titles
+              </label>
+              <small>
+                Render each entry's title as <code>[Sender] Subject</code> for
+                at-a-glance scanning in your reader.
+              </small>
+            </div>
+
+            <div class="form-group">
               <label for="lifetime_hours">Lifetime (hours)</label>
               <input
                 type="number"
@@ -322,6 +339,7 @@ feedsRouter.post("/:feedId/edit", async (c) => {
     const blockedSenders = parseAllowedSenders(
       formData.get("blocked_senders")?.toString() || "",
     );
+    const senderInTitle = formData.get("sender_in_title") === "true";
     const lifetimeHoursRaw = formData.get("lifetime_hours")?.toString();
 
     const parsedData = updateFeedSchema.parse({
@@ -338,6 +356,7 @@ feedsRouter.post("/:feedId/edit", async (c) => {
       language: parsedData.language,
       allowedSenders: parsedData.allowedSenders,
       blockedSenders: parsedData.blockedSenders,
+      senderInTitle,
       lifetimeHours: lifetimeHoursRaw
         ? parseInt(lifetimeHoursRaw, 10)
         : undefined,

@@ -49,6 +49,8 @@ export interface FeedConfig {
   blocked_senders?: string[];
   language: string;
   author?: string;
+  // When true, entry titles in the feed output are rendered as `[Sender] Subject`.
+  sender_in_title?: boolean;
   created_at: number;
   updated_at?: number;
   expires_at?: number; // Unix timestamp ms — present when a TTL is configured

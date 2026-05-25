@@ -59,6 +59,7 @@ function toFeed(
     language: config.language,
     allowedSenders: config.allowed_senders ?? [],
     blockedSenders: config.blocked_senders ?? [],
+    senderInTitle: config.sender_in_title ?? false,
     createdAt: config.created_at,
     updatedAt: config.updated_at,
     expiresAt: config.expires_at,
@@ -152,6 +153,7 @@ apiApp.openapi(
       language: body.language,
       allowedSenders: normalizeSenders(body.allowedSenders) ?? [],
       blockedSenders: normalizeSenders(body.blockedSenders) ?? [],
+      senderInTitle: body.senderInTitle,
       lifetimeHours: body.lifetimeHours,
     });
     return c.json(toFeed(feedId, config, 0, env), 201);
@@ -217,6 +219,7 @@ apiApp.openapi(
       language: body.language,
       allowedSenders: normalizeSenders(body.allowedSenders),
       blockedSenders: normalizeSenders(body.blockedSenders),
+      senderInTitle: body.senderInTitle,
       lifetimeHours: body.lifetimeHours,
     });
     if (result.status === "not_found")

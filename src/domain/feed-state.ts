@@ -15,6 +15,8 @@ export interface FeedState {
    * is `mailboxId@domain`. Decoupled from the feed's `FeedId` (the read id). */
   mailboxId: string;
   author?: string;
+  /** When true, entry titles in the feed output are rendered as `[Sender] Subject`. */
+  senderInTitle?: boolean;
   allowedSenders: string[];
   blockedSenders: string[];
   createdAt: number;

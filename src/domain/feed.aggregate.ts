@@ -13,6 +13,8 @@ export interface CreateFeedInput {
   language: string;
   allowedSenders: string[];
   blockedSenders: string[];
+  /** When true, render entry titles as `[Sender] Subject` in the feed output. */
+  senderInTitle?: boolean;
   /** Raw client-requested lifetime; the application resolves it into a `Lifetime`. */
   lifetimeHours?: number;
 }
@@ -23,6 +25,7 @@ export interface UpdateFeedInput {
   language?: string;
   allowedSenders?: string[];
   blockedSenders?: string[];
+  senderInTitle?: boolean;
   lifetimeHours?: number;
 }
 
@@ -95,6 +98,7 @@ export class Feed {
       description: input.description,
       language: input.language,
       mailboxId: deps.mailboxId.value,
+      senderInTitle: input.senderInTitle,
       allowedSenders: input.allowedSenders,
       blockedSenders: input.blockedSenders,
       createdAt: now,
@@ -132,6 +136,11 @@ export class Feed {
 
   get language(): string {
     return this._state.language;
+  }
+
+  /** Whether entry titles render as `[Sender] Subject` in the feed output. */
+  get senderInTitle(): boolean {
+    return this._state.senderInTitle ?? false;
   }
 
   /** The inbound mailbox (`noun.noun.NN`) — the feed's email address is `mailboxId@domain`. */
@@ -341,6 +350,9 @@ export class Feed {
       this._state.description = patch.description;
     }
     if (patch.language !== undefined) this._state.language = patch.language;
+    if (patch.senderInTitle !== undefined) {
+      this._state.senderInTitle = patch.senderInTitle;
+    }
     if (patch.allowedSenders !== undefined) {
       this._state.allowedSenders = patch.allowedSenders;
     }

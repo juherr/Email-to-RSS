@@ -295,6 +295,19 @@ label {
   color: var(--color-text-secondary);
 }
 
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  cursor: pointer;
+}
+
+.checkbox-label input[type="checkbox"] {
+  width: auto;
+  margin: 0;
+  cursor: pointer;
+}
+
 input[type="text"],
 input[type="email"],
 input[type="search"],

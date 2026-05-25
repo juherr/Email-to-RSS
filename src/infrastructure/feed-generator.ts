@@ -74,8 +74,12 @@ function buildFeed(
       baseUrl,
       EmailAddress.parse(email.from)?.siteBaseUrl() ?? "",
     );
+    const subject = htmlToText(email.subject);
+    const title = feedConfig.sender_in_title
+      ? `[${parseFromAddress(email.from).name ?? email.from}] ${subject}`
+      : subject;
     feed.addItem({
-      title: htmlToText(email.subject),
+      title,
       id: entryUrl,
       link: entryUrl,
       description: bodyContent,
