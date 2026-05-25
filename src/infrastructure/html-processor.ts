@@ -41,6 +41,34 @@ export function htmlToText(value: string): string {
     .trim();
 }
 
+// Collect the links from an email body for confirmation detection: anchor href +
+// visible text from HTML, or a regex URL sweep for plain-text bodies. Infra owns
+// the DOM parse; the domain detector receives plain tuples.
+export function extractLinks(
+  content: string,
+): { href: string; text: string }[] {
+  if (!content) return [];
+
+  if (isPlainText(content)) {
+    const urls = content.match(/https?:\/\/[^\s<>"')]+/gi) ?? [];
+    return urls.map((url) => ({ href: url, text: url }));
+  }
+
+  const { document } = parseHTML(content);
+  const links: { href: string; text: string }[] = [];
+  document.querySelectorAll("a[href]").forEach((el: Element) => {
+    const href = (el.getAttribute("href") ?? "").trim();
+    if (!href) return;
+    links.push({
+      href,
+      text: ((el as unknown as { textContent?: string }).textContent ?? "")
+        .replace(/\s+/g, " ")
+        .trim(),
+    });
+  });
+  return links;
+}
+
 // Newsletters frequently defer images via data-src/loading="lazy"; readers don't
 // run the lazy-loader, so the image renders blank. Promote the real source.
 function promoteLazyImages(document: ParsedDocument): void {

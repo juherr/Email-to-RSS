@@ -3,6 +3,7 @@ import {
   processEmailContent,
   extractInlineCids,
   htmlToText,
+  extractLinks,
 } from "./html-processor";
 import type { AttachmentData } from "../types";
 
@@ -317,5 +318,33 @@ describe("extractInlineCids", () => {
 
   it("returns an empty set for empty input", () => {
     expect(extractInlineCids("").size).toBe(0);
+  });
+});
+
+describe("extractLinks", () => {
+  it("collects anchor href + text from HTML", () => {
+    const links = extractLinks(
+      '<p>hi <a href="https://x.example/confirm?t=1">Confirm</a> and <a href="https://x.example/home">Home</a></p>',
+    );
+    expect(links).toEqual([
+      { href: "https://x.example/confirm?t=1", text: "Confirm" },
+      { href: "https://x.example/home", text: "Home" },
+    ]);
+  });
+
+  it("falls back to regex URL extraction for plain text", () => {
+    const links = extractLinks(
+      "Confirm here: https://x.example/verify/abc thanks",
+    );
+    expect(links).toEqual([
+      {
+        href: "https://x.example/verify/abc",
+        text: "https://x.example/verify/abc",
+      },
+    ]);
+  });
+
+  it("returns an empty array for empty content", () => {
+    expect(extractLinks("")).toEqual([]);
   });
 });
