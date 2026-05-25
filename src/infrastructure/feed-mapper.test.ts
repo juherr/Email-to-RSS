@@ -44,6 +44,18 @@ describe("feed-mapper", () => {
       mailbox_id: "a.b.42",
       expires_at: 3000,
       pendingConfirmation: false,
+      hasNativeFeed: false,
     });
+  });
+
+  it("projects hasNativeFeed when passed", () => {
+    const item = toListItemDTO(
+      FeedId.unchecked("a.b.42"),
+      fromConfigDTO(fullConfig),
+      true,
+      true,
+    );
+    expect(item.pendingConfirmation).toBe(true);
+    expect(item.hasNativeFeed).toBe(true);
   });
 });

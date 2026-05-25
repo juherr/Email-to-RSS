@@ -49,6 +49,7 @@ export function toListItemDTO(
   id: FeedId,
   state: FeedState,
   pendingConfirmation = false,
+  hasNativeFeed = false,
 ): FeedListItem {
   return {
     id: id.value,
@@ -57,5 +58,6 @@ export function toListItemDTO(
     mailbox_id: state.mailboxId,
     expires_at: state.expiresAt,
     pendingConfirmation,
+    hasNativeFeed,
   };
 }

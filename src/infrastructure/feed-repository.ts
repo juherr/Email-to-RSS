@@ -88,7 +88,12 @@ export class FeedRepository {
       this.putConfig(feed.id, toConfigDTO(feed.state())),
       this.putMetadata(feed.id, feed.toMetadataSnapshot()),
       this.upsertListEntry(
-        toListItemDTO(feed.id, feed.state(), feed.pendingConfirmation),
+        toListItemDTO(
+          feed.id,
+          feed.state(),
+          feed.pendingConfirmation,
+          feed.hasNativeFeed(),
+        ),
       ),
       this.putInboundIndex(feed.mailboxId, feed.id),
     ]);
@@ -104,7 +109,12 @@ export class FeedRepository {
     await Promise.all([
       this.putMetadata(feed.id, feed.toMetadataSnapshot()),
       this.upsertListEntry(
-        toListItemDTO(feed.id, feed.state(), feed.pendingConfirmation),
+        toListItemDTO(
+          feed.id,
+          feed.state(),
+          feed.pendingConfirmation,
+          feed.hasNativeFeed(),
+        ),
       ),
     ]);
   }
@@ -118,7 +128,12 @@ export class FeedRepository {
     await Promise.all([
       this.putConfig(feed.id, toConfigDTO(feed.state())),
       this.upsertListEntry(
-        toListItemDTO(feed.id, feed.state(), feed.pendingConfirmation),
+        toListItemDTO(
+          feed.id,
+          feed.state(),
+          feed.pendingConfirmation,
+          feed.hasNativeFeed(),
+        ),
       ),
       this.putInboundIndex(feed.mailboxId, feed.id),
     ]);
