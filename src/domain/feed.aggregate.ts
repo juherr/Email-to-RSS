@@ -190,6 +190,19 @@ export class Feed {
     return [...this._metadata.emails];
   }
 
+  /** Number of emails currently in the index. */
+  get emailCount(): number {
+    return this._metadata.emails.length;
+  }
+
+  /**
+   * Received timestamp (ms) of the most recent email, or undefined when the
+   * feed has none. The index is maintained newest-first (ingest unshifts).
+   */
+  get lastEmailAt(): number | undefined {
+    return this._metadata.emails[0]?.receivedAt;
+  }
+
   /** Per-sender one-click unsubscribe links (copy). */
   unsubscribeUrls(): Record<string, string> {
     return { ...(this._metadata.unsubscribe ?? {}) };

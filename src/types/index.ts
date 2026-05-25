@@ -111,6 +111,8 @@ export interface FeedListItem {
   expires_at?: number; // Cached from FeedConfig to avoid per-feed KV reads
   pendingConfirmation?: boolean; // Projected from FeedMetadata for the dashboard
   hasNativeFeed?: boolean; // Projected from FeedMetadata for the dashboard pill
+  emailCount?: number; // Projected email index size (dashboard "Emails" count)
+  lastEmailAt?: number; // Projected receivedAt (ms) of the most recent email
 }
 
 // Cumulative monitoring counters (persisted as a KV singleton)

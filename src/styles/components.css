@@ -77,6 +77,33 @@
   gap: var(--spacing-sm);
 }
 
+/* Let the title/description text shrink so .truncate ellipsizes instead of
+   overflowing into the next column. Flex items default to min-width:auto. */
+.feed-title-cell-text {
+  flex: 1;
+  min-width: 0;
+}
+
+/* "Last email …" freshness line under the feed title. */
+.feed-activity {
+  display: block;
+  margin-top: 4px;
+  font-size: var(--font-size-sm);
+}
+
+/* Count badge inside the "Emails" button (always on the orange primary button,
+   incl. its faded disabled variant, so a light-on-dark badge fits both modes). */
+.button-count {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.22);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  line-height: 1.5;
+}
+
 .feed-description {
   font-size: var(--font-size-md);
   color: var(--color-text-secondary);

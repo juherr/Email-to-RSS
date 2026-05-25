@@ -325,3 +325,38 @@ export const ExpiryBadge = ({ expiresAt }: { expiresAt: number }) => {
     </span>
   );
 };
+
+// ── Email activity ──────────────────────────────────────────────────────────────
+
+function formatRelativeTime(ts: number): string {
+  const diff = Date.now() - ts;
+  if (diff < 60_000) return "just now";
+  const m = Math.floor(diff / 60_000);
+  if (m < 60) return `${m}m ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h ago`;
+  const d = Math.floor(h / 24);
+  if (d < 30) return `${d}d ago`;
+  const mo = Math.floor(d / 30);
+  if (mo < 12) return `${mo}mo ago`;
+  return `${Math.floor(mo / 12)}y ago`;
+}
+
+// Count badge rendered inside the "Emails" button. Omitted for legacy feeds
+// whose count hasn't been projected into feeds:list yet (backfills on next save).
+export const EmailCountBadge = ({ count }: { count?: number }) =>
+  count === undefined ? null : <span class="button-count">{count}</span>;
+
+// Muted "last email" freshness line for the feed title block. Shows "No emails
+// yet" for empty feeds; renders nothing when the timestamp isn't projected yet.
+export const LastEmail = ({ at, count }: { at?: number; count?: number }) => {
+  if (count === 0) {
+    return <span class="feed-activity muted">No emails yet</span>;
+  }
+  if (at === undefined) return null;
+  return (
+    <span class="feed-activity muted" title={new Date(at).toLocaleString()}>
+      Last email {formatRelativeTime(at)}
+    </span>
+  );
+};

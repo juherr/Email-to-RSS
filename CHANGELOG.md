@@ -12,8 +12,17 @@ verbatim as the GitHub Release notes — so what you write here is what ships.
 
 ## [Unreleased]
 
+### Added
+
+- The admin dashboard now shows each feed's email count on its **Emails** button
+  and a **"Last email …"** freshness line under the feed title, in both the list
+  and table views. Both values are projected into `feeds:list`, so the dashboard
+  stays a single KV read; they backfill on a feed's next email or save.
+
 ### Fixed
 
+- Admin dashboard table view: long feed titles no longer overflow into the Feed
+  ID column — the title/description cell now shrinks so its text ellipsises.
 - RSS and Atom feeds now advertise the WebSub hub inside the feed body
   (`<atom:link rel="hub">`), not just in the HTTP `Link` header. Readers like
   FreshRSS discover the hub from the XML, so they can now subscribe and receive

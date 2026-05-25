@@ -1,7 +1,8 @@
 import { describe, it, expect } from "vitest";
 import { fromConfigDTO, toConfigDTO, toListItemDTO } from "./feed-mapper";
 import { FeedId } from "../domain/value-objects/feed-id";
-import type { FeedConfig } from "../types";
+import { Feed } from "../domain/feed.aggregate";
+import type { FeedConfig, FeedMetadata } from "../types";
 
 const fullConfig: FeedConfig = {
   title: "News",
@@ -15,6 +16,13 @@ const fullConfig: FeedConfig = {
   updated_at: 2000,
   expires_at: 3000,
 };
+
+const feedFrom = (metadata: FeedMetadata) =>
+  Feed.reconstitute(
+    FeedId.unchecked("a.b.42"),
+    fromConfigDTO(fullConfig),
+    metadata,
+  );
 
 describe("feed-mapper", () => {
   it("round-trips a full config DTO through domain state unchanged", () => {
@@ -32,11 +40,8 @@ describe("feed-mapper", () => {
     expect(state.blockedSenders).toEqual([]);
   });
 
-  it("projects the feeds:list item from domain state", () => {
-    const item = toListItemDTO(
-      FeedId.unchecked("a.b.42"),
-      fromConfigDTO(fullConfig),
-    );
+  it("projects the feeds:list item from an empty feed aggregate", () => {
+    const item = toListItemDTO(feedFrom({ emails: [] }));
     expect(item).toEqual({
       id: "a.b.42",
       title: "News",
@@ -45,17 +50,33 @@ describe("feed-mapper", () => {
       expires_at: 3000,
       pendingConfirmation: false,
       hasNativeFeed: false,
+      emailCount: 0,
+      lastEmailAt: undefined,
     });
   });
 
-  it("projects hasNativeFeed when passed", () => {
+  it("projects pendingConfirmation and hasNativeFeed from metadata", () => {
     const item = toListItemDTO(
-      FeedId.unchecked("a.b.42"),
-      fromConfigDTO(fullConfig),
-      true,
-      true,
+      feedFrom({
+        emails: [],
+        pendingConfirmation: true,
+        nativeFeeds: { "n@x.com": [{ url: "https://x/rss", type: "rss" }] },
+      }),
     );
     expect(item.pendingConfirmation).toBe(true);
     expect(item.hasNativeFeed).toBe(true);
+  });
+
+  it("projects email count and the newest email's timestamp", () => {
+    const item = toListItemDTO(
+      feedFrom({
+        emails: [
+          { key: "k2", subject: "b", receivedAt: 1700000000000 },
+          { key: "k1", subject: "a", receivedAt: 1600000000000 },
+        ],
+      }),
+    );
+    expect(item.emailCount).toBe(2);
+    expect(item.lastEmailAt).toBe(1700000000000);
   });
 });

@@ -14,6 +14,8 @@ import {
   CheckIcon,
   FeedFormats,
   ExpiryBadge,
+  LastEmail,
+  EmailCountBadge,
 } from "./admin/ui";
 import { FeedRepository } from "../infrastructure/feed-repository";
 import { FeedId } from "../domain/value-objects/feed-id";
@@ -628,7 +630,7 @@ app.get("/", async (c) => {
                                 height="20"
                                 loading="lazy"
                               />
-                              <div>
+                              <div class="feed-title-cell-text">
                                 <strong class="truncate" title={titleHover}>
                                   {titleDisplay}
                                 </strong>
@@ -641,6 +643,10 @@ app.get("/", async (c) => {
                                     {descDisplay}
                                   </div>
                                 )}
+                                <LastEmail
+                                  at={feed.lastEmailAt}
+                                  count={feed.emailCount}
+                                />
                               </div>
                               {feed.pendingConfirmation && (
                                 <ConfirmationPill feedId={feed.id} />
@@ -683,6 +689,7 @@ app.get("/", async (c) => {
                                     tabindex={-1}
                                   >
                                     Emails
+                                    <EmailCountBadge count={feed.emailCount} />
                                   </span>
                                 </>
                               ) : (
@@ -698,6 +705,7 @@ app.get("/", async (c) => {
                                     class="button button-small"
                                   >
                                     Emails
+                                    <EmailCountBadge count={feed.emailCount} />
                                   </a>
                                 </>
                               )}
@@ -780,6 +788,10 @@ app.get("/", async (c) => {
                           <span title={descHover}>{descDisplay}</span>
                         </p>
                       )}
+                      <LastEmail
+                        at={feed.lastEmailAt}
+                        count={feed.emailCount}
+                      />
                     </div>
 
                     <div style="margin-bottom: var(--spacing-md);">
@@ -819,6 +831,7 @@ app.get("/", async (c) => {
                               tabindex={-1}
                             >
                               Emails
+                              <EmailCountBadge count={feed.emailCount} />
                             </span>
                           </>
                         ) : (
@@ -834,6 +847,7 @@ app.get("/", async (c) => {
                               class="button button-small"
                             >
                               Emails
+                              <EmailCountBadge count={feed.emailCount} />
                             </a>
                           </>
                         )}

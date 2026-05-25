@@ -1389,6 +1389,76 @@ describe("Admin Routes", () => {
       expect(body).toContain("pill-confirmation");
     });
 
+    it("dashboard shows email count badge and last-email line in both views", async () => {
+      const authCookie = await loginAndGetCookie();
+      const repo = FeedRepository.from(mockEnv as unknown as Env);
+
+      const feedId = FeedId.generate();
+      const mailboxId = MailboxId.unchecked("count.dash.07");
+      const feed = Feed.create(
+        feedId,
+        {
+          title: "Counted Feed",
+          language: "en",
+          allowedSenders: [],
+          blockedSenders: [],
+        },
+        { mailboxId },
+      );
+      await repo.save(feed);
+
+      for (let i = 0; i < 2; i++) {
+        const emailKey = repo.newEmailKey(feedId);
+        await repo.putEmail(emailKey, {
+          subject: `Email ${i}`,
+          from: "newsletter@example.com",
+          content: "<p>hi</p>",
+          receivedAt: Date.now(),
+          headers: {},
+        });
+        feed.ingest(
+          { key: emailKey, subject: `Email ${i}`, receivedAt: Date.now() },
+          { maxBytes: 1_000_000 },
+        );
+      }
+      await repo.saveMetadata(feed);
+
+      for (const view of ["table", "list"]) {
+        const res = await request(`/admin?view=${view}`, {
+          headers: { Cookie: authCookie },
+        });
+        expect(res.status).toBe(200);
+        const body = await res.text();
+        expect(body).toContain('class="button-count">2<');
+        expect(body).toContain("Last email");
+      }
+    });
+
+    it("dashboard shows 'No emails yet' for a feed with zero emails", async () => {
+      const authCookie = await loginAndGetCookie();
+      const repo = FeedRepository.from(mockEnv as unknown as Env);
+
+      const feedId = FeedId.generate();
+      const feed = Feed.create(
+        feedId,
+        {
+          title: "Empty Feed",
+          language: "en",
+          allowedSenders: [],
+          blockedSenders: [],
+        },
+        { mailboxId: MailboxId.unchecked("empty.dash.08") },
+      );
+      await repo.save(feed);
+
+      const res = await request("/admin?view=list", {
+        headers: { Cookie: authCookie },
+      });
+      const body = await res.text();
+      expect(body).toContain("No emails yet");
+      expect(body).toContain('class="button-count">0<');
+    });
+
     it("feed emails page shows confirmation-banner when pendingConfirmation is true", async () => {
       const authCookie = await loginAndGetCookie();
       const repo = FeedRepository.from(mockEnv as unknown as Env);

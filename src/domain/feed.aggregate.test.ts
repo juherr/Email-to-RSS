@@ -200,6 +200,34 @@ describe("Feed.removeEmails", () => {
   });
 });
 
+describe("Feed.emailCount / lastEmailAt", () => {
+  it("reports zero and undefined for an empty feed", () => {
+    const feed = Feed.reconstitute(FID, state(), { emails: [] });
+    expect(feed.emailCount).toBe(0);
+    expect(feed.lastEmailAt).toBeUndefined();
+  });
+
+  it("counts emails and reports the newest receivedAt (index head)", () => {
+    const feed = Feed.reconstitute(FID, state(), {
+      emails: [
+        entry({ key: "k2", receivedAt: 2000 }),
+        entry({ key: "k1", receivedAt: 1000 }),
+      ],
+    });
+    expect(feed.emailCount).toBe(2);
+    expect(feed.lastEmailAt).toBe(2000);
+  });
+
+  it("tracks the latest email after ingest", () => {
+    const feed = Feed.reconstitute(FID, state(), {
+      emails: [entry({ key: "old", receivedAt: 1000 })],
+    });
+    feed.ingest(entry({ key: "new", receivedAt: 5000 }), { maxBytes: 10_000 });
+    expect(feed.emailCount).toBe(2);
+    expect(feed.lastEmailAt).toBe(5000);
+  });
+});
+
 describe("Feed events", () => {
   it("records FeedCreated on create and drains it once", () => {
     const feed = Feed.create(FID, createInput(), { mailboxId: MBOX });
@@ -331,6 +359,27 @@ describe("FeedRepository.load / save round-trip", () => {
     expect(reloaded!.emails.map((e) => e.key)).toEqual([
       "feed:opaque-feed-id:1",
     ]);
+  });
+
+  it("projects email count and last-email timestamp into feeds:list", async () => {
+    const repo = new FeedRepository(mockEnv().EMAIL_STORAGE);
+    const created = Feed.create(FID, createInput({ title: "Proj" }), {
+      mailboxId: MBOX,
+    });
+    await repo.save(created);
+
+    let listed = await repo.listFeeds();
+    expect(listed[0].emailCount).toBe(0);
+    expect(listed[0].lastEmailAt).toBeUndefined();
+
+    created.ingest(entry({ key: "feed:opaque-feed-id:1", receivedAt: 4242 }), {
+      maxBytes: 1_000_000,
+    });
+    await repo.saveMetadata(created);
+
+    listed = await repo.listFeeds();
+    expect(listed[0].emailCount).toBe(1);
+    expect(listed[0].lastEmailAt).toBe(4242);
   });
 
   it("returns null when the feed has no config", async () => {

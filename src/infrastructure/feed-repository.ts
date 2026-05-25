@@ -87,14 +87,7 @@ export class FeedRepository {
     await Promise.all([
       this.putConfig(feed.id, toConfigDTO(feed.state())),
       this.putMetadata(feed.id, feed.toMetadataSnapshot()),
-      this.upsertListEntry(
-        toListItemDTO(
-          feed.id,
-          feed.state(),
-          feed.pendingConfirmation,
-          feed.hasNativeFeed(),
-        ),
-      ),
+      this.upsertListEntry(toListItemDTO(feed)),
       this.putInboundIndex(feed.mailboxId, feed.id),
     ]);
   }
@@ -108,14 +101,7 @@ export class FeedRepository {
   async saveMetadata(feed: Feed): Promise<void> {
     await Promise.all([
       this.putMetadata(feed.id, feed.toMetadataSnapshot()),
-      this.upsertListEntry(
-        toListItemDTO(
-          feed.id,
-          feed.state(),
-          feed.pendingConfirmation,
-          feed.hasNativeFeed(),
-        ),
-      ),
+      this.upsertListEntry(toListItemDTO(feed)),
     ]);
   }
 
@@ -127,14 +113,7 @@ export class FeedRepository {
   async saveConfig(feed: Feed): Promise<void> {
     await Promise.all([
       this.putConfig(feed.id, toConfigDTO(feed.state())),
-      this.upsertListEntry(
-        toListItemDTO(
-          feed.id,
-          feed.state(),
-          feed.pendingConfirmation,
-          feed.hasNativeFeed(),
-        ),
-      ),
+      this.upsertListEntry(toListItemDTO(feed)),
       this.putInboundIndex(feed.mailboxId, feed.id),
     ]);
   }

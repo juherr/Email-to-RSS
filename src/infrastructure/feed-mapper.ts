@@ -1,6 +1,6 @@
 import { FeedConfig, FeedListItem } from "../types";
 import { FeedState } from "../domain/feed-state";
-import { FeedId } from "../domain/value-objects/feed-id";
+import { Feed } from "../domain/feed.aggregate";
 
 /**
  * The translation seam between the Feed aggregate's domain state (camelCase) and
@@ -44,20 +44,23 @@ export function toConfigDTO(state: FeedState): FeedConfig {
   };
 }
 
-/** Domain state → the projection cached in the global `feeds:list` registry. */
-export function toListItemDTO(
-  id: FeedId,
-  state: FeedState,
-  pendingConfirmation = false,
-  hasNativeFeed = false,
-): FeedListItem {
+/**
+ * The Feed aggregate → the projection cached in the global `feeds:list` registry.
+ * Unlike the config DTO, the list item is a read-model view: it folds in the
+ * aggregate's metadata-derived signals (pending confirmation, native feed,
+ * email count/last-received) alongside the config fields, so it reads the whole
+ * aggregate through its intention-revealing accessors.
+ */
+export function toListItemDTO(feed: Feed): FeedListItem {
   return {
-    id: id.value,
-    title: state.title,
-    description: state.description,
-    mailbox_id: state.mailboxId,
-    expires_at: state.expiresAt,
-    pendingConfirmation,
-    hasNativeFeed,
+    id: feed.id.value,
+    title: feed.title,
+    description: feed.description,
+    mailbox_id: feed.mailboxId.value,
+    expires_at: feed.expiresAt,
+    pendingConfirmation: feed.pendingConfirmation,
+    hasNativeFeed: feed.hasNativeFeed(),
+    emailCount: feed.emailCount,
+    lastEmailAt: feed.lastEmailAt,
   };
 }
