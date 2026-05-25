@@ -95,4 +95,79 @@ describe("detectConfirmation", () => {
     });
     expect(result).toBeNull();
   });
+
+  // ── False-positive guards: ordinary newsletters must NOT be flagged ──────────
+  // A "manage subscription" footer link is only a weak signal (+1), so a stray
+  // body keyword (active/valid) cannot push it over the threshold.
+
+  it("does not flag a newsletter with a manage-subscription footer + 'active' in body", () => {
+    const result = detectConfirmation({
+      subject: "This week in tech",
+      text: "Thanks to our most active community members for the great discussion.",
+      links: [
+        { href: "https://news.example.com/article/42", text: "Read more" },
+        {
+          href: "https://news.example.com/account/subscription",
+          text: "Manage your subscription",
+        },
+      ],
+    });
+    expect(result).toBeNull();
+  });
+
+  it("does not flag a newsletter with a subscription-preferences link + 'valid' in body", () => {
+    const result = detectConfirmation({
+      subject: "Weekend deals are here",
+      text: "These offers are valid until Friday — don't miss out.",
+      links: [
+        {
+          href: "https://shop.example.com/subscription/preferences",
+          text: "Subscription preferences",
+        },
+      ],
+    });
+    expect(result).toBeNull();
+  });
+
+  it("does not flag a marketing 'Subscribe & save' CTA + 'activate' in body", () => {
+    const result = detectConfirmation({
+      subject: "Your weekly digest",
+      text: "Activate your free trial and start saving today.",
+      links: [
+        {
+          href: "https://shop.example.com/subscribe",
+          text: "Subscribe & save",
+        },
+      ],
+    });
+    expect(result).toBeNull();
+  });
+
+  // ── Recall: a genuine confirmation still passes via the weak signal ──────────
+  it("detects a genuine confirm-subscription email whose only link is a bare /subscribe", () => {
+    const result = detectConfirmation({
+      subject: "Please confirm your subscription",
+      text: "Tap the button to finish signing up.",
+      links: [
+        {
+          href: "https://news.example.com/subscribe/abc123",
+          text: "Subscribe",
+        },
+      ],
+    });
+    expect(result).not.toBeNull();
+    expect(result![0]).toBe("https://news.example.com/subscribe/abc123");
+  });
+
+  it("dedupes a confirmation link repeated in the body", () => {
+    const result = detectConfirmation({
+      subject: "Confirm your subscription",
+      text: "verify your address",
+      links: [
+        { href: "https://x.example/confirm?token=1", text: "Confirm" },
+        { href: "https://x.example/confirm?token=1", text: "Confirm here" },
+      ],
+    });
+    expect(result).toEqual(["https://x.example/confirm?token=1"]);
+  });
 });

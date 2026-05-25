@@ -29,8 +29,9 @@ const KEYWORDS = [
   "optin",
 ];
 
-// Link URL/anchor signals (normalized). A link matching any → candidate.
-const LINK_SIGNALS = [
+// Strong URL signals: an unambiguous confirm/verify/activate action or a token.
+// A link URL matching any scores +2.
+const STRONG_LINK_SIGNALS = [
   "confirm",
   "verif",
   "activ",
@@ -40,12 +41,16 @@ const LINK_SIGNALS = [
   "optin",
   "opt-in",
   "double-optin",
-  "subscription",
-  "subscribe",
   "token=",
   "confirm=",
   "activation",
 ];
+
+// Weak URL signals: ambiguous subscribe/subscription words that also appear in
+// ordinary "manage subscription" footers. Worth only +1 so they cannot, on their
+// own (with a stray body keyword), cross the threshold and cry wolf — but still
+// let a genuine "confirm your subscription" subject + a bare /subscribe link pass.
+const WEAK_LINK_SIGNALS = ["subscription", "subscribe"];
 
 // Negative patterns: a link matching any of these is NEVER a candidate, and these
 // tokens are stripped from text before keyword scanning (kills the unsubscribe
@@ -79,7 +84,8 @@ function linkScore(href: string, text: string): number {
   const t = normalize(text);
   if (matchesAny(h, NEGATIVE) || matchesAny(t, NEGATIVE)) return 0;
   let score = 0;
-  if (matchesAny(h, LINK_SIGNALS)) score += 2;
+  if (matchesAny(h, STRONG_LINK_SIGNALS)) score += 2;
+  else if (matchesAny(h, WEAK_LINK_SIGNALS)) score += 1;
   if (matchesAny(t, KEYWORDS)) score += 2;
   return score;
 }
@@ -110,5 +116,7 @@ export function detectConfirmation(
 
   if (subjectScore + bodyScore + bestLinkScore < THRESHOLD) return null;
 
-  return candidates.slice(0, 3).map((c) => c.href);
+  // Dedupe by href before capping, so a link repeated in the body never wastes
+  // one of the three surfaced slots.
+  return [...new Set(candidates.map((c) => c.href))].slice(0, 3);
 }
