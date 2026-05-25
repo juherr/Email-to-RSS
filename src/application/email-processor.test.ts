@@ -825,6 +825,60 @@ describe("processEmail — feed icon", () => {
   });
 });
 
+describe("processEmail — confirmation detection", () => {
+  let env: ReturnType<typeof createMockEnv>;
+
+  beforeEach(async () => {
+    env = createMockEnv();
+    await env.EMAIL_STORAGE.put(
+      `feed:${VALID_FEED_ID}:config`,
+      JSON.stringify({}),
+    );
+    await seedInboundIndex(env, VALID_FEED_ID);
+  });
+
+  it("marks a confirmation email and raises pendingConfirmation", async () => {
+    const result = await processEmail(
+      makeInput({
+        subject: "Please confirm your subscription",
+        content:
+          '<p>Click <a href="https://example.com/confirm?token=abc">Confirm</a></p>',
+      }),
+      env as any,
+    );
+
+    expect(result.ok).toBe(true);
+
+    const metadata = await env.EMAIL_STORAGE.get(
+      `feed:${VALID_FEED_ID}:metadata`,
+      "json",
+    );
+    expect(metadata.pendingConfirmation).toBe(true);
+    expect(metadata.emails[0].confirmation?.links[0]).toBe(
+      "https://example.com/confirm?token=abc",
+    );
+  });
+
+  it("does not mark a regular newsletter as a confirmation", async () => {
+    const result = await processEmail(
+      makeInput({
+        subject: "Weekly Newsletter",
+        content: "<p>Here is your weekly digest of news.</p>",
+      }),
+      env as any,
+    );
+
+    expect(result.ok).toBe(true);
+
+    const metadata = await env.EMAIL_STORAGE.get(
+      `feed:${VALID_FEED_ID}:metadata`,
+      "json",
+    );
+    expect(metadata.pendingConfirmation).toBeFalsy();
+    expect(metadata.emails[0].confirmation).toBeUndefined();
+  });
+});
+
 describe("processEmail — unsubscribe capture", () => {
   let env: ReturnType<typeof createMockEnv>;
 

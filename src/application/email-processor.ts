@@ -5,7 +5,12 @@ import { dispatchFeedEvents } from "../application/feed-events";
 import { extractEmailDomain } from "../infrastructure/favicon-fetcher";
 import { parseOneClickUnsubscribe } from "../infrastructure/unsubscribe";
 import { getAttachmentBucket } from "../infrastructure/attachments";
-import { extractInlineCids } from "../infrastructure/html-processor";
+import {
+  extractInlineCids,
+  extractLinks,
+  htmlToText,
+} from "../infrastructure/html-processor";
+import { detectConfirmation } from "../domain/confirmation";
 import { attachmentIdsForCleanup } from "./feed-cleanup";
 import { FeedRepository } from "../infrastructure/feed-repository";
 import { BackgroundScheduler } from "../infrastructure/worker";
@@ -182,6 +187,12 @@ async function storeEmail(
     return false; // signal: skipped (not stored)
   }
 
+  const confirmation = detectConfirmation({
+    subject: input.subject,
+    text: htmlToText(input.content),
+    links: extractLinks(input.content),
+  });
+
   const attachmentBucket = getAttachmentBucket(env);
   const inlineCids = extractInlineCids(input.content);
   const storedAttachments: AttachmentData[] =
@@ -218,6 +229,7 @@ async function storeEmail(
     ...(inlineIds.length > 0 ? { inlineAttachmentIds: inlineIds } : {}),
     ...(messageId ? { messageId } : {}),
     dedupHash,
+    ...(confirmation ? { confirmation: { links: confirmation.links } } : {}),
   };
 
   // Track the latest sender's domain (feed icon) and capture the RFC 8058
