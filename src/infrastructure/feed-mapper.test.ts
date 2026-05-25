@@ -43,6 +43,7 @@ describe("feed-mapper", () => {
       description: "desc",
       mailbox_id: "a.b.42",
       expires_at: 3000,
+      pendingConfirmation: false,
     });
   });
 });

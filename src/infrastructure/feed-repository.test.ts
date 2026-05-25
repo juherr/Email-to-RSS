@@ -214,3 +214,68 @@ describe("FeedRepository feed list", () => {
     );
   });
 });
+
+describe("FeedRepository pendingConfirmation projection", () => {
+  function makeFeed(): Feed {
+    return Feed.create(
+      FeedId.generate(),
+      {
+        title: "T",
+        description: "",
+        language: "en",
+        allowedSenders: [],
+        blockedSenders: [],
+      },
+      { mailboxId: MailboxId.unchecked("alpha.beta.11") },
+    );
+  }
+
+  it("saveMetadata projects pendingConfirmation into feeds:list", async () => {
+    const repo = new FeedRepository(mockEnv().EMAIL_STORAGE);
+    const feed = makeFeed();
+    await repo.save(feed);
+
+    feed.ingest(
+      {
+        key: "k1",
+        subject: "s",
+        receivedAt: Date.now(),
+        size: 10,
+        confirmation: { links: ["https://x/confirm"] },
+      },
+      { maxBytes: 1_000_000 },
+    );
+    await repo.saveMetadata(feed);
+
+    const list = await repo.listFeeds();
+    const entry = list.find((f) => f.id === feed.id.value);
+    expect(entry?.pendingConfirmation).toBe(true);
+  });
+
+  it("saveMetadata clears the projected flag after dismiss", async () => {
+    const repo = new FeedRepository(mockEnv().EMAIL_STORAGE);
+    const feed = makeFeed();
+    feed.ingest(
+      {
+        key: "k1",
+        subject: "s",
+        receivedAt: Date.now(),
+        size: 10,
+        confirmation: { links: ["https://x/confirm"] },
+      },
+      { maxBytes: 1_000_000 },
+    );
+    await repo.save(feed);
+    expect(
+      (await repo.listFeeds()).find((f) => f.id === feed.id.value)
+        ?.pendingConfirmation,
+    ).toBe(true);
+
+    feed.dismissConfirmation();
+    await repo.saveMetadata(feed);
+    expect(
+      (await repo.listFeeds()).find((f) => f.id === feed.id.value)
+        ?.pendingConfirmation,
+    ).toBe(false);
+  });
+});

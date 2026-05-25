@@ -87,18 +87,26 @@ export class FeedRepository {
     await Promise.all([
       this.putConfig(feed.id, toConfigDTO(feed.state())),
       this.putMetadata(feed.id, feed.toMetadataSnapshot()),
-      this.upsertListEntry(toListItemDTO(feed.id, feed.state())),
+      this.upsertListEntry(
+        toListItemDTO(feed.id, feed.state(), feed.pendingConfirmation),
+      ),
       this.putInboundIndex(feed.mailboxId, feed.id),
     ]);
   }
 
   /**
    * Persist only the email index. Used by the ingest/delete paths where config
-   * is unchanged — avoids a redundant config write on the hot path. The list
-   * projection (title/description/expiry) is untouched, so it is not rewritten.
+   * is unchanged — avoids a redundant config write on the hot path. Also
+   * refreshes the `feeds:list` entry's `pendingConfirmation` projection so the
+   * dashboard reflects the latest flag state with a single subsequent KV read.
    */
   async saveMetadata(feed: Feed): Promise<void> {
-    await this.putMetadata(feed.id, feed.toMetadataSnapshot());
+    await Promise.all([
+      this.putMetadata(feed.id, feed.toMetadataSnapshot()),
+      this.upsertListEntry(
+        toListItemDTO(feed.id, feed.state(), feed.pendingConfirmation),
+      ),
+    ]);
   }
 
   /**
@@ -109,7 +117,9 @@ export class FeedRepository {
   async saveConfig(feed: Feed): Promise<void> {
     await Promise.all([
       this.putConfig(feed.id, toConfigDTO(feed.state())),
-      this.upsertListEntry(toListItemDTO(feed.id, feed.state())),
+      this.upsertListEntry(
+        toListItemDTO(feed.id, feed.state(), feed.pendingConfirmation),
+      ),
       this.putInboundIndex(feed.mailboxId, feed.id),
     ]);
   }

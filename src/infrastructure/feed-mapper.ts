@@ -43,12 +43,17 @@ export function toConfigDTO(state: FeedState): FeedConfig {
 }
 
 /** Domain state → the projection cached in the global `feeds:list` registry. */
-export function toListItemDTO(id: FeedId, state: FeedState): FeedListItem {
+export function toListItemDTO(
+  id: FeedId,
+  state: FeedState,
+  pendingConfirmation = false,
+): FeedListItem {
   return {
     id: id.value,
     title: state.title,
     description: state.description,
     mailbox_id: state.mailboxId,
     expires_at: state.expiresAt,
+    ...(pendingConfirmation !== undefined ? { pendingConfirmation } : {}),
   };
 }
