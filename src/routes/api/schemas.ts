@@ -99,6 +99,12 @@ export const FeedSchema = z
     emailAddress: z.string(),
     rssUrl: z.string(),
     atomUrl: z.string(),
+    nativeFeeds: z.array(
+      z.object({
+        url: z.string(),
+        type: z.enum(["rss", "atom", "json"]),
+      }),
+    ),
   })
   .openapi("Feed");
 

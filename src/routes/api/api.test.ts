@@ -3,6 +3,8 @@ import { Hono } from "hono";
 import { apiApp } from "./index";
 import { createMockEnv } from "../../test/setup";
 import { Env } from "../../types";
+import { FeedRepository } from "../../infrastructure/feed-repository";
+import { FeedId } from "../../domain/value-objects/feed-id";
 
 const PASSWORD = "test-password";
 const authHeaders = { Authorization: `Bearer ${PASSWORD}` };
@@ -209,6 +211,65 @@ describe("REST API (/api/v1)", () => {
         body: JSON.stringify({ title: "x" }),
       });
       expect(res.status).toBe(404);
+    });
+  });
+
+  describe("nativeFeeds field", () => {
+    it("returns nativeFeeds as empty array for a brand-new feed", async () => {
+      const feedId = await createFeed("Native Feed Test");
+      const res = await request(`/api/v1/feeds/${feedId}`, {
+        headers: authHeaders,
+      });
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as { nativeFeeds: unknown };
+      expect(body.nativeFeeds).toEqual([]);
+    });
+
+    it("returns nativeFeeds populated when the feed metadata has native feeds", async () => {
+      const feedId = await createFeed("Native Feed With Data");
+      const id = FeedId.unchecked(feedId);
+      const repo = FeedRepository.from(mockEnv);
+      const feed = await repo.load(id);
+      expect(feed).not.toBeNull();
+      const receivedAt = Date.now();
+      feed!.ingest(
+        {
+          key: `feed:${feedId}:email:${receivedAt}`,
+          subject: "Newsletter",
+          receivedAt,
+        },
+        {
+          maxBytes: 1e9,
+          nativeFeeds: {
+            senderKey: "author@blog.example.com",
+            feeds: [{ url: "https://blog.example.com/feed.xml", type: "rss" }],
+          },
+        },
+      );
+      await repo.save(feed!);
+
+      const res = await request(`/api/v1/feeds/${feedId}`, {
+        headers: authHeaders,
+      });
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as {
+        nativeFeeds: { url: string; type: string }[];
+      };
+      expect(body.nativeFeeds).toEqual([
+        { url: "https://blog.example.com/feed.xml", type: "rss" },
+      ]);
+    });
+
+    it("PATCH response also includes nativeFeeds", async () => {
+      const feedId = await createFeed("Patch Native Feed Test");
+      const res = await request(`/api/v1/feeds/${feedId}`, {
+        method: "PATCH",
+        headers: { ...authHeaders, "Content-Type": "application/json" },
+        body: JSON.stringify({ title: "Updated Title" }),
+      });
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as { nativeFeeds: unknown };
+      expect(body.nativeFeeds).toEqual([]);
     });
   });
 

@@ -1,7 +1,8 @@
 import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
 import { cors } from "hono/cors";
 import { Scalar } from "@scalar/hono-api-reference";
-import { Env, FeedConfig } from "../../types";
+import { Env, FeedConfig, NativeFeed } from "../../types";
+import { unionNativeFeeds } from "../../domain/native-feed";
 import { apiAuthMiddleware } from "../../infrastructure/auth";
 import {
   createFeedRecord,
@@ -51,6 +52,7 @@ function toFeed(
   config: FeedConfig,
   emailCount: number,
   env: Env,
+  nativeFeeds: NativeFeed[],
 ): z.infer<typeof FeedSchema> {
   return {
     id,
@@ -67,6 +69,7 @@ function toFeed(
     emailAddress: feedEmailAddress(config.mailbox_id, env),
     rssUrl: feedRssUrl(id, env),
     atomUrl: feedAtomUrl(id, env),
+    nativeFeeds,
   };
 }
 
@@ -156,7 +159,7 @@ apiApp.openapi(
       senderInTitle: body.senderInTitle,
       lifetimeHours: body.lifetimeHours,
     });
-    return c.json(toFeed(feedId, config, 0, env), 201);
+    return c.json(toFeed(feedId, config, 0, env, []), 201);
   },
 );
 
@@ -183,7 +186,13 @@ apiApp.openapi(
     if (!config) return c.json({ error: "Feed not found" }, 404);
     const metadata = await repo.getMetadata(id);
     return c.json(
-      toFeed(feedId, config, metadata?.emails.length ?? 0, env),
+      toFeed(
+        feedId,
+        config,
+        metadata?.emails.length ?? 0,
+        env,
+        unionNativeFeeds(metadata?.nativeFeeds),
+      ),
       200,
     );
   },
@@ -228,7 +237,13 @@ apiApp.openapi(
       return c.json({ error: "Feed has expired and cannot be modified" }, 409);
     const metadata = await FeedRepository.from(env).getMetadata(id);
     return c.json(
-      toFeed(feedId, result.config, metadata?.emails.length ?? 0, env),
+      toFeed(
+        feedId,
+        result.config,
+        metadata?.emails.length ?? 0,
+        env,
+        unionNativeFeeds(metadata?.nativeFeeds),
+      ),
       200,
     );
   },
