@@ -79,8 +79,8 @@ function matchesAny(haystack: string, needles: string[]): boolean {
   return needles.some((n) => haystack.includes(n));
 }
 
-function keywordHits(haystack: string): number {
-  return KEYWORDS.reduce((n, kw) => (haystack.includes(kw) ? n + 1 : n), 0);
+function hasKeyword(haystack: string): boolean {
+  return KEYWORDS.some((kw) => haystack.includes(kw));
 }
 
 function linkScore(href: string, text: string): number {
@@ -113,8 +113,8 @@ export function detectConfirmation(
   const subject = stripNegatives(normalize(input.subject));
   const text = stripNegatives(normalize(input.text));
 
-  const subjectScore = keywordHits(subject) > 0 ? 2 : 0;
-  const bodyScore = keywordHits(text) > 0 ? 1 : 0;
+  const subjectScore = hasKeyword(subject) ? 2 : 0;
+  const bodyScore = hasKeyword(text) ? 1 : 0;
   const bestLinkScore = candidates[0].score;
 
   const score = subjectScore + bodyScore + bestLinkScore;
