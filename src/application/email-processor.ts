@@ -3,7 +3,6 @@ import { EmailAddress } from "../domain/value-objects/email-address";
 import { AttachmentData, EmailMetadata, Env } from "../types";
 import { bumpCounters } from "../application/stats";
 import { dispatchFeedEvents } from "../application/feed-events";
-import { extractEmailDomain } from "../infrastructure/favicon-fetcher";
 import { parseOneClickUnsubscribe } from "../infrastructure/unsubscribe";
 import { getAttachmentBucket } from "../infrastructure/attachments";
 import {
@@ -196,11 +195,9 @@ async function storeEmail(
     links: extractLinks(input.content),
   });
 
+  const sender = EmailAddress.parse(input.from);
   const nativeFeedList = detectNativeFeeds(
-    extractFeedLinks(
-      input.content,
-      EmailAddress.parse(input.from)?.siteBaseUrl() ?? "",
-    ),
+    extractFeedLinks(input.content, sender?.siteBaseUrl() ?? ""),
   );
 
   const attachmentBucket = getAttachmentBucket(env);
@@ -247,7 +244,7 @@ async function storeEmail(
   // Track the latest sender's domain (feed icon) and capture the RFC 8058
   // one-click unsubscribe link, keyed by sender so each newsletter keeps its
   // own latest URL (fired when the feed is deleted).
-  const iconDomain = extractEmailDomain(input.from);
+  const iconDomain = sender?.domain.value;
   const senderKey = input.senders[0] || iconDomain || input.from;
   const unsubUrl = parseOneClickUnsubscribe(input.headers ?? {});
   const unsub = unsubUrl ? { senderKey, url: unsubUrl } : undefined;
