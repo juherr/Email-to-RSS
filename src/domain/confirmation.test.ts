@@ -178,6 +178,27 @@ describe("detectConfirmation", () => {
     expect(result![0]).toContain("click.example.com");
   });
 
+  it("detects a French confirm email whose CTA text is a localized 'subscribe' over an opaque tracking href", () => {
+    // Real-world double opt-in: subject/body clearly confirm, but the
+    // button's href is an opaque provider redirect (proc.php?…&act=csub — no
+    // signal) and its visible text "Je m'inscris…" is the French equivalent of
+    // "subscribe" (a weak signal). The weak vocab must be multilingual like the
+    // confirmation keywords, otherwise the link scores 0 and the email is missed.
+    const result = detectConfirmation({
+      subject: "[Action requise] Confirme ton inscription",
+      text: "Avant de confirmer ton inscription, clique ici.",
+      links: [
+        {
+          href: "https://email.example.com/proc.php?nl=1&f=36&s=abc&act=csub",
+          text: "Je m'inscris sur la liste d'attente",
+        },
+        { href: "https://www.example.com/", text: "Notre site" },
+      ],
+    });
+    expect(result).not.toBeNull();
+    expect(result![0]).toContain("proc.php");
+  });
+
   it("dedupes a confirmation link repeated in the body", () => {
     const result = detectConfirmation({
       subject: "Confirm your subscription",

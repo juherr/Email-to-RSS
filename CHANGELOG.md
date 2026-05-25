@@ -21,6 +21,11 @@ verbatim as the GitHub Release notes — so what you write here is what ships.
 
 ### Fixed
 
+- Subscription-confirmation detection now recognizes localized "subscribe" CTAs.
+  The weak link-signal vocabulary was English-only (`subscrib`),
+  so a genuine double opt-in whose confirm button reads "Je m'inscris…" over an
+  opaque tracking redirect scored 0 on every link and was missed. The weak vocab
+  is now multilingual (FR/DE/ES) to match the confirmation keywords.
 - Per-feed favicons no longer fail for senders whose DuckDuckGo icon is a
   hi-res PNG: the maximum accepted favicon size is raised from 100 KB to 256 KB,
   so legitimate large icons (~107 KB and up) are cached instead of rejected.

@@ -48,11 +48,18 @@ const STRONG_LINK_SIGNALS = [
 
 // Weak signals: ambiguous subscribe/subscription words that also appear in
 // ordinary "manage subscription" footers. Matched on the link href OR its visible
-// text (a CTA button often reads "Yes, subscribe me…" over an opaque tracking
-// redirect). Worth only +1 — and only once, never href+text additively — so they
-// cannot, on their own (with a stray body keyword), cross the threshold and cry
-// wolf, yet still let a genuine "confirm your subscription" email pass.
-const WEAK_LINK_SIGNALS = ["subscription", "subscribe"];
+// text (a CTA button often reads "Yes, subscribe me…" / "Je m'inscris…" over an
+// opaque tracking redirect). Worth only +1 — and only once, never href+text
+// additively — so they cannot, on their own (with a stray body keyword), cross
+// the threshold and cry wolf, yet still let a genuine "confirm your subscription"
+// email pass. Multilingual like KEYWORDS (EN / FR / DE / ES) — extend per language.
+const WEAK_LINK_SIGNALS = [
+  "subscrib", // EN: subscribe / subscription (unsubscribe is caught by NEGATIVE first)
+  "inscri", // FR: s'inscrire / inscription / je m'inscris
+  "anmeld", // DE: anmelden / anmeldung
+  "suscrib", // ES: suscribir / suscripción
+  "inscrib", // ES: inscribirse / inscripción
+];
 
 // Negative patterns: a link matching any of these is NEVER a candidate, and these
 // tokens are stripped from text before keyword scanning (kills the unsubscribe
