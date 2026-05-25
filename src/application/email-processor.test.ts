@@ -859,6 +859,28 @@ describe("processEmail — confirmation detection", () => {
     );
   });
 
+  it("marks a plain-text confirmation email and raises pendingConfirmation", async () => {
+    const result = await processEmail(
+      makeInput({
+        subject: "Confirm your subscription",
+        content:
+          "Please confirm your subscription. Click here: https://example.com/confirm?token=xyz to verify your email.",
+      }),
+      env as any,
+    );
+
+    expect(result.ok).toBe(true);
+
+    const metadata = await env.EMAIL_STORAGE.get(
+      `feed:${VALID_FEED_ID}:metadata`,
+      "json",
+    );
+    expect(metadata.pendingConfirmation).toBe(true);
+    expect(metadata.emails[0].confirmation?.links[0]).toBe(
+      "https://example.com/confirm?token=xyz",
+    );
+  });
+
   it("does not mark a regular newsletter as a confirmation", async () => {
     const result = await processEmail(
       makeInput({

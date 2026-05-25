@@ -1341,5 +1341,100 @@ describe("Admin Routes", () => {
       const body = await res.text();
       expect(body).toContain("pill-confirmation");
     });
+
+    it("dashboard table view shows pill-confirmation for feeds with pendingConfirmation", async () => {
+      const authCookie = await loginAndGetCookie();
+      const repo = FeedRepository.from(mockEnv as unknown as Env);
+
+      // Create feed aggregate with a confirmation email — same seeding as list view test
+      const feedId = FeedId.generate();
+      const mailboxId = MailboxId.unchecked("confirm.table.05");
+      const feed = Feed.create(
+        feedId,
+        {
+          title: "Dashboard Confirm Feed Table",
+          language: "en",
+          allowedSenders: [],
+          blockedSenders: [],
+        },
+        { mailboxId },
+      );
+      await repo.save(feed);
+
+      const emailKey = repo.newEmailKey(feedId);
+      await repo.putEmail(emailKey, {
+        subject: "Confirm your subscription",
+        from: "newsletter@example.com",
+        content: "<p>Click to confirm</p>",
+        receivedAt: Date.now(),
+        headers: {},
+      });
+
+      feed.ingest(
+        {
+          key: emailKey,
+          subject: "Confirm your subscription",
+          receivedAt: Date.now(),
+          confirmation: { links: ["https://x/confirm"] },
+        },
+        { maxBytes: 1_000_000 },
+      );
+      await repo.saveMetadata(feed);
+
+      const res = await request("/admin?view=table", {
+        headers: { Cookie: authCookie },
+      });
+      expect(res.status).toBe(200);
+      const body = await res.text();
+      expect(body).toContain("pill-confirmation");
+    });
+
+    it("feed emails page shows confirmation-banner when pendingConfirmation is true", async () => {
+      const authCookie = await loginAndGetCookie();
+      const repo = FeedRepository.from(mockEnv as unknown as Env);
+
+      // Seed a feed with a confirmation email so pendingConfirmation is raised
+      const feedId = FeedId.generate();
+      const mailboxId = MailboxId.unchecked("confirm.emails.06");
+      const feed = Feed.create(
+        feedId,
+        {
+          title: "Emails Page Confirm Feed",
+          language: "en",
+          allowedSenders: [],
+          blockedSenders: [],
+        },
+        { mailboxId },
+      );
+      await repo.save(feed);
+
+      const emailKey = repo.newEmailKey(feedId);
+      await repo.putEmail(emailKey, {
+        subject: "Confirm subscription",
+        from: "newsletter@example.com",
+        content: "<p>Click to confirm</p>",
+        receivedAt: Date.now(),
+        headers: {},
+      });
+
+      feed.ingest(
+        {
+          key: emailKey,
+          subject: "Confirm subscription",
+          receivedAt: Date.now(),
+          confirmation: { links: ["https://example.com/confirm?t=6"] },
+        },
+        { maxBytes: 10_000_000 },
+      );
+      await repo.saveMetadata(feed);
+
+      const res = await request(`/admin/feeds/${feedId.value}/emails`, {
+        headers: { Cookie: authCookie },
+      });
+      expect(res.status).toBe(200);
+      const body = await res.text();
+      expect(body).toContain("confirmation-banner");
+      expect(body).toContain("confirmation-dismiss");
+    });
   });
 });
