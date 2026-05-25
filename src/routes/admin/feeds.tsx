@@ -70,7 +70,6 @@ feedsRouter.post("/create", async (c) => {
     let title: string;
     let description: string | undefined;
     let language: string;
-    let view: string;
     let allowedSenders: string[];
     let blockedSenders: string[];
     let lifetimeHoursRaw: string | undefined;
@@ -81,7 +80,6 @@ feedsRouter.post("/create", async (c) => {
       description =
         body.description != null ? String(body.description) : undefined;
       language = String(body.language ?? "en");
-      view = "list";
       allowedSenders = Array.isArray(body.allowedSenders)
         ? normalizeAllowedSenders(
             (body.allowedSenders as unknown[]).map(String),
@@ -99,7 +97,6 @@ feedsRouter.post("/create", async (c) => {
       title = formData.get("title")?.toString() || "";
       description = formData.get("description")?.toString();
       language = formData.get("language")?.toString() || "en";
-      view = formData.get("view")?.toString() === "table" ? "table" : "list";
       allowedSenders = parseAllowedSenders(
         formData.get("allowed_senders")?.toString() || "",
       );
@@ -138,7 +135,7 @@ feedsRouter.post("/create", async (c) => {
       });
     }
 
-    return c.redirect(`/admin?view=${view}#your-feeds`);
+    return c.redirect(`/admin/feeds/${feedId}/emails`);
   } catch (error) {
     logger.error("Error creating feed", { error: String(error) });
     if (c.req.header("Content-Type")?.includes("application/json")) {

@@ -151,8 +151,10 @@ describe("Admin Routes", () => {
           body: formData,
         });
 
-        expect(res.status).toBe(302); // Redirects back to dashboard
-        expect(res.headers.get("Location")).toBe("/admin?view=list#your-feeds");
+        expect(res.status).toBe(302); // Redirects to new feed's emails page
+        expect(res.headers.get("Location")).toMatch(
+          /^\/admin\/feeds\/.+\/emails$/,
+        );
 
         // Verify feed was created in KV
         const feedList = (await mockEnv.EMAIL_STORAGE.get(
