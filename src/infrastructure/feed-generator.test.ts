@@ -130,6 +130,17 @@ describe("generateRssFeed", () => {
     expect(result).toContain(`${BASE_URL}/rss/${FEED_ID}`);
   });
 
+  it("advertises the WebSub hub in the RSS body", () => {
+    const result = generateRssFeed(
+      mockFeedConfig,
+      mockEmails,
+      BASE_URL,
+      FEED_ID,
+    );
+    expect(result).toContain('rel="hub"');
+    expect(result).toContain(`${BASE_URL}/hub`);
+  });
+
   it("includes email entries as <item> elements", () => {
     const result = generateRssFeed(
       mockFeedConfig,
@@ -278,6 +289,17 @@ describe("generateAtomFeed", () => {
       FEED_ID,
     );
     expect(result).toContain(`${BASE_URL}/atom/${FEED_ID}`);
+  });
+
+  it("advertises the WebSub hub in the Atom body", () => {
+    const result = generateAtomFeed(
+      mockFeedConfig,
+      mockEmails,
+      BASE_URL,
+      FEED_ID,
+    );
+    expect(result).toContain('rel="hub"');
+    expect(result).toContain(`${BASE_URL}/hub`);
   });
 
   it("includes rss alternate link", () => {

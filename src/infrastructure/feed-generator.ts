@@ -35,6 +35,10 @@ function buildFeed(
     // Public "website" for this feed: its own read URL (never the inbound address
     // or an auth-gated admin path, so the feed output leaks neither).
     link: `${baseUrl}/rss/${feedId}`,
+    // WebSub hub advertised in the feed body (<atom:link rel="hub">). Readers like
+    // FreshRSS discover the hub here, not from the HTTP Link header, so without it
+    // they never subscribe and only refresh on cache expiry.
+    hub: `${baseUrl}/hub`,
     language: feedConfig.language,
     updated: new Date(),
     generator: "kill-the-news",

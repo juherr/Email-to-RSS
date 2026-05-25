@@ -14,6 +14,11 @@ verbatim as the GitHub Release notes — so what you write here is what ships.
 
 ### Fixed
 
+- RSS and Atom feeds now advertise the WebSub hub inside the feed body
+  (`<atom:link rel="hub">`), not just in the HTTP `Link` header. Readers like
+  FreshRSS discover the hub from the XML, so they can now subscribe and receive
+  an instant push when a new email arrives instead of waiting up to the cache
+  `max-age` (30 min) to refresh.
 - Subscription-confirmation detection now recognises a confirm email whose CTA
   button carries the subscribe/subscription hint only in its visible text (e.g.
   "Yes, subscribe me to this mailing list.") over an opaque tracking-redirect
