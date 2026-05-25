@@ -4,6 +4,7 @@ import {
   extractInlineCids,
   htmlToText,
   extractLinks,
+  extractFeedLinks,
 } from "./html-processor";
 import type { AttachmentData } from "../types";
 
@@ -346,5 +347,51 @@ describe("extractLinks", () => {
 
   it("returns an empty array for empty content", () => {
     expect(extractLinks("")).toEqual([]);
+  });
+});
+
+describe("extractFeedLinks", () => {
+  it("extracts rel=alternate links that carry a type", () => {
+    const html = `<html><head>
+      <link rel="alternate" type="application/rss+xml" href="https://blog.example.com/feed.xml">
+      <link rel="alternate" type="application/atom+xml" href="https://blog.example.com/atom.xml">
+    </head><body>hi</body></html>`;
+    expect(extractFeedLinks(html)).toEqual([
+      {
+        href: "https://blog.example.com/feed.xml",
+        type: "application/rss+xml",
+      },
+      {
+        href: "https://blog.example.com/atom.xml",
+        type: "application/atom+xml",
+      },
+    ]);
+  });
+
+  it("ignores non-alternate rels and links without a type", () => {
+    const html = `<head>
+      <link rel="stylesheet" type="text/css" href="https://x.com/a.css">
+      <link rel="alternate" href="https://x.com/notype">
+    </head>`;
+    expect(extractFeedLinks(html)).toEqual([]);
+  });
+
+  it("absolutizes a relative href against the base", () => {
+    const html = `<head><link rel="alternate" type="application/rss+xml" href="/feed.xml"></head>`;
+    expect(extractFeedLinks(html, "https://blog.example.com")).toEqual([
+      {
+        href: "https://blog.example.com/feed.xml",
+        type: "application/rss+xml",
+      },
+    ]);
+  });
+
+  it("drops a relative href when no base is given", () => {
+    const html = `<head><link rel="alternate" type="application/rss+xml" href="/feed.xml"></head>`;
+    expect(extractFeedLinks(html)).toEqual([]);
+  });
+
+  it("returns [] for plain-text bodies", () => {
+    expect(extractFeedLinks("just text https://x.com/feed")).toEqual([]);
   });
 });

@@ -69,6 +69,34 @@ export function extractLinks(
   return links;
 }
 
+// Collect a newsletter's self-advertised feed declarations:
+// <link rel="alternate" type="application/(atom|rss)+xml|feed+json" href="…">.
+// Returns raw href+type tuples; the domain decides which MIME types are feeds.
+// Relative hrefs are absolutized against the sender base (best-effort); only
+// http(s) URLs survive. Plain-text bodies have no <link> → [].
+export function extractFeedLinks(
+  content: string,
+  base = "",
+): { href: string; type: string }[] {
+  if (!content || isPlainText(content)) return [];
+
+  const { document } = parseHTML(content);
+  const links: { href: string; type: string }[] = [];
+  document
+    .querySelectorAll('link[rel~="alternate"][type]')
+    .forEach((el: Element) => {
+      const type = (el.getAttribute("type") ?? "").trim();
+      const rawHref = (el.getAttribute("href") ?? "").trim();
+      if (!type || !rawHref) return;
+      const href = /^https?:\/\//i.test(rawHref)
+        ? rawHref
+        : (toAbsolute(rawHref, base) ?? "");
+      if (!/^https?:\/\//i.test(href)) return;
+      links.push({ href, type });
+    });
+  return links;
+}
+
 // Newsletters frequently defer images via data-src/loading="lazy"; readers don't
 // run the lazy-loader, so the image renders blank. Promote the real source.
 function promoteLazyImages(document: ParsedDocument): void {
