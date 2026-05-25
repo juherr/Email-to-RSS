@@ -75,21 +75,30 @@ Common types: `feat`, `fix`, `refactor`, `docs`, `test`, `chore`.
 ## Releasing
 
 The running version is read from `package.json` `version` and inlined at build
-time (footer, `/health`, `/api/v1/stats`). Between releases the working tree
-carries a `-develop` pre-release suffix so a dev build is never mistaken for a
-shipped one — `0.3.0-develop` sorts _below_ `0.3.0` per SemVer, meaning "heading
-toward 0.3.0, not yet released".
+time (footer, `/health`, `/api/v1/stats`). `main` **always** carries a
+`-develop` pre-release suffix (e.g. `0.3.0-develop`) so a dev build is never
+mistaken for a shipped one — `0.3.0-develop` sorts _below_ `0.3.0` per SemVer,
+meaning "heading toward 0.3.0, not yet released".
 
-To cut a release `X.Y.Z`:
+**The git tag is the source of truth for a release version**, not a commit on
+`main`. The Release workflow (`.github/workflows/release.yml`) triggers on a
+`v*` tag, strips the `-develop` suffix in its ephemeral checkout so the published
+bundle reports the bare `X.Y.Z`, then builds and creates the GitHub Release. It
+fails fast if the tag's base doesn't match `package.json`'s base version, which
+catches tagging the wrong commit. You never commit a bare `X.Y.Z` to `main`.
+
+To cut release `X.Y.Z` (its base must equal `main`'s current `X.Y.Z-develop`):
 
 ```bash
-npm version X.Y.Z --no-git-tag-version   # drop the -develop suffix
-# commit, tag vX.Y.Z, push, deploy (npm run deploy)
-npm version X.Y+1.0-develop --no-git-tag-version   # reopen the next cycle
+git tag vX.Y.Z && git push origin vX.Y.Z   # the workflow aligns + builds + publishes
 ```
 
-So `main` should always read `*-develop`; only a tagged release commit carries a
-bare `X.Y.Z`.
+Then reopen the next cycle on `main`:
+
+```bash
+npm version <next>-develop --no-git-tag-version   # e.g. 0.4.0-develop (or 0.3.1-develop for a patch line)
+# commit + push
+```
 
 ## Reporting bugs and requesting features
 
