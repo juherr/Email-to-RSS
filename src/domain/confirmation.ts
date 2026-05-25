@@ -46,10 +46,12 @@ const STRONG_LINK_SIGNALS = [
   "activation",
 ];
 
-// Weak URL signals: ambiguous subscribe/subscription words that also appear in
-// ordinary "manage subscription" footers. Worth only +1 so they cannot, on their
-// own (with a stray body keyword), cross the threshold and cry wolf — but still
-// let a genuine "confirm your subscription" subject + a bare /subscribe link pass.
+// Weak signals: ambiguous subscribe/subscription words that also appear in
+// ordinary "manage subscription" footers. Matched on the link href OR its visible
+// text (a CTA button often reads "Yes, subscribe me…" over an opaque tracking
+// redirect). Worth only +1 — and only once, never href+text additively — so they
+// cannot, on their own (with a stray body keyword), cross the threshold and cry
+// wolf, yet still let a genuine "confirm your subscription" email pass.
 const WEAK_LINK_SIGNALS = ["subscription", "subscribe"];
 
 // Negative patterns: a link matching any of these is NEVER a candidate, and these
@@ -85,7 +87,8 @@ function linkScore(href: string, text: string): number {
   if (matchesAny(h, NEGATIVE) || matchesAny(t, NEGATIVE)) return 0;
   let score = 0;
   if (matchesAny(h, STRONG_LINK_SIGNALS)) score += 2;
-  else if (matchesAny(h, WEAK_LINK_SIGNALS)) score += 1;
+  else if (matchesAny(h, WEAK_LINK_SIGNALS) || matchesAny(t, WEAK_LINK_SIGNALS))
+    score += 1;
   if (matchesAny(t, KEYWORDS)) score += 2;
   return score;
 }

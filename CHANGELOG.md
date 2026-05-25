@@ -12,6 +12,13 @@ verbatim as the GitHub Release notes — so what you write here is what ships.
 
 ## [Unreleased]
 
+### Fixed
+
+- Subscription-confirmation detection now recognises a confirm email whose CTA
+  button carries the subscribe/subscription hint only in its visible text (e.g.
+  "Yes, subscribe me to this mailing list.") over an opaque tracking-redirect
+  href — previously the link scored zero and the email was missed.
+
 ## [0.3.1] - 2026-05-25
 
 ### Fixed

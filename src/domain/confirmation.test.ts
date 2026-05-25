@@ -159,6 +159,25 @@ describe("detectConfirmation", () => {
     expect(result![0]).toBe("https://news.example.com/subscribe/abc123");
   });
 
+  it("detects a confirm email whose CTA link carries the weak signal only in its text (opaque tracking href)", () => {
+    // Real-world Mailchimp double opt-in: the subject/body clearly confirm, but
+    // the button's href is an opaque base64 tracking redirect (no signal) and its
+    // visible text — "Yes, subscribe me…" — is only a weak signal. The link must
+    // still qualify as a candidate so the email is flagged.
+    const result = detectConfirmation({
+      subject: "Action Required | Please Confirm Your Subscription",
+      text: "Please confirm your mailing list subscription (double opt-in) by clicking the button below. You won't be subscribed if you don't click the confirmation link above.",
+      links: [
+        {
+          href: "https://click.example.com/track/click/00000000/list.example.com?p=eyJzIjoiQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUEiLCJ2",
+          text: "Yes, subscribe me to this mailing list.",
+        },
+      ],
+    });
+    expect(result).not.toBeNull();
+    expect(result![0]).toContain("click.example.com");
+  });
+
   it("dedupes a confirmation link repeated in the body", () => {
     const result = detectConfirmation({
       subject: "Confirm your subscription",
