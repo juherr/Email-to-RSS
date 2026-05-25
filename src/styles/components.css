@@ -1391,6 +1391,27 @@ table.table code {
   transform: translateY(-1px);
 }
 
+/* Dashboard pill — <a class="pill pill-native"> */
+.pill-native {
+  background: var(--color-card);
+  color: var(--color-primary);
+  border-color: var(--color-primary);
+  text-decoration: none;
+  transition:
+    opacity var(--transition-fast),
+    transform var(--transition-fast);
+}
+
+.pill-native:hover {
+  opacity: 0.88;
+  transform: translateY(-1px);
+}
+
+/* Native-feeds group sits below the KTN "Subscribe" chips */
+.native-feeds {
+  margin-top: var(--spacing-sm);
+}
+
 /* Top banner on the feed emails page */
 .confirmation-banner {
   display: flex;
