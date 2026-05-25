@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { http, HttpResponse } from "msw";
 import { server, createMockEnv } from "../test/setup";
 import {
@@ -6,7 +6,12 @@ import {
   extractEmailDomain,
   getCachedIcon,
 } from "./favicon-fetcher";
-import { MAX_ICON_BYTES } from "../config/constants";
+import { IconRepository } from "./icon-repository";
+import {
+  ICON_NEGATIVE_TTL_SECONDS,
+  ICON_TTL_SECONDS,
+  MAX_ICON_BYTES,
+} from "../config/constants";
 
 const iconKey = (domain: string) => `icon:${domain}`;
 import type { Env } from "../types";
@@ -87,6 +92,45 @@ describe("cacheFaviconForDomain", () => {
     const record = await env.EMAIL_STORAGE.get(iconKey("nope.test"), "json");
     expect(record).toEqual({ data: null, contentType: "" });
     expect(await getCachedIcon("nope.test", env)).toBeNull();
+  });
+
+  it("gives a negative entry a short TTL so transient misses self-heal", async () => {
+    const env = createMockEnv() as unknown as Env;
+    const put = vi.spyOn(IconRepository.prototype, "put");
+    server.use(
+      http.get("https://transient.test/favicon.ico", () =>
+        HttpResponse.text("", { status: 404 }),
+      ),
+      http.get("https://icons.duckduckgo.com/ip3/transient.test.ico", () =>
+        HttpResponse.text("", { status: 404 }),
+      ),
+    );
+
+    await cacheFaviconForDomain("transient.test", env);
+
+    expect(put).toHaveBeenCalledWith(
+      "transient.test",
+      expect.any(String),
+      ICON_NEGATIVE_TTL_SECONDS,
+    );
+    put.mockRestore();
+  });
+
+  it("gives a positive entry the full TTL", async () => {
+    const env = createMockEnv() as unknown as Env;
+    const put = vi.spyOn(IconRepository.prototype, "put");
+    server.use(
+      http.get("https://hit.test/favicon.ico", () => imageResponse(PNG)),
+    );
+
+    await cacheFaviconForDomain("hit.test", env);
+
+    expect(put).toHaveBeenCalledWith(
+      "hit.test",
+      expect.any(String),
+      ICON_TTL_SECONDS,
+    );
+    put.mockRestore();
   });
 
   it("rejects oversized responses as negative", async () => {

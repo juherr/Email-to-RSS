@@ -1,6 +1,7 @@
 import { Env } from "../types";
 import {
   ICON_FETCH_TIMEOUT_MS,
+  ICON_NEGATIVE_TTL_SECONDS,
   ICON_TTL_SECONDS,
   MAX_ICON_BYTES,
 } from "../config/constants";
@@ -102,7 +103,8 @@ export async function cacheFaviconForDomain(
         }
       : { data: null, contentType: "" };
 
-    await repo.put(domain, JSON.stringify(record), ICON_TTL_SECONDS);
+    const ttl = icon ? ICON_TTL_SECONDS : ICON_NEGATIVE_TTL_SECONDS;
+    await repo.put(domain, JSON.stringify(record), ttl);
   } catch (error) {
     logger.warn("Favicon cache failed", { domain, error: String(error) });
   }

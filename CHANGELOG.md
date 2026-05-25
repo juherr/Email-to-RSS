@@ -18,6 +18,10 @@ verbatim as the GitHub Release notes — so what you write here is what ships.
   button carries the subscribe/subscription hint only in its visible text (e.g.
   "Yes, subscribe me to this mailing list.") over an opaque tracking-redirect
   href — previously the link scored zero and the email was missed.
+- Sender favicons now recover from a transient miss: a failed favicon lookup is
+  cached negatively for 6 hours instead of a full week, so a domain whose icon
+  was momentarily unavailable (e.g. not yet indexed upstream) is retried on the
+  next email instead of staying blank for days.
 
 ## [0.3.1] - 2026-05-25
 

@@ -31,6 +31,13 @@ export const STATS_KEY = "stats:counters";
 /** Default TTL for a cached per-domain favicon (seconds). */
 export const ICON_TTL_SECONDS = 7 * 24 * 60 * 60; // 1 week
 
+/**
+ * TTL for a *negative* favicon cache entry (seconds). Kept short so a transient
+ * miss (e.g. DuckDuckGo not having indexed the domain yet) self-heals within
+ * hours instead of blacklisting the domain for a full week.
+ */
+export const ICON_NEGATIVE_TTL_SECONDS = 6 * 60 * 60; // 6 hours
+
 /** Maximum accepted favicon size (bytes); larger responses are rejected. */
 export const MAX_ICON_BYTES = 100 * 1024; // 100 KB
 
