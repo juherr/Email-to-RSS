@@ -1,0 +1,127 @@
+# Changelog
+
+All notable changes to this project are documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+Keep the `## [Unreleased]` section up to date **as part of every change** (the
+same rule as the rest of the docs). At release time `npm run release X.Y.Z`
+promotes this section to `## [X.Y.Z]` and the Release workflow publishes it
+verbatim as the GitHub Release notes — so what you write here is what ships.
+
+## [Unreleased]
+
+### Fixed
+
+- Feed self link (RSS/Atom/JSON) is derived from the configured domain instead
+  of the request host — it no longer leaks the `workers.dev` host when a feed is
+  reached directly, and now matches the alternate link.
+
+## [0.3.0] - 2026-05-25
+
+### Added
+
+- **Native feed detection** — incoming newsletters are inspected for a
+  self-advertised Atom/RSS/JSON feed (`rel=alternate` links in the email HTML);
+  discovered feeds are stored per sender on the Feed aggregate and surfaced as
+  chips on the feed detail page, a dashboard pill, and (read-only) on the REST
+  `Feed` schema, with a dismissable notice.
+- **Subscription confirmation surfacing** — confirmation emails ("click to
+  confirm your subscription") are detected at ingestion and flagged on the feed;
+  the admin UI surfaces the confirmation link, a badge, a dashboard pill, and an
+  inline banner (all dismissable), tightened against false positives via a
+  weak-signal heuristic.
+- **JSON Feed 1.1** output (`/json/:feedId`).
+- **OPML export** of all feeds (`/admin/opml`).
+- **Conditional GET** (ETag / Last-Modified / 304) on the feed routes.
+- Per-feed **Subscribe chips** for RSS/Atom/JSON with copy / open / validate
+  actions, reused across dashboard and feed detail page.
+- Email detail page links to its public entry page; land on the feed's emails
+  page right after creation.
+- Optional **per-feed "sender in title"** toggle.
+- Running **version** shown in the admin/status footer, `/health`, and
+  `/api/v1/stats`.
+
+### Changed
+
+- **Read/write identity decoupling (privacy)** — the public read id (`FeedId`,
+  used in `/rss/:feedId`) is fully decoupled from the inbound email address
+  (`MailboxId`, `noun.noun.NN`); a feed's read URL never reveals its inbound
+  alias and vice-versa (reading `/rss/<noun.noun.NN>` 404s).
+- Sender display name, site URL and parsing now owned by the `EmailAddress`
+  value object (DDD cleanup).
+- Release version is derived from the git tag; CI guards against tagging the
+  wrong commit.
+
+## [0.2.1] - 2026-05-24
+
+### Added
+
+- Optional `FALLBACK_FORWARD_ADDRESS`: forward non-feed mail to a verified
+  address so a domain catch-all can point at kill-the-news without swallowing
+  personal mail (forwarded mail is counted in the stats dashboard).
+
+### Changed
+
+- Feed, entry, and attachment responses send `X-Robots-Tag: noindex`; a new
+  `/robots.txt` disallows `/rss`, `/atom`, `/entries`, `/files`, and `/admin` —
+  private feeds and emails stay out of search engines.
+- Relative links/images in email bodies are absolutized against the sender's
+  site; lazy-loaded images are promoted so they don't render blank.
+- Feed `<title>` is plain text (HTML stripped, entities decoded).
+- Sender-site derivation moved onto the `EmailAddress` value object
+  (`siteBaseUrl`).
+
+### Fixed
+
+- XML-illegal control characters are stripped from generated feeds (valid astral
+  characters such as emoji preserved).
+
+## [0.2.0] - 2026-05-24
+
+### Added
+
+- Versioned REST API (`/api/v1/feeds*`) with an OpenAPI 3.1 spec
+  (`/api/openapi.json`) and rendered reference docs via Scalar (`/api/docs`).
+- `/api/v1/stats` as the canonical public stats endpoint (JSON + CORS).
+- Optional R2 attachment storage with a config toggle, storage metrics, download
+  links on the email/admin views, and inline `cid:` image rendering.
+- Project favicon (`/favicon.svg`, `/favicon.ico`) and per-feed favicon derived
+  from the last sender's domain (`/favicon/:feedId`).
+- RFC 8058 one-click unsubscribe dispatched when a feed is deleted.
+
+### Changed
+
+- Large internal refactor toward a clean domain-driven architecture; redesigned
+  landing/status page.
+
+### Removed
+
+- The deprecated `/api/stats` endpoint (use `/api/v1/stats`).
+
+## [0.1.0] - 2026-05-22
+
+### Added
+
+- **Atom feed format** (`/atom/:feedId`) alongside RSS 2.0.
+- **WebSub push notifications** advertised via `Link` header for real-time
+  delivery instead of polling.
+- **HTML email processing** — bodies sanitized via `linkedom` + `escape-html`
+  (XSS prevention, MSO style stripping, plain-text fallback).
+- **Email attachments as RSS enclosures**, stored in R2 and served at
+  `/files/:attachmentId/:filename`.
+- **Sender blocklist** with 4-level priority matching and a quick-add dropdown.
+- **`EMAIL_DOMAIN`** env var to separate web domain and email domain.
+- **Authelia / reverse-proxy auth** via trusted headers (`Remote-User`,
+  `X-Forwarded-User`).
+- Demo environment auto-deployed to `demo.kill-the.news` with a nightly KV
+  reset.
+- Admin UI redesign (Inter font, orange theme), client scripts compiled via
+  esbuild, templates on `hono/jsx`.
+
+[Unreleased]: https://github.com/juherr/kill-the-news/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/juherr/kill-the-news/compare/v0.2.1...v0.3.0
+[0.2.1]: https://github.com/juherr/kill-the-news/compare/v0.2.0...v0.2.1
+[0.2.0]: https://github.com/juherr/kill-the-news/compare/v0.1.0...v0.2.0
+[0.1.0]: https://github.com/juherr/kill-the-news/releases/tag/v0.1.0

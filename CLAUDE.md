@@ -203,20 +203,24 @@ MSW (`msw/node`) handles external HTTP mocks. Tests that hit validation paths in
 
 ## Releasing (read before cutting a release)
 
-`package.json` `version` is inlined at build time as `APP_VERSION` (`src/config/version.ts`) and surfaced in the admin/status footer, `/health`, and `/api/v1/stats`. **`main` always carries a `-develop` pre-release suffix** (e.g. `0.3.0-develop`) so a dev build is never mistaken for a shipped one.
+`package.json` `version` is inlined at build time as `APP_VERSION` (`src/config/version.ts`) and surfaced in the admin/status footer, `/health`, and `/api/v1/stats`. **`main` always carries a `-develop` pre-release suffix** (e.g. `0.4.0-develop`) so a dev build is never mistaken for a shipped one.
 
-When asked to "release X.Y.Z", the **git tag is the source of truth** — do **not** commit a bare `X.Y.Z` to `main`:
+When asked to "release X.Y.Z", **run the script — never tag/bump/write notes by hand**:
 
-1. Confirm `main`'s `package.json` reads `X.Y.Z-develop` (its base must match the release). If you're bumping the target, that's a separate `-develop` bump.
-2. `git tag vX.Y.Z && git push origin vX.Y.Z` — the Release workflow (`.github/workflows/release.yml`) strips the `-develop` suffix in its ephemeral checkout, builds the bundle reporting the bare `X.Y.Z`, and publishes the GitHub Release. It **fails fast** if the tag base ≠ `package.json` base (wrong-commit guard).
-3. After the release, reopen the next cycle: `npm version <next>-develop --no-git-tag-version` on `main` (next minor by default, or `X.Y.Z+1-develop` for a patch line), then commit + push.
+```bash
+npm run release X.Y.Z          # next dev cycle defaults to next minor
+npm run release X.Y.Z A.B.C    # ...or pass an explicit next dev base (e.g. a patch line)
+```
 
-Full flow lives in [CONTRIBUTING.md](CONTRIBUTING.md) under "Releasing".
+`X.Y.Z` must equal `main`'s current `X.Y.Z-develop` base. `scripts/release.sh` guards (clean tree, on `main`, synced with origin, version match, **non-empty `## [Unreleased]`**), then atomically: promotes `CHANGELOG.md`'s `## [Unreleased]` → `## [X.Y.Z]`, commits the **bare** `X.Y.Z` as a real release commit, tags it, opens the next `-develop` cycle (fresh `## [Unreleased]` + bump), and pushes `main` + the tag after a confirmation prompt.
+
+The `v*` tag triggers the Release workflow (`.github/workflows/release.yml`), which **verifies** the tagged commit's `package.json` equals the tag exactly (wrong/`-develop`-commit guard), builds, and publishes a GitHub Release whose notes are the `## [X.Y.Z]` CHANGELOG section. **Release notes are never hand-typed** — they come from `CHANGELOG.md`, which you keep current under `## [Unreleased]` as part of every change (treat it like the other docs). Full flow in [CONTRIBUTING.md](CONTRIBUTING.md) under "Releasing".
 
 ## When changing behavior
 
 **Always document evolutions** — treat docs as part of the change, not a follow-up. When you add or change a feature, update the relevant docs in the same change:
 
+- `CHANGELOG.md` — add a bullet under `## [Unreleased]` for any user-facing change (this is what the next release notes are built from; never deferred to release time)
 - `README.md`
 - `INSTALL.md` (setup, deployment, and configuration guide)
 - `setup.sh` (if setup/deploy assumptions changed)

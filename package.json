@@ -18,6 +18,7 @@
     "test:coverage": "vitest run --coverage",
     "typecheck": "tsc --noEmit && npm run typecheck:client",
     "typecheck:client": "tsc -p src/scripts/client/tsconfig.json --noEmit",
+    "release": "bash scripts/release.sh",
     "prepare": "husky && npm run build:client"
   },
   "lint-staged": {

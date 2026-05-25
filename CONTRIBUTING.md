@@ -76,29 +76,36 @@ Common types: `feat`, `fix`, `refactor`, `docs`, `test`, `chore`.
 
 The running version is read from `package.json` `version` and inlined at build
 time (footer, `/health`, `/api/v1/stats`). `main` **always** carries a
-`-develop` pre-release suffix (e.g. `0.3.0-develop`) so a dev build is never
-mistaken for a shipped one — `0.3.0-develop` sorts _below_ `0.3.0` per SemVer,
-meaning "heading toward 0.3.0, not yet released".
+`-develop` pre-release suffix (e.g. `0.4.0-develop`) so a dev build is never
+mistaken for a shipped one — `0.4.0-develop` sorts _below_ `0.4.0` per SemVer,
+meaning "heading toward 0.4.0, not yet released".
 
-**The git tag is the source of truth for a release version**, not a commit on
-`main`. The Release workflow (`.github/workflows/release.yml`) triggers on a
-`v*` tag, strips the `-develop` suffix in its ephemeral checkout so the published
-bundle reports the bare `X.Y.Z`, then builds and creates the GitHub Release. It
-fails fast if the tag's base doesn't match `package.json`'s base version, which
-catches tagging the wrong commit. You never commit a bare `X.Y.Z` to `main`.
-
-To cut release `X.Y.Z` (its base must equal `main`'s current `X.Y.Z-develop`):
+**Cut releases with one command — never by hand:**
 
 ```bash
-git tag vX.Y.Z && git push origin vX.Y.Z   # the workflow aligns + builds + publishes
+npm run release X.Y.Z          # next dev cycle defaults to the next minor
+npm run release X.Y.Z A.B.C    # ...or pass an explicit next dev base (e.g. a patch line)
 ```
 
-Then reopen the next cycle on `main`:
+`X.Y.Z` must equal `main`'s current `X.Y.Z-develop` base. The script
+(`scripts/release.sh`) guards (clean tree, on `main`, in sync with `origin`,
+version match, non-empty changelog), then in one shot:
 
-```bash
-npm version <next>-develop --no-git-tag-version   # e.g. 0.4.0-develop (or 0.3.1-develop for a patch line)
-# commit + push
-```
+1. promotes the `## [Unreleased]` section of `CHANGELOG.md` to `## [X.Y.Z]`,
+2. commits the **bare** `X.Y.Z` to `main` (a real release commit) and tags it,
+3. opens the next `-develop` cycle (a fresh `## [Unreleased]` + bumped version),
+4. pushes `main` + the tag (after showing you the notes and asking to confirm).
+
+The `v*` tag triggers the Release workflow (`.github/workflows/release.yml`),
+which **verifies** the tagged commit's `package.json` equals the tag exactly
+(catching a wrong or `-develop` commit), builds the bundle, and publishes a
+GitHub Release whose notes are the `## [X.Y.Z]` section of `CHANGELOG.md` — so the
+changelog you maintained in-repo is what ships. Keep `## [Unreleased]` up to date
+**as part of every change**; the release notes are never hand-typed.
+
+If you ever release manually, the tagged commit must carry the bare `X.Y.Z` in
+`package.json` and the matching `## [X.Y.Z]` section must exist in
+`CHANGELOG.md` — the workflow fails fast otherwise.
 
 ## Reporting bugs and requesting features
 

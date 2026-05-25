@@ -21,23 +21,41 @@ jobs:
 
       - run: npm ci
 
-      # The tag is the source of truth for a release version. main always carries
-      # a `-develop` pre-release suffix, so strip it here (in the ephemeral CI
-      # checkout only — never committed) so the built bundle reports the bare
-      # X.Y.Z. Guard against tagging the wrong commit: the tag's base must match
-      # package.json's base version.
-      - name: Align package.json version to the tag
+      # The tagged commit is the release: `npm run release` commits the bare
+      # X.Y.Z to it (main otherwise carries a `-develop` suffix). Verify the tag
+      # matches that committed version exactly — this catches tagging the wrong
+      # commit (e.g. a `-develop` one) without rewriting anything.
+      - name: Verify package.json matches the tag
         env:
           TAG_NAME: ${{ github.ref_name }}
         run: |
           VERSION="${TAG_NAME#v}"
-          PKG_BASE="$(node -p 'require("./package.json").version.split("-")[0]')"
-          if [ "$VERSION" != "$PKG_BASE" ]; then
-            echo "Tag $TAG_NAME (base $VERSION) does not match package.json base ($PKG_BASE)." >&2
-            echo "Tag the commit whose package.json is ${VERSION}-develop." >&2
+          PKG="$(node -p 'require("./package.json").version')"
+          if [ "$VERSION" != "$PKG" ]; then
+            echo "Tag $TAG_NAME does not match package.json ($PKG)." >&2
+            echo "The tagged commit must carry the bare release version ($VERSION)." >&2
+            echo "Cut releases with: npm run release $VERSION" >&2
             exit 1
           fi
-          npm version "$VERSION" --no-git-tag-version --allow-same-version
+
+      # Release notes come from the CHANGELOG section for this version, which is
+      # written incrementally and reviewed in PRs — never hand-typed at release.
+      - name: Extract release notes from CHANGELOG
+        env:
+          TAG_NAME: ${{ github.ref_name }}
+        run: |
+          VERSION="${TAG_NAME#v}"
+          awk -v ver="$VERSION" '
+            $0 ~ "^## \\[" ver "\\]" {grab=1; next}
+            /^## \[/ && grab {exit}
+            grab { if (!started && $0 ~ /^[[:space:]]*$/) next; started=1; print }
+          ' CHANGELOG.md > release-notes.md
+          if [ ! -s release-notes.md ]; then
+            echo "No CHANGELOG section found for $VERSION." >&2
+            exit 1
+          fi
+          echo "Release notes for $VERSION:"
+          cat release-notes.md
 
       - run: npm run build
 
@@ -59,5 +77,5 @@ jobs:
           TAG_NAME: ${{ github.ref_name }}
           BUNDLE_PATH: ${{ steps.bundle.outputs.path }}
         run: |
-          gh release create "$TAG_NAME" --generate-notes --verify-tag || true
+          gh release create "$TAG_NAME" --notes-file release-notes.md --verify-tag || true
           gh release upload "$TAG_NAME" "$BUNDLE_PATH" --clobber
