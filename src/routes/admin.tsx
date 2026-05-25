@@ -401,6 +401,12 @@ const ExpiryBadge = ({ expiresAt }: { expiresAt: number }) => {
   );
 };
 
+const ConfirmationPill = ({ feedId }: { feedId: string }) => (
+  <a class="pill pill-confirmation" href={`/admin/feeds/${feedId}/emails`}>
+    Confirmation pending
+  </a>
+);
+
 // Admin dashboard route
 app.get("/", async (c) => {
   // Type assertion for environment variables
@@ -808,6 +814,9 @@ app.get("/", async (c) => {
                                   </div>
                                 )}
                               </div>
+                              {feed.pendingConfirmation && (
+                                <ConfirmationPill feedId={feed.id} />
+                              )}
                             </div>
                           </td>
                           <td>
@@ -928,6 +937,9 @@ app.get("/", async (c) => {
                       </h3>
                       {feed.expires_at && (
                         <ExpiryBadge expiresAt={feed.expires_at} />
+                      )}
+                      {feed.pendingConfirmation && (
+                        <ConfirmationPill feedId={feed.id} />
                       )}
                       {feed.description && (
                         <p class="feed-description">

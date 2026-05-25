@@ -1292,5 +1292,52 @@ describe("Admin Routes", () => {
       expect(reloaded).not.toBeNull();
       expect(reloaded!.pendingConfirmation).toBe(false);
     });
+
+    it("dashboard list view shows pill-confirmation for feeds with pendingConfirmation", async () => {
+      const authCookie = await loginAndGetCookie();
+      const repo = FeedRepository.from(mockEnv as unknown as Env);
+
+      // Create feed aggregate with a confirmation email
+      const feedId = FeedId.generate();
+      const mailboxId = MailboxId.unchecked("confirm.dash.04");
+      const feed = Feed.create(
+        feedId,
+        {
+          title: "Dashboard Confirm Feed",
+          language: "en",
+          allowedSenders: [],
+          blockedSenders: [],
+        },
+        { mailboxId },
+      );
+      await repo.save(feed);
+
+      const emailKey = repo.newEmailKey(feedId);
+      await repo.putEmail(emailKey, {
+        subject: "Confirm your subscription",
+        from: "newsletter@example.com",
+        content: "<p>Click to confirm</p>",
+        receivedAt: Date.now(),
+        headers: {},
+      });
+
+      feed.ingest(
+        {
+          key: emailKey,
+          subject: "Confirm your subscription",
+          receivedAt: Date.now(),
+          confirmation: { links: ["https://x/confirm"] },
+        },
+        { maxBytes: 1_000_000 },
+      );
+      await repo.saveMetadata(feed);
+
+      const res = await request("/admin?view=list", {
+        headers: { Cookie: authCookie },
+      });
+      expect(res.status).toBe(200);
+      const body = await res.text();
+      expect(body).toContain("pill-confirmation");
+    });
   });
 });
