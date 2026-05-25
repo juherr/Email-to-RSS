@@ -15,9 +15,7 @@ describe("detectConfirmation", () => {
       ],
     });
     expect(result).not.toBeNull();
-    expect(result!.links[0]).toBe(
-      "https://news.example.com/confirm?token=abc123",
-    );
+    expect(result![0]).toBe("https://news.example.com/confirm?token=abc123");
   });
 
   it("detects a French confirmation email (accent-insensitive)", () => {
@@ -32,7 +30,7 @@ describe("detectConfirmation", () => {
       ],
     });
     expect(result).not.toBeNull();
-    expect(result!.links[0]).toBe("https://lettre.example.fr/valider/xyz");
+    expect(result![0]).toBe("https://lettre.example.fr/valider/xyz");
   });
 
   it("returns null for a normal newsletter with only an unsubscribe link", () => {
@@ -69,7 +67,7 @@ describe("detectConfirmation", () => {
       ],
     });
     expect(result).not.toBeNull();
-    expect(result!.links).not.toContain("https://x.example/unsubscribe");
+    expect(result!).not.toContain("https://x.example/unsubscribe");
   });
 
   it("ranks the strongest candidate first and caps at three links", () => {
@@ -85,8 +83,8 @@ describe("detectConfirmation", () => {
       ],
     });
     expect(result).not.toBeNull();
-    expect(result!.links.length).toBeLessThanOrEqual(3);
-    expect(result!.links[0]).toBe("https://x.example/confirm?token=2");
+    expect(result!.length).toBeLessThanOrEqual(3);
+    expect(result![0]).toBe("https://x.example/confirm?token=2");
   });
 
   it("ignores non-http(s) links", () => {

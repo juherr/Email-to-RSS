@@ -15,11 +15,6 @@ export interface DetectConfirmationInput {
   links: { href: string; text: string }[];
 }
 
-export interface ConfirmationResult {
-  score: number;
-  links: string[];
-}
-
 // Confirmation-positive stems, already normalized (lowercased, diacritics stripped).
 // EN / FR / DE / ES — extend here to add a language.
 const KEYWORDS = [
@@ -79,10 +74,6 @@ function matchesAny(haystack: string, needles: string[]): boolean {
   return needles.some((n) => haystack.includes(n));
 }
 
-function hasKeyword(haystack: string): boolean {
-  return KEYWORDS.some((kw) => haystack.includes(kw));
-}
-
 function linkScore(href: string, text: string): number {
   const h = normalize(href);
   const t = normalize(text);
@@ -101,7 +92,7 @@ function stripNegatives(text: string): string {
 
 export function detectConfirmation(
   input: DetectConfirmationInput,
-): ConfirmationResult | null {
+): string[] | null {
   const candidates = input.links
     .filter((l) => isHttp(l.href))
     .map((l) => ({ href: l.href.trim(), score: linkScore(l.href, l.text) }))
@@ -113,12 +104,11 @@ export function detectConfirmation(
   const subject = stripNegatives(normalize(input.subject));
   const text = stripNegatives(normalize(input.text));
 
-  const subjectScore = hasKeyword(subject) ? 2 : 0;
-  const bodyScore = hasKeyword(text) ? 1 : 0;
+  const subjectScore = matchesAny(subject, KEYWORDS) ? 2 : 0;
+  const bodyScore = matchesAny(text, KEYWORDS) ? 1 : 0;
   const bestLinkScore = candidates[0].score;
 
-  const score = subjectScore + bodyScore + bestLinkScore;
-  if (score < THRESHOLD) return null;
+  if (subjectScore + bodyScore + bestLinkScore < THRESHOLD) return null;
 
-  return { score, links: candidates.slice(0, 3).map((c) => c.href) };
+  return candidates.slice(0, 3).map((c) => c.href);
 }

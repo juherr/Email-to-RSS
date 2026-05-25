@@ -187,7 +187,7 @@ async function storeEmail(
     return false; // signal: skipped (not stored)
   }
 
-  const confirmation = detectConfirmation({
+  const confirmationLinks = detectConfirmation({
     subject: input.subject,
     text: htmlToText(input.content),
     links: extractLinks(input.content),
@@ -229,7 +229,9 @@ async function storeEmail(
     ...(inlineIds.length > 0 ? { inlineAttachmentIds: inlineIds } : {}),
     ...(messageId ? { messageId } : {}),
     dedupHash,
-    ...(confirmation ? { confirmation: { links: confirmation.links } } : {}),
+    ...(confirmationLinks
+      ? { confirmation: { links: confirmationLinks } }
+      : {}),
   };
 
   // Track the latest sender's domain (feed icon) and capture the RFC 8058
