@@ -615,3 +615,22 @@ async function bulkDeleteSelectedEmails(): Promise<void> {
 document.addEventListener("DOMContentLoaded", () => {
   initEmailUI();
 });
+
+// ── Confirmation banner dismiss ───────────────────────────────────────────────
+
+const dismissBtn = document.getElementById("confirmation-dismiss");
+const banner = document.getElementById("confirmation-banner");
+if (dismissBtn && banner) {
+  dismissBtn.addEventListener("click", () => {
+    const feedId = banner.getAttribute("data-feed-id") ?? "";
+    fetch(`/admin/feeds/${feedId}/confirmation/dismiss`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+    })
+      .then((r) => r.json())
+      .then((d) => {
+        if ((d as { ok?: boolean }).ok) banner.remove();
+      })
+      .catch(() => {});
+  });
+}

@@ -5,6 +5,10 @@ import app from "./admin";
 import { createMockEnv, server } from "../test/setup";
 import { getCounters } from "../application/stats";
 import { Env } from "../types";
+import { FeedRepository } from "../infrastructure/feed-repository";
+import { Feed } from "../domain/feed.aggregate";
+import { FeedId } from "../domain/value-objects/feed-id";
+import { MailboxId } from "../domain/value-objects/mailbox-id";
 
 describe("Admin Routes", () => {
   let testApp: Hono;
@@ -1124,6 +1128,169 @@ describe("Admin Routes", () => {
         "json",
       )) as any;
       expect(cfg.allowed_senders).toContain("alice@example.com");
+    });
+  });
+
+  describe("Confirmation features", () => {
+    it("detail view shows confirmation-section with links when email has confirmation metadata", async () => {
+      const authCookie = await loginAndGetCookie();
+      const repo = FeedRepository.from(mockEnv as unknown as Env);
+
+      // Create feed aggregate
+      const feedId = FeedId.generate();
+      const mailboxId = MailboxId.unchecked("confirm.test.01");
+      const feed = Feed.create(
+        feedId,
+        {
+          title: "Confirm Test Feed",
+          language: "en",
+          allowedSenders: [],
+          blockedSenders: [],
+        },
+        { mailboxId },
+      );
+      await repo.save(feed);
+
+      // Mint an email key and put the email body
+      const emailKey = repo.newEmailKey(feedId);
+      await repo.putEmail(emailKey, {
+        subject: "Please confirm your subscription",
+        from: "newsletter@example.com",
+        content: "<p>Click to confirm</p>",
+        receivedAt: Date.now(),
+        headers: {},
+      });
+
+      // Ingest the email into the aggregate with confirmation links
+      feed.ingest(
+        {
+          key: emailKey,
+          subject: "Please confirm your subscription",
+          receivedAt: Date.now(),
+          confirmation: { links: ["https://example.com/confirm?t=1"] },
+        },
+        { maxBytes: 10_000_000 },
+      );
+      await repo.saveMetadata(feed);
+
+      const res = await request(`/admin/emails/${emailKey}`, {
+        headers: { Cookie: authCookie },
+      });
+      expect(res.status).toBe(200);
+      const body = await res.text();
+      expect(body).toContain("confirmation-section");
+      expect(body).toContain("https://example.com/confirm?t=1");
+    });
+
+    it("email list shows confirmation-badge for emails with confirmation metadata", async () => {
+      const authCookie = await loginAndGetCookie();
+      const repo = FeedRepository.from(mockEnv as unknown as Env);
+
+      // Create feed aggregate
+      const feedId = FeedId.generate();
+      const mailboxId = MailboxId.unchecked("confirm.badge.02");
+      const feed = Feed.create(
+        feedId,
+        {
+          title: "Confirm Badge Feed",
+          language: "en",
+          allowedSenders: [],
+          blockedSenders: [],
+        },
+        { mailboxId },
+      );
+      await repo.save(feed);
+
+      const emailKey = repo.newEmailKey(feedId);
+      await repo.putEmail(emailKey, {
+        subject: "Confirm subscription",
+        from: "newsletter@example.com",
+        content: "<p>Click to confirm</p>",
+        receivedAt: Date.now(),
+        headers: {},
+      });
+
+      feed.ingest(
+        {
+          key: emailKey,
+          subject: "Confirm subscription",
+          receivedAt: Date.now(),
+          confirmation: { links: ["https://example.com/confirm?t=1"] },
+        },
+        { maxBytes: 10_000_000 },
+      );
+      await repo.saveMetadata(feed);
+
+      const res = await request(`/admin/feeds/${feedId.value}/emails`, {
+        headers: { Cookie: authCookie },
+      });
+      expect(res.status).toBe(200);
+      const body = await res.text();
+      expect(body).toContain("confirmation-badge");
+    });
+
+    it("dismiss route clears pendingConfirmation flag", async () => {
+      const authCookie = await loginAndGetCookie();
+      const repo = FeedRepository.from(mockEnv as unknown as Env);
+
+      // Create feed aggregate with a confirmation email
+      const feedId = FeedId.generate();
+      const mailboxId = MailboxId.unchecked("confirm.dismiss.03");
+      const feed = Feed.create(
+        feedId,
+        {
+          title: "Dismiss Test Feed",
+          language: "en",
+          allowedSenders: [],
+          blockedSenders: [],
+        },
+        { mailboxId },
+      );
+      await repo.save(feed);
+
+      const emailKey = repo.newEmailKey(feedId);
+      await repo.putEmail(emailKey, {
+        subject: "Confirm subscription",
+        from: "newsletter@example.com",
+        content: "<p>Click to confirm</p>",
+        receivedAt: Date.now(),
+        headers: {},
+      });
+
+      feed.ingest(
+        {
+          key: emailKey,
+          subject: "Confirm subscription",
+          receivedAt: Date.now(),
+          confirmation: { links: ["https://example.com/confirm?t=2"] },
+        },
+        { maxBytes: 10_000_000 },
+      );
+      await repo.saveMetadata(feed);
+
+      // Verify flag is set
+      expect(feed.pendingConfirmation).toBe(true);
+
+      // Call dismiss route
+      const dismissRes = await request(
+        `/admin/feeds/${feedId.value}/confirmation/dismiss`,
+        {
+          method: "POST",
+          headers: {
+            Cookie: authCookie,
+            "Content-Type": "application/json",
+            Origin: `https://${mockEnv.DOMAIN}`,
+          },
+        },
+      );
+      expect(dismissRes.status).toBe(200);
+      const payload = (await dismissRes.json()) as any;
+      expect(payload.ok).toBe(true);
+
+      // Reload feed from repo and check flag is cleared
+      const reloaded = await repo.load(feedId);
+      expect(reloaded).not.toBeNull();
+      expect(reloaded!.pendingConfirmation).toBe(false);
     });
   });
 });

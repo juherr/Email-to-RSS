@@ -221,6 +221,25 @@ emailsRouter.get("/feeds/:feedId/emails", async (c) => {
           </div>
         </div>
 
+        {feedMetadata.pendingConfirmation && (
+          <div
+            class="confirmation-banner"
+            id="confirmation-banner"
+            data-feed-id={feedId}
+          >
+            <span>A subscription-confirmation email was detected.</span>
+            <div class="confirmation-banner-actions">
+              <button
+                type="button"
+                class="button button-small"
+                id="confirmation-dismiss"
+              >
+                Mark as confirmed
+              </button>
+            </div>
+          </div>
+        )}
+
         <h2>
           Emails (
           <span id="email-total-count">{feedMetadata.emails.length}</span>)
@@ -355,6 +374,7 @@ emailsRouter.get("/feeds/:feedId/emails", async (c) => {
                     const attachmentLabel = `${attachmentCount} attachment${
                       attachmentCount > 1 ? "s" : ""
                     }`;
+                    const isConfirmation = !!email.confirmation;
                     const sortSubject = subjectHover.toLowerCase();
                     const sortReceivedAt = String(email.receivedAt);
                     const searchHaystack = clampText(
@@ -399,6 +419,14 @@ emailsRouter.get("/feeds/:feedId/emails", async (c) => {
                                 >
                                   <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
                                 </svg>
+                              </span>
+                            ) : null}
+                            {isConfirmation ? (
+                              <span
+                                class="confirmation-badge"
+                                title="Subscription confirmation"
+                              >
+                                Confirmation
                               </span>
                             ) : null}
                             <span class="truncate" title={subjectHover}>
@@ -469,6 +497,11 @@ emailsRouter.get("/emails/:emailKey", async (c) => {
   const feedId = repo.feedIdFromEmailKey(emailKey);
   const feedConfig = await repo.getConfig(FeedId.unchecked(feedId));
   if (!feedConfig) return c.text("Feed not found", 404);
+
+  const feedMetadata = await repo.getMetadata(FeedId.unchecked(feedId));
+  const confirmationLinks =
+    feedMetadata?.emails.find((e) => e.key === emailKey)?.confirmation?.links ??
+    [];
   // Inline images render in place; only downloadable attachments go in the list.
   const attachments = (emailData.attachments ?? []).filter((a) => !a.inline);
 
@@ -594,6 +627,31 @@ emailsRouter.get("/emails/:emailKey", async (c) => {
             </div>
           </div>
 
+          {confirmationLinks.length > 0 && (
+            <div class="confirmation-section">
+              <h2>Confirm your subscription</h2>
+              <p class="muted">
+                This looks like a subscription-confirmation email. Open the link
+                to confirm.
+              </p>
+              <a
+                class="button confirmation-primary"
+                href={confirmationLinks[0]}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Confirm subscription
+              </a>
+              <div class="confirmation-links">
+                {confirmationLinks.map((link) => (
+                  <a href={link} target="_blank" rel="noopener noreferrer">
+                    {link}
+                  </a>
+                ))}
+              </div>
+            </div>
+          )}
+
           <div class="toggle-view">
             <button
               id="rendered-button"
@@ -702,6 +760,32 @@ emailsRouter.post("/emails/:emailKey/delete", async (c) => {
       );
     return c.text("Error deleting email. Please try again.", 400);
   }
+});
+
+// ── Dismiss confirmation ──────────────────────────────────────────────────────
+
+emailsRouter.post("/feeds/:feedId/confirmation/dismiss", async (c) => {
+  const env = c.env;
+  const repo = FeedRepository.from(env);
+  const feedId = c.req.param("feedId");
+  const wantsJson = (
+    c.req.header("Accept") ||
+    c.req.header("Content-Type") ||
+    ""
+  ).includes("application/json");
+
+  const feed = await repo.load(FeedId.unchecked(feedId));
+  if (!feed) {
+    return wantsJson
+      ? c.json({ ok: false, error: "Feed not found" }, 404)
+      : c.text("Feed not found", 404);
+  }
+  feed.dismissConfirmation();
+  await repo.saveMetadata(feed);
+
+  return wantsJson
+    ? c.json({ ok: true })
+    : c.redirect(`/admin/feeds/${feedId}/emails`);
 });
 
 // ── Bulk delete emails ────────────────────────────────────────────────────────
