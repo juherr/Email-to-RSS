@@ -1,4 +1,5 @@
 import { MailboxId } from "../domain/value-objects/mailbox-id";
+import { EmailAddress } from "../domain/value-objects/email-address";
 import { AttachmentData, EmailMetadata, Env } from "../types";
 import { bumpCounters } from "../application/stats";
 import { dispatchFeedEvents } from "../application/feed-events";
@@ -19,13 +20,6 @@ import { BackgroundScheduler } from "../infrastructure/worker";
 import { Feed } from "../domain/feed.aggregate";
 import { logger } from "../infrastructure/logger";
 import { FEED_MAX_BYTES } from "../config/constants";
-
-// Best-effort site base for absolutizing a sender's relative feed link.
-function iconBase(from: string): string {
-  const at = from.lastIndexOf("@");
-  const domain = at >= 0 ? from.slice(at + 1).trim() : "";
-  return domain ? `https://${domain}` : "";
-}
 
 export interface RawAttachment {
   filename: string;
@@ -203,7 +197,10 @@ async function storeEmail(
   });
 
   const nativeFeedList = detectNativeFeeds(
-    extractFeedLinks(input.content, iconBase(input.from)),
+    extractFeedLinks(
+      input.content,
+      EmailAddress.parse(input.from)?.siteBaseUrl() ?? "",
+    ),
   );
 
   const attachmentBucket = getAttachmentBucket(env);

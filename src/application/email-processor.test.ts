@@ -1047,4 +1047,28 @@ describe("native feed detection on ingest", () => {
     )) as { nativeFeeds?: Record<string, unknown> };
     expect(metadata.nativeFeeds).toBeUndefined();
   });
+
+  it("absolutizes a relative feed href using the display-name sender's domain (TEST C)", async () => {
+    const result = await processEmail(
+      makeInput({
+        from: "Blog Name <news@blog.example.com>",
+        senders: ["news@blog.example.com"],
+        content:
+          '<html><head><link rel="alternate" type="application/atom+xml" href="/atom.xml"></head><body>hi</body></html>',
+      }),
+      env as any,
+    );
+
+    expect(result.ok).toBe(true);
+
+    const metadata = (await env.EMAIL_STORAGE.get(
+      `feed:${VALID_FEED_ID}:metadata`,
+      "json",
+    )) as {
+      nativeFeeds?: Record<string, Array<{ url: string; type: string }>>;
+    };
+    expect(Object.values(metadata.nativeFeeds!).flat()).toEqual([
+      { url: "https://blog.example.com/atom.xml", type: "atom" },
+    ]);
+  });
 });
