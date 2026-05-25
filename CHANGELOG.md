@@ -21,6 +21,12 @@ verbatim as the GitHub Release notes — so what you write here is what ships.
 
 ### Fixed
 
+- Subscription-confirmation detection now flags code-based signup verifications
+  (OTP) that have no link to click — e.g. "Your verification code is 371404",
+  whose only link is a `mailto:` support address. These cleared the keyword
+  threshold but were dropped because the detector required an http(s) candidate
+  link. A code path now raises the flag/badge/banner when a verification keyword
+  sits next to an OTP-style code; the code itself is never extracted or surfaced.
 - Subscription-confirmation detection now recognizes localized "subscribe" CTAs.
   The weak link-signal vocabulary was English-only (`subscrib`),
   so a genuine double opt-in whose confirm button reads "Je m'inscris…" over an

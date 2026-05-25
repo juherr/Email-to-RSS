@@ -5,8 +5,11 @@
  * the link-signal patterns, the scoring weights and the threshold.
  *
  * Returns the ranked candidate confirmation links (top 3) when the combined score
- * clears the threshold AND at least one candidate link exists; otherwise null.
- * Only http(s) links are ever considered or returned.
+ * clears the threshold AND at least one candidate link exists. When the email is a
+ * code-based signup verification (a verification keyword next to an OTP-style code,
+ * with no clickable link — e.g. "your verification code is 371404") it returns an
+ * empty array: detected, but nothing to click. Returns null when not a confirmation.
+ * Only http(s) links are ever considered or returned; the code is never extracted.
  */
 
 export interface DetectConfirmationInput {
@@ -76,6 +79,21 @@ const NEGATIVE = [
 
 const THRESHOLD = 3;
 
+// A verification code (OTP) sitting next to a code-ish word, in either order and
+// within a short window — "your verification code is 371404" / "371404 is your
+// code". This is the signup-by-code case that has no link to click. Run on the
+// already-normalized (lowercased, diacritics-stripped) subject/body. We only test
+// for presence to raise the flag; the code value is never captured or surfaced.
+const CODE_WORDS = "code|codigo|otp|verif";
+const CODE_PROXIMITY = 48;
+const CODE_PATTERN = new RegExp(
+  `(?:${CODE_WORDS})[\\s\\S]{0,${CODE_PROXIMITY}}?\\b\\d{4,8}\\b|\\b\\d{4,8}\\b[\\s\\S]{0,${CODE_PROXIMITY}}?(?:${CODE_WORDS})`,
+);
+
+function hasVerificationCode(text: string): boolean {
+  return CODE_PATTERN.test(text);
+}
+
 function normalize(s: string): string {
   return s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 }
@@ -115,18 +133,32 @@ export function detectConfirmation(
     .filter((l) => l.score > 0)
     .sort((a, b) => b.score - a.score);
 
-  if (candidates.length === 0) return null;
-
   const subject = stripNegatives(normalize(input.subject));
   const text = stripNegatives(normalize(input.text));
 
   const subjectScore = matchesAny(subject, KEYWORDS) ? 2 : 0;
   const bodyScore = matchesAny(text, KEYWORDS) ? 1 : 0;
-  const bestLinkScore = candidates[0].score;
 
-  if (subjectScore + bodyScore + bestLinkScore < THRESHOLD) return null;
+  // Link path: a clickable confirm/verify/subscribe link clears the threshold.
+  if (candidates.length > 0) {
+    const bestLinkScore = candidates[0].score;
+    if (subjectScore + bodyScore + bestLinkScore >= THRESHOLD) {
+      // Dedupe by href before capping, so a link repeated in the body never
+      // wastes one of the three surfaced slots.
+      return [...new Set(candidates.map((c) => c.href))].slice(0, 3);
+    }
+  }
 
-  // Dedupe by href before capping, so a link repeated in the body never wastes
-  // one of the three surfaced slots.
-  return [...new Set(candidates.map((c) => c.href))].slice(0, 3);
+  // Code path: an OTP-style signup verification with no link to click. Requires
+  // both a verification keyword (subject or body) and a code-near-code-word
+  // pattern, so a stray number or a lone keyword cannot cry wolf. Flag it with
+  // an empty link list — detected, but nothing actionable to surface.
+  if (
+    (subjectScore > 0 || bodyScore > 0) &&
+    (hasVerificationCode(subject) || hasVerificationCode(text))
+  ) {
+    return [];
+  }
+
+  return null;
 }

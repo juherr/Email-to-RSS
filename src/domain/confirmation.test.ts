@@ -199,6 +199,54 @@ describe("detectConfirmation", () => {
     expect(result![0]).toContain("proc.php");
   });
 
+  // ── Code-based signup confirmations (OTP) with no clickable link ─────────────
+  // Some signups send a verification *code* to enter manually — there is nothing
+  // to click. We still flag these (empty links: detected but no actionable link),
+  // but never extract or surface the code itself.
+
+  it("flags an OTP signup email whose only link is a mailto", () => {
+    const result = detectConfirmation({
+      subject: "❄️ Ton code de vérification est 371404",
+      text: "Salut ! Entre le code de vérification ci-dessous lorsqu'il te sera demandé : 371404. Tu n'as rien demandé ?",
+      links: [
+        {
+          href: "mailto:hey@example.com?subject=Acc%C3%A8s+frauduleux",
+          text: "contacter le support",
+        },
+      ],
+    });
+    expect(result).toEqual([]);
+  });
+
+  it("flags a code email via a body keyword + code pattern when there are no links", () => {
+    const result = detectConfirmation({
+      subject: "Welcome to Acme",
+      text: "Your verification code is 246810. Enter it to finish signing up.",
+      links: [],
+    });
+    expect(result).toEqual([]);
+  });
+
+  it("does not flag a transactional email with a big number but no code-near-code-word", () => {
+    const result = detectConfirmation({
+      subject: "Order confirmed",
+      text: "Your order 12345678 ships Monday.",
+      links: [
+        { href: "https://shop.example.com/track/12345678", text: "Track" },
+      ],
+    });
+    expect(result).toBeNull();
+  });
+
+  it("does not flag a newsletter with numbers but no verification keyword", () => {
+    const result = detectConfirmation({
+      subject: "Your 2026 wrapped: 4567 minutes listened",
+      text: "Here is your year in review with code 9999 highlights.",
+      links: [{ href: "https://music.example.com/wrapped", text: "See more" }],
+    });
+    expect(result).toBeNull();
+  });
+
   it("dedupes a confirmation link repeated in the body", () => {
     const result = detectConfirmation({
       subject: "Confirm your subscription",

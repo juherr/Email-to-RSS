@@ -236,7 +236,9 @@ async function storeEmail(
     ...(inlineIds.length > 0 ? { inlineAttachmentIds: inlineIds } : {}),
     ...(messageId ? { messageId } : {}),
     dedupHash,
-    ...(confirmationLinks
+    // null = not a confirmation; [] = a code-based confirmation (flag it, no
+    // link to surface). Both an empty and a populated array mean "detected".
+    ...(confirmationLinks !== null
       ? { confirmation: { links: confirmationLinks } }
       : {}),
   };
