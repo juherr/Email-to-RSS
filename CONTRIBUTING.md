@@ -72,6 +72,25 @@ docs(readme): add Continuous deployment section
 
 Common types: `feat`, `fix`, `refactor`, `docs`, `test`, `chore`.
 
+## Releasing
+
+The running version is read from `package.json` `version` and inlined at build
+time (footer, `/health`, `/api/v1/stats`). Between releases the working tree
+carries a `-develop` pre-release suffix so a dev build is never mistaken for a
+shipped one — `0.3.0-develop` sorts _below_ `0.3.0` per SemVer, meaning "heading
+toward 0.3.0, not yet released".
+
+To cut a release `X.Y.Z`:
+
+```bash
+npm version X.Y.Z --no-git-tag-version   # drop the -develop suffix
+# commit, tag vX.Y.Z, push, deploy (npm run deploy)
+npm version X.Y+1.0-develop --no-git-tag-version   # reopen the next cycle
+```
+
+So `main` should always read `*-develop`; only a tagged release commit carries a
+bare `X.Y.Z`.
+
 ## Reporting bugs and requesting features
 
 Open an issue at
