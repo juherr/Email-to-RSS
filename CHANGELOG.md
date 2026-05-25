@@ -21,6 +21,12 @@ verbatim as the GitHub Release notes — so what you write here is what ships.
 
 ### Fixed
 
+- Per-feed favicons no longer fail for senders whose DuckDuckGo icon is a
+  hi-res PNG: the maximum accepted favicon size is raised from 100 KB to 256 KB,
+  so legitimate large icons (~107 KB and up) are cached instead of rejected.
+  A domain that was already negatively cached only re-fetches once that entry's
+  TTL expires (and something — a new email or a favicon request — retriggers
+  the fetch); delete its `icon:<domain>` KV key to force an immediate refresh.
 - Admin dashboard table view: long feed titles no longer overflow into the Feed
   ID column — the title/description cell now shrinks so its text ellipsises.
 - RSS and Atom feeds now advertise the WebSub hub inside the feed body

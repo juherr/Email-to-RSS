@@ -38,8 +38,13 @@ export const ICON_TTL_SECONDS = 7 * 24 * 60 * 60; // 1 week
  */
 export const ICON_NEGATIVE_TTL_SECONDS = 6 * 60 * 60; // 6 hours
 
-/** Maximum accepted favicon size (bytes); larger responses are rejected. */
-export const MAX_ICON_BYTES = 100 * 1024; // 100 KB
+/**
+ * Maximum accepted favicon size (bytes); larger responses are rejected.
+ * DuckDuckGo serves hi-res (often 144×144) PNG favicons that legitimately
+ * exceed 100 KB, so the cap is generous; KV's value limit (25 MB) is the only
+ * hard constraint, even after base64 inflation.
+ */
+export const MAX_ICON_BYTES = 256 * 1024; // 256 KB
 
 /** Timeout for an outbound favicon fetch (milliseconds). */
 export const ICON_FETCH_TIMEOUT_MS = 5000;
