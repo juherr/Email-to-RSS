@@ -1357,3 +1357,95 @@ table.table code {
     font-size: 0.9rem;
   }
 }
+
+/* ── Subscription confirmation surfacing ── */
+
+/* Inline badge in the email-list subject cell (next to .attachment-indicator) */
+.confirmation-badge {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-on-primary);
+  background: var(--color-primary);
+  border-radius: var(--radius-pill);
+  padding: 1px 8px;
+}
+
+/* Dashboard pill — <a class="pill pill-confirmation"> */
+.pill-confirmation {
+  background: var(--color-primary);
+  color: var(--color-text-on-primary);
+  border-color: transparent;
+  text-decoration: none;
+  transition:
+    opacity var(--transition-fast),
+    transform var(--transition-fast);
+}
+
+.pill-confirmation:hover {
+  opacity: 0.88;
+  transform: translateY(-1px);
+}
+
+/* Top banner on the feed emails page */
+.confirmation-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-md);
+  padding: var(--spacing-md);
+  margin-bottom: var(--spacing-md);
+  border: 1px solid var(--color-primary);
+  border-radius: var(--radius-md);
+  background-color: rgba(246, 130, 31, 0.07);
+}
+
+@media (prefers-color-scheme: light) {
+  .confirmation-banner {
+    background-color: rgba(224, 112, 16, 0.06);
+  }
+}
+
+.confirmation-banner-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  flex-shrink: 0;
+}
+
+/* Bordered box on the email detail page */
+.confirmation-section {
+  margin-bottom: var(--spacing-lg);
+  padding: var(--spacing-md);
+  border: 1px solid var(--color-primary);
+  border-radius: var(--radius-md);
+  background-color: rgba(246, 130, 31, 0.07);
+}
+
+@media (prefers-color-scheme: light) {
+  .confirmation-section {
+    background-color: rgba(224, 112, 16, 0.06);
+  }
+}
+
+.confirmation-section h2 {
+  margin: 0 0 var(--spacing-sm);
+  font-size: var(--font-size-md);
+}
+
+/* Primary CTA button inside the confirmation section */
+.confirmation-primary {
+  display: inline-block;
+  margin-bottom: var(--spacing-sm);
+}
+
+/* Column of confirmation links */
+.confirmation-links {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+  word-break: break-all;
+  font-size: var(--font-size-sm);
+}
