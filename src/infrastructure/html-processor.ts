@@ -69,11 +69,11 @@ export function extractLinks(
   return links;
 }
 
-// Collect a newsletter's self-advertised feed declarations:
-// <link rel="alternate" type="application/(atom|rss)+xml|feed+json" href="…">.
-// Returns raw href+type tuples; the domain decides which MIME types are feeds.
-// Relative hrefs are absolutized against the sender base (best-effort); only
-// http(s) URLs survive. Plain-text bodies have no <link> → [].
+// Collect a newsletter's self-advertised feed declarations from
+// <link rel="alternate" type="…"> tags. Returns raw href+type tuples; the
+// domain decides which MIME types count as a feed. Relative hrefs are
+// absolutized against the sender base (best-effort); only http(s) URLs survive.
+// Plain-text bodies have no <link> → [].
 export function extractFeedLinks(
   content: string,
   base = "",
@@ -88,6 +88,7 @@ export function extractFeedLinks(
       const type = (el.getAttribute("type") ?? "").trim();
       const rawHref = (el.getAttribute("href") ?? "").trim();
       if (!type || !rawHref) return;
+      // toAbsolute() skips already-absolute hrefs (returns null), so keep those as-is.
       const href = /^https?:\/\//i.test(rawHref)
         ? rawHref
         : (toAbsolute(rawHref, base) ?? "");
