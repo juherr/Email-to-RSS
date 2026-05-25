@@ -1603,5 +1603,74 @@ describe("Admin Routes", () => {
       const cfg = await repo.getConfig(feedId);
       expect(cfg?.sender_in_title).toBe(false);
     });
+
+    it("feed detail shows a native-feeds group when a native feed was detected", async () => {
+      const authCookie = await loginAndGetCookie();
+      const repo = FeedRepository.from(mockEnv as unknown as Env);
+      const feedId = FeedId.generate();
+      const mailboxId = MailboxId.unchecked("native.detail.07");
+      const feed = Feed.create(
+        feedId,
+        { title: "N", language: "en", allowedSenders: [], blockedSenders: [] },
+        { mailboxId },
+      );
+      feed.ingest(
+        { key: "k1", subject: "s", receivedAt: 1, size: 10 },
+        {
+          maxBytes: 1e9,
+          nativeFeeds: {
+            senderKey: "a@x.com",
+            feeds: [{ url: "https://blog.example.com/feed.xml", type: "rss" }],
+          },
+        },
+      );
+      await repo.save(feed);
+
+      const res = await request(`/admin/feeds/${feedId.value}/emails`, {
+        headers: { Cookie: authCookie },
+      });
+      const body = await res.text();
+      expect(body).toContain("native-feeds");
+      expect(body).toContain("https://blog.example.com/feed.xml");
+    });
+
+    it("native-feed dismiss route clears the flag", async () => {
+      const authCookie = await loginAndGetCookie();
+      const repo = FeedRepository.from(mockEnv as unknown as Env);
+      const feedId = FeedId.generate();
+      const mailboxId = MailboxId.unchecked("native.dismiss.09");
+      const feed = Feed.create(
+        feedId,
+        { title: "N", language: "en", allowedSenders: [], blockedSenders: [] },
+        { mailboxId },
+      );
+      feed.ingest(
+        { key: "k1", subject: "s", receivedAt: 1, size: 10 },
+        {
+          maxBytes: 1e9,
+          nativeFeeds: {
+            senderKey: "a@x.com",
+            feeds: [{ url: "https://x.com/rss", type: "rss" }],
+          },
+        },
+      );
+      await repo.save(feed);
+
+      const res = await request(
+        `/admin/feeds/${feedId.value}/native-feed/dismiss`,
+        {
+          method: "POST",
+          headers: {
+            Cookie: authCookie,
+            "Content-Type": "application/json",
+            Origin: `https://${mockEnv.DOMAIN}`,
+          },
+        },
+      );
+      expect(res.status).toBe(200);
+      const reloaded = await repo.load(feedId);
+      expect(reloaded!.hasNativeFeed()).toBe(false);
+      expect(reloaded!.nativeFeeds()).toHaveLength(1); // URLs preserved
+    });
   });
 });

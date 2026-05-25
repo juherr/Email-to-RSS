@@ -634,3 +634,22 @@ if (dismissBtn && banner) {
       .catch(() => {});
   });
 }
+
+// ── Native-feed banner dismiss ────────────────────────────────────────────────
+
+const nativeDismissBtn = document.getElementById("native-feed-dismiss");
+const nativeBanner = document.getElementById("native-feed-banner");
+if (nativeDismissBtn && nativeBanner) {
+  nativeDismissBtn.addEventListener("click", () => {
+    const feedId = nativeBanner.getAttribute("data-feed-id") ?? "";
+    fetch(`/admin/feeds/${feedId}/native-feed/dismiss`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+    })
+      .then((r) => r.json())
+      .then((d) => {
+        if ((d as { ok?: boolean }).ok) nativeBanner.remove();
+      })
+      .catch(() => {});
+  });
+}

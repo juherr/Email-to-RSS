@@ -8,7 +8,9 @@ import {
   CheckIcon,
   FeedFormats,
   ExpiryBadge,
+  NativeFeeds,
 } from "./ui";
+import { unionNativeFeeds } from "../../domain/native-feed";
 import {
   deleteAttachmentsForEmails,
   deleteKeysWithConcurrency,
@@ -140,6 +142,7 @@ emailsRouter.get("/feeds/:feedId/emails", async (c) => {
     return c.text("Feed not found", 404);
   }
 
+  const nativeFeeds = unionNativeFeeds(feedMetadata.nativeFeeds);
   const emailAddress = feedEmailAddress(feedConfig.mailbox_id, env);
 
   return c.html(
@@ -164,6 +167,7 @@ emailsRouter.get("/feeds/:feedId/emails", async (c) => {
           )}
           <CopyField label="Email:" value={emailAddress} />
           <FeedFormats feedId={feedId} env={env} />
+          <NativeFeeds feeds={nativeFeeds} />
         </div>
 
         {feedMetadata.pendingConfirmation && (
@@ -180,6 +184,28 @@ emailsRouter.get("/feeds/:feedId/emails", async (c) => {
                 id="confirmation-dismiss"
               >
                 Mark as confirmed
+              </button>
+            </div>
+          </div>
+        )}
+
+        {nativeFeeds.length > 0 && !feedMetadata.nativeFeedDismissed && (
+          <div
+            class="confirmation-banner"
+            id="native-feed-banner"
+            data-feed-id={feedId}
+          >
+            <span>
+              This newsletter publishes its own feed — subscribe to it directly
+              from "Native feeds" above.
+            </span>
+            <div class="confirmation-banner-actions">
+              <button
+                type="button"
+                class="button button-small"
+                id="native-feed-dismiss"
+              >
+                Dismiss
               </button>
             </div>
           </div>
@@ -726,6 +752,32 @@ emailsRouter.post("/feeds/:feedId/confirmation/dismiss", async (c) => {
       : c.text("Feed not found", 404);
   }
   feed.dismissConfirmation();
+  await repo.saveMetadata(feed);
+
+  return wantsJson
+    ? c.json({ ok: true })
+    : c.redirect(`/admin/feeds/${feedId}/emails`);
+});
+
+// ── Dismiss native-feed notice ───────────────────────────────────────────────
+
+emailsRouter.post("/feeds/:feedId/native-feed/dismiss", async (c) => {
+  const env = c.env;
+  const repo = FeedRepository.from(env);
+  const feedId = c.req.param("feedId");
+  const wantsJson = (
+    c.req.header("Accept") ||
+    c.req.header("Content-Type") ||
+    ""
+  ).includes("application/json");
+
+  const feed = await repo.load(FeedId.unchecked(feedId));
+  if (!feed) {
+    return wantsJson
+      ? c.json({ ok: false, error: "Feed not found" }, 404)
+      : c.text("Feed not found", 404);
+  }
+  feed.dismissNativeFeed();
   await repo.saveMetadata(feed);
 
   return wantsJson
