@@ -33,13 +33,13 @@
   "author": "",
   "license": "MIT",
   "devDependencies": {
-    "@cloudflare/workers-types": "4.20260522.1",
+    "@cloudflare/workers-types": "4.20260529.1",
     "@types/escape-html": "^1.0.4",
     "@types/mailparser": "^3.4.6",
     "@types/rss": "^0.0.32",
     "@vitest/coverage-v8": "4.1.7",
     "esbuild": "^0.28.0",
-    "eslint": "^10.0.0",
+    "eslint": "^10.4.1",
     "eslint-config-prettier": "^10.1.8",
     "happy-dom": "20.9.0",
     "husky": "^9.1.7",
@@ -47,9 +47,9 @@
     "msw": "2.14.6",
     "prettier": "3.8.3",
     "typescript": "6.0.3",
-    "typescript-eslint": "^8.59.4",
+    "typescript-eslint": "^8.60.0",
     "vitest": "4.1.7",
-    "wrangler": "4.94.0"
+    "wrangler": "4.95.0"
   },
   "dependencies": {
     "@hono/zod-openapi": "^1.4.0",
