@@ -68,7 +68,7 @@ get_kv_namespace_ids() {
   echo "🔍 Retrieving KV namespace IDs..."
 
   local output
-  if ! output="$(npx wrangler kv namespace list --json 2>/dev/null)"; then
+  if ! output="$(npx wrangler kv namespace list 2>/dev/null)"; then
     echo "❌ Error listing KV namespaces. Please check your Cloudflare authentication."
     return 1
   fi
