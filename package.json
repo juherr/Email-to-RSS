@@ -57,7 +57,7 @@
     "@scalar/hono-api-reference": "^0.10.19",
     "escape-html": "^1.0.3",
     "feed": "5.2.1",
-    "hono": "4.12.22",
+    "hono": "4.12.27",
     "linkedom": "^0.18.12",
     "postal-mime": "^2.7.4",
     "zod": "4.4.3"
